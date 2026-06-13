@@ -19,16 +19,9 @@ import { appById } from "./app";
 import { createProjectTask } from "./projects";
 import { createSiblingTask } from "./projectsCategoriesCards";
 import { deleteDailyProjections } from "./dailyListsProjections";
-import {
-  taskById,
-  taskByIdOrDefault,
-} from "./cardsTasks";
-
-
+import { taskById, taskByIdOrDefault } from "./cardsTasks";
 import { isTask, type Task } from "./cardsTasks";
-
 import { isTaskProjection } from "./dailyListsProjections";
-
 import type { OrderableItem } from "./utils";
 
 // Type definitions
@@ -58,134 +51,162 @@ export const defaultStashProjection: StashProjection = {
 registerSpaceSyncableTable(stashProjectionsTable, stashProjectionType);
 
 // Selectors and actions
-export const stashProjectionAllIds = selector(function* stashProjectionAllIds() {
-  const projections = yield* selectFrom(stashProjectionsTable, "byIds").where((q) => q);
-  return projections.map((p) => p.id);
-});
+export const stashProjectionAllIds = selector(
+  function* stashProjectionAllIds() {
+    const projections = yield* selectFrom(stashProjectionsTable, "byIds").where(
+      (q) => q,
+    );
+    return projections.map((p) => p.id);
+  },
+);
 
-export const stashProjectionAllTaskIds = selector(function* stashProjectionAllTaskIds() {
-  return new Set(yield* stashProjectionAllIds());
-});
+export const stashProjectionAllTaskIds = selector(
+  function* stashProjectionAllTaskIds() {
+    return new Set(yield* stashProjectionAllIds());
+  },
+);
 
-export const stashProjectionById = selector(function* stashProjectionById(id: string) {
+export const stashProjectionById = selector(function* stashProjectionById(
+  id: string,
+) {
   const projections = yield* selectFrom(stashProjectionsTable, "byId")
-      .where((q) => q.eq("id", id))
-      .limit(1);
+    .where((q) => q.eq("id", id))
+    .limit(1);
   return projections[0] as StashProjection | undefined;
 });
 
-export const stashProjectionsByIds = selector(function* stashProjectionsByIds(ids: string[]) {
-  const projections = yield* selectFrom(stashProjectionsTable, "byId").where((q) =>
-      ids.map((id) => q.eq("id", id)),
-    );
+export const stashProjectionsByIds = selector(function* stashProjectionsByIds(
+  ids: string[],
+) {
+  const projections = yield* selectFrom(stashProjectionsTable, "byId").where(
+    (q) => ids.map((id) => q.eq("id", id)),
+  );
   return projections as StashProjection[];
 });
 
-export const stashProjectionByIdOrDefault = selector(function* stashProjectionByIdOrDefault(id: string) {
-  return (yield* stashProjectionById(id)) || defaultStashProjection;
-});
+export const stashProjectionByIdOrDefault = selector(
+  function* stashProjectionByIdOrDefault(id: string) {
+    return (yield* stashProjectionById(id)) || defaultStashProjection;
+  },
+);
 
 // Get all stash projections ordered by token
-export const allStashProjectionsOrdered = selector(function* allStashProjectionsOrdered() {
-  return (yield* selectFrom(stashProjectionsTable, "byTokenOrdered").where((q) => q)) as StashProjection[];
-});
+export const allStashProjectionsOrdered = selector(
+  function* allStashProjectionsOrdered() {
+    return (yield* selectFrom(stashProjectionsTable, "byTokenOrdered").where(
+      (q) => q,
+    )) as StashProjection[];
+  },
+);
 
 // Check if a task is in the stash
-export const stashHasProjection = selector(function* stashHasProjection(taskId: string) {
+export const stashHasProjection = selector(function* stashHasProjection(
+  taskId: string,
+) {
   const projection = yield* stashProjectionById(taskId);
   return projection !== undefined;
 });
 
 // Get all task ids in stash (non-done, ordered)
-export const stashProjectionChildrenIds = selector(function* stashProjectionChildrenIds(): Generator<
-  unknown,
-  string[],
-  unknown
-> {
-  const projections = yield* allStashProjectionsOrdered();
+export const stashProjectionChildrenIds = selector(
+  function* stashProjectionChildrenIds(): Generator<
+    unknown,
+    string[],
+    unknown
+  > {
+    const projections = yield* allStashProjectionsOrdered();
 
-  const result: string[] = [];
-  for (const proj of projections) {
-    const task = yield* taskById(proj.id);
-    if (task && task.state === "todo") {
-      result.push(proj.id);
+    const result: string[] = [];
+    for (const proj of projections) {
+      const task = yield* taskById(proj.id);
+      if (task && task.state === "todo") {
+        result.push(proj.id);
+      }
     }
-  }
 
-  return result;
-});
+    return result;
+  },
+);
 
 // Get all done task ids in stash (sorted by lastToggledAt)
-export const doneStashProjectionChildrenIds = selector(function* doneStashProjectionChildrenIds(): Generator<
-  unknown,
-  string[],
-  unknown
-> {
-  const projections = yield* allStashProjectionsOrdered();
+export const doneStashProjectionChildrenIds = selector(
+  function* doneStashProjectionChildrenIds(): Generator<
+    unknown,
+    string[],
+    unknown
+  > {
+    const projections = yield* allStashProjectionsOrdered();
 
-  const doneTasks: { id: string; lastToggledAt: number }[] = [];
-  for (const proj of projections) {
-    const task = yield* taskById(proj.id);
-    if (task && task.state === "done") {
-      doneTasks.push({ id: proj.id, lastToggledAt: task.lastToggledAt });
+    const doneTasks: { id: string; lastToggledAt: number }[] = [];
+    for (const proj of projections) {
+      const task = yield* taskById(proj.id);
+      if (task && task.state === "done") {
+        doneTasks.push({ id: proj.id, lastToggledAt: task.lastToggledAt });
+      }
     }
-  }
 
-  return doneTasks
-    .sort((a, b) => b.lastToggledAt - a.lastToggledAt)
-    .map((t) => t.id);
-});
+    return doneTasks
+      .sort((a, b) => b.lastToggledAt - a.lastToggledAt)
+      .map((t) => t.id);
+  },
+);
 
 // Get first task in stash
-export const firstStashProjectionChild = selector(function* firstStashProjectionChild(): Generator<
-  unknown,
-  Task | undefined,
-  unknown
-> {
-  const ids = yield* stashProjectionChildrenIds();
-  const firstChildId = ids[0];
-  return firstChildId
-    ? yield* taskById(firstChildId)
-    : (undefined as Task | undefined);
-});
+export const firstStashProjectionChild = selector(
+  function* firstStashProjectionChild(): Generator<
+    unknown,
+    Task | undefined,
+    unknown
+  > {
+    const ids = yield* stashProjectionChildrenIds();
+    const firstChildId = ids[0];
+    return firstChildId
+      ? yield* taskById(firstChildId)
+      : (undefined as Task | undefined);
+  },
+);
 
 // Get last task in stash
-export const lastStashProjectionChild = selector(function* lastStashProjectionChild(): Generator<
-  unknown,
-  Task | undefined,
-  unknown
-> {
-  const ids = yield* stashProjectionChildrenIds();
-  const lastChildId = ids[ids.length - 1];
-  return lastChildId
-    ? yield* taskById(lastChildId)
-    : (undefined as Task | undefined);
-});
+export const lastStashProjectionChild = selector(
+  function* lastStashProjectionChild(): Generator<
+    unknown,
+    Task | undefined,
+    unknown
+  > {
+    const ids = yield* stashProjectionChildrenIds();
+    const lastChildId = ids[ids.length - 1];
+    return lastChildId
+      ? yield* taskById(lastChildId)
+      : (undefined as Task | undefined);
+  },
+);
 
 // Get siblings of a task within the stash
-export const stashProjectionSiblings = selector(function* stashProjectionSiblings(taskId: string) {
-  const projection = yield* stashProjectionById(taskId);
-  if (!projection)
-    return [undefined, undefined] as [
+export const stashProjectionSiblings = selector(
+  function* stashProjectionSiblings(taskId: string) {
+    const projection = yield* stashProjectionById(taskId);
+    if (!projection)
+      return [undefined, undefined] as [
+        StashProjection | undefined,
+        StashProjection | undefined,
+      ];
+
+    const sortedProjections = yield* allStashProjectionsOrdered();
+
+    const index = sortedProjections.findIndex((p) => p.id === taskId);
+
+    const before = index > 0 ? sortedProjections[index - 1] : undefined;
+    const after =
+      index < sortedProjections.length - 1
+        ? sortedProjections[index + 1]
+        : undefined;
+
+    return [before, after] as [
       StashProjection | undefined,
       StashProjection | undefined,
     ];
-
-  const sortedProjections = yield* allStashProjectionsOrdered();
-
-  const index = sortedProjections.findIndex((p) => p.id === taskId);
-
-  const before = index > 0 ? sortedProjections[index - 1] : undefined;
-  const after =
-    index < sortedProjections.length - 1
-      ? sortedProjections[index + 1]
-      : undefined;
-
-  return [before, after] as [
-    StashProjection | undefined,
-    StashProjection | undefined,
-  ];
-});
+  },
+);
 
 // Check if a stash projection can accept another model being dropped
 export const stashProjectionCanDrop = selector(function* stashProjectionCanDrop(
@@ -226,76 +247,86 @@ export const stashProjectionCanDrop = selector(function* stashProjectionCanDrop(
 });
 
 // Handle drop operations
-export const stashProjectionHandleDrop = action(function* stashProjectionHandleDrop(
-  projectionId: string,
-  dropId: string,
-  dropModelType: AnyModelType,
-  edge: "top" | "bottom",
-): Generator<unknown, void, unknown> {
-  const canDropResult = yield* stashProjectionCanDrop(projectionId, dropId, dropModelType);
-  if (!canDropResult) return;
+export const stashProjectionHandleDrop = action(
+  function* stashProjectionHandleDrop(
+    projectionId: string,
+    dropId: string,
+    dropModelType: AnyModelType,
+    edge: "top" | "bottom",
+  ): Generator<unknown, void, unknown> {
+    const canDropResult = yield* stashProjectionCanDrop(
+      projectionId,
+      dropId,
+      dropModelType,
+    );
+    if (!canDropResult) return;
 
-  const projection = yield* stashProjectionById(projectionId);
-  if (!projection) return;
+    const projection = yield* stashProjectionById(projectionId);
+    if (!projection) return;
 
-  const dropItem = yield* appById(dropId, dropModelType);
-  if (!dropItem) return;
+    const dropItem = yield* appById(dropId, dropModelType);
+    if (!dropItem) return;
 
-  const [up, down] = yield* stashProjectionSiblings(projection.id);
+    const [up, down] = yield* stashProjectionSiblings(projection.id);
 
-  let between: [string | undefined, string | undefined] = [
-    projection.orderToken,
-    down?.orderToken,
-  ];
+    let between: [string | undefined, string | undefined] = [
+      projection.orderToken,
+      down?.orderToken,
+    ];
 
-  if (edge === "top") {
-    between = [up?.orderToken, projection.orderToken];
-  }
+    if (edge === "top") {
+      between = [up?.orderToken, projection.orderToken];
+    }
 
-  const orderToken = generateJitteredKeyBetween(
-    between[0] || null,
-    between[1] || null,
-  );
+    const orderToken = generateJitteredKeyBetween(
+      between[0] || null,
+      between[1] || null,
+    );
 
-  if (isTask(dropItem)) {
-    yield* upsertStashProjection({
-      id: dropItem.id,
-      orderToken,
-    });
-  } else if (isTaskProjection(dropItem)) {
-    yield* upsertStashProjection({
-      id: dropItem.id,
-      orderToken,
-    });
-    yield* deleteDailyProjections([dropItem.id]);
-  } else if (isStashProjection(dropItem)) {
-    yield* upsertStashProjection({
-      id: dropItem.id,
-      orderToken,
-    });
-  } else {
-    shouldNeverHappen("unknown drop item type", dropItem);
-  }
-});
+    if (isTask(dropItem)) {
+      yield* upsertStashProjection({
+        id: dropItem.id,
+        orderToken,
+      });
+    } else if (isTaskProjection(dropItem)) {
+      yield* upsertStashProjection({
+        id: dropItem.id,
+        orderToken,
+      });
+      yield* deleteDailyProjections([dropItem.id]);
+    } else if (isStashProjection(dropItem)) {
+      yield* upsertStashProjection({
+        id: dropItem.id,
+        orderToken,
+      });
+    } else {
+      shouldNeverHappen("unknown drop item type", dropItem);
+    }
+  },
+);
 
-export const deleteStashProjections = action(function* deleteStashProjections(ids: string[]) {
+export const deleteStashProjections = action(function* deleteStashProjections(
+  ids: string[],
+) {
   yield* deleteRows(stashProjectionsTable, ids);
 });
 
-export const createStashProjection = action(function* createStashProjection(projection: {
-  id: string; // This should be the task.id
-  orderToken: string;
-}) {
-  const newProjection: StashProjection = {
-    type: stashProjectionType,
-    id: projection.id,
-    orderToken: projection.orderToken,
-    createdAt: Date.now(),
-  };
+export const createStashProjection = action(
+  function* createStashProjection(projection: {
+    id: string; // This should be the task.id
+    orderToken: string;
+  }) {
+    const newProjection: StashProjection = {
+      type: stashProjectionType,
+      id: projection.id,
+      orderToken: projection.orderToken,
+      createdAt: Date.now(),
+    };
 
-  yield* insert(stashProjectionsTable, [newProjection]);
-  return newProjection;
-});
+    yield* insert(stashProjectionsTable, [newProjection]);
+    return newProjection;
+  },
+);
 
 export const updateStashProjection = action(function* updateStashProjection(
   id: string,
@@ -308,57 +339,59 @@ export const updateStashProjection = action(function* updateStashProjection(
 });
 
 // Create or update stash projection for a task
-export const upsertStashProjection = action(function* upsertStashProjection(projection: {
-  id: string;
-  orderToken: string;
-}) {
-  const existing = yield* stashProjectionById(projection.id);
+export const upsertStashProjection = action(
+  function* upsertStashProjection(projection: {
+    id: string;
+    orderToken: string;
+  }) {
+    const existing = yield* stashProjectionById(projection.id);
 
-  if (existing) {
-    yield* updateStashProjection(projection.id, {
-      orderToken: projection.orderToken,
-    });
-    return yield* stashProjectionByIdOrDefault(projection.id);
-  }
+    if (existing) {
+      yield* updateStashProjection(projection.id, {
+        orderToken: projection.orderToken,
+      });
+      return yield* stashProjectionByIdOrDefault(projection.id);
+    }
 
-  return yield* createStashProjection(projection);
-});
+    return yield* createStashProjection(projection);
+  },
+);
 
 // Create a sibling task in the stash
-export const createStashProjectionSibling = action(function* createStashProjectionSibling(
-  taskId: string,
-  position: "before" | "after",
-  taskParams?: Partial<Task>,
-) {
-  const task = yield* taskById(taskId);
-  if (!task) throw new Error("Task not found");
+export const createStashProjectionSibling = action(
+  function* createStashProjectionSibling(
+    taskId: string,
+    position: "before" | "after",
+    taskParams?: Partial<Task>,
+  ) {
+    const task = yield* taskById(taskId);
+    if (!task) throw new Error("Task not found");
 
-  const projection = yield* stashProjectionById(taskId);
-  if (!projection) throw new Error("Task not in stash");
+    const projection = yield* stashProjectionById(taskId);
+    if (!projection) throw new Error("Task not in stash");
 
-  // Create task in project first
-  const newTask = yield* createSiblingTask(
-    taskId,
-    position,
-    taskParams,
-  );
+    // Create task in project first
+    const newTask = yield* createSiblingTask(taskId, position, taskParams);
 
-  // Add to stash with proper ordering
-  const sibs = yield* stashProjectionSiblings(taskId);
-  const stashOrderToken = generateKeyPositionedBetween(
-    projection,
-    sibs,
-    position,
-  );
+    // Add to stash with proper ordering
+    const sibs = yield* stashProjectionSiblings(taskId);
+    const stashOrderToken = generateKeyPositionedBetween(
+      projection,
+      sibs,
+      position,
+    );
 
-  return yield* createStashProjection({
-    id: newTask.id,
-    orderToken: stashOrderToken,
-  });
-});
+    return yield* createStashProjection({
+      id: newTask.id,
+      orderToken: stashOrderToken,
+    });
+  },
+);
 
 // Remove task from stash
-export const removeFromStash = action(function* removeFromStash(taskId: string) {
+export const removeFromStash = action(function* removeFromStash(
+  taskId: string,
+) {
   yield* deleteStashProjections([taskId]);
 });
 

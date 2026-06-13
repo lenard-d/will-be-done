@@ -6,7 +6,6 @@ import {
   syncDispatch,
   BptreeInmemDriver,
 } from "@will-be-done/hyperdb-lib";
-
 import { dbIdTrait } from "../traits";
 import { addToDailyList } from "./dailyListsProjections";
 import { addToStash } from "./stashProjections";
@@ -96,33 +95,24 @@ describe("project stash-aware timeline counts", () => {
       db,
       createDailyList({ date: "2026-04-19" }),
     ) as DailyList;
-    syncDispatch(
-      db,
-      addToDailyList(
-        dailyTask.id,
-        dailyList.id,
-        "append",
-      ),
-    );
+    syncDispatch(db, addToDailyList(dailyTask.id, dailyList.id, "append"));
     syncDispatch(db, addToStash(stashedTask.id, "append"));
 
     const existingCount = runSelector<number>(
       db,
       function* () {
-        return yield* notDoneTasksCountExceptDailiesCount(
-          project.id,
-          [dailyList.id],
-        );
+        return yield* notDoneTasksCountExceptDailiesCount(project.id, [
+          dailyList.id,
+        ]);
       },
       [],
     );
     const stashAwareCount = runSelector<number>(
       db,
       function* () {
-        return yield* notDoneTasksCountExceptDailiesAndStashCount(
-          project.id,
-          [dailyList.id],
-        );
+        return yield* notDoneTasksCountExceptDailiesAndStashCount(project.id, [
+          dailyList.id,
+        ]);
       },
       [],
     );
@@ -141,7 +131,11 @@ describe("project stash-aware timeline counts", () => {
       category.id,
       "stashed-overdue-task",
     );
-    const excludedDailyTask = createTask(db, category.id, "excluded-daily-task");
+    const excludedDailyTask = createTask(
+      db,
+      category.id,
+      "excluded-daily-task",
+    );
 
     const overdueList = syncDispatch(
       db,
@@ -156,34 +150,16 @@ describe("project stash-aware timeline counts", () => {
       createDailyList({ date: "2026-04-16" }),
     ) as DailyList;
 
+    syncDispatch(db, addToDailyList(overdueTask.id, overdueList.id, "append"));
     syncDispatch(
       db,
-      addToDailyList(
-        overdueTask.id,
-        overdueList.id,
-        "append",
-      ),
+      addToDailyList(stashedOverdueTask.id, stashedOverdueList.id, "append"),
     );
     syncDispatch(
       db,
-      addToDailyList(
-        stashedOverdueTask.id,
-        stashedOverdueList.id,
-        "append",
-      ),
+      addToDailyList(excludedDailyTask.id, excludedList.id, "append"),
     );
-    syncDispatch(
-      db,
-      addToDailyList(
-        excludedDailyTask.id,
-        excludedList.id,
-        "append",
-      ),
-    );
-    syncDispatch(
-      db,
-      addToStash(stashedOverdueTask.id, "append"),
-    );
+    syncDispatch(db, addToStash(stashedOverdueTask.id, "append"));
 
     const currentDate = new Date("2026-04-19T12:00:00Z");
     const existingCount = runSelector<number>(

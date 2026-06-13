@@ -21,20 +21,13 @@ import {
 } from "./dailyListsProjections";
 import { createProjectTask } from "./projects";
 import { deleteStashProjections } from "./stashProjections";
-import {
-  taskById,
-  taskByIdOrDefault,
-} from "./cardsTasks";
-
+import { taskById, taskByIdOrDefault } from "./cardsTasks";
 import { isTask, type Task } from "./cardsTasks";
-
 import { TaskProjection, isTaskProjection } from "./dailyListsProjections";
 import { isStashProjection } from "./stashProjections";
-
 import { AnyModelType } from "./maps";
 import { registerSpaceSyncableTable } from "./syncMap";
 import { registerModelSlice } from "./maps";
-
 import { genUUIDV5 } from "../traits";
 
 // Type definitions
@@ -61,33 +54,41 @@ registerSpaceSyncableTable(dailyListsTable, dailyListType);
 
 // Selectors and actions
 export const dailyListAllIds = selector(function* dailyListAllIds() {
-  const dailyLists = yield* selectFrom(dailyListsTable, "byIds").where((q) => q);
+  const dailyLists = yield* selectFrom(dailyListsTable, "byIds").where(
+    (q) => q,
+  );
 
   return dailyLists.map((p) => p.id);
 });
 
 export const dailyListById = selector(function* dailyListById(id: string) {
   const dailyLists = yield* selectFrom(dailyListsTable, "byId")
-      .where((q) => q.eq("id", id))
-      .limit(1);
+    .where((q) => q.eq("id", id))
+    .limit(1);
   return dailyLists[0] as DailyList | undefined;
 });
 
-export const dailyListsByIds = selector(function* dailyListsByIds(ids: string[]) {
+export const dailyListsByIds = selector(function* dailyListsByIds(
+  ids: string[],
+) {
   const dailyLists = yield* selectFrom(dailyListsTable, "byId").where((q) =>
-      ids.map((id) => q.eq("id", id)),
-    );
+    ids.map((id) => q.eq("id", id)),
+  );
   return dailyLists as DailyList[];
 });
 
-export const dailyListByIdOrDefault = selector(function* dailyListByIdOrDefault(id: string) {
+export const dailyListByIdOrDefault = selector(function* dailyListByIdOrDefault(
+  id: string,
+) {
   return (yield* dailyListById(id)) || defaultDailyList;
 });
 
-export const dailyListByDate = selector(function* dailyListByDate(date: string) {
+export const dailyListByDate = selector(function* dailyListByDate(
+  date: string,
+) {
   const dailyLists = yield* selectFrom(dailyListsTable, "byDate")
-      .where((q) => q.eq("date", date))
-      .limit(1);
+    .where((q) => q.eq("date", date))
+    .limit(1);
   return dailyLists[0] as DailyList | undefined;
 });
 
@@ -97,17 +98,23 @@ export const dailyListChildrenIds = selector(function* dailyListChildrenIds(
   return yield* dailyProjectionChildrenIds(dailyListId);
 });
 
-export const dailyListDoneChildrenIds = selector(function* dailyListDoneChildrenIds(
-  dailyListId: string,
-): Generator<unknown, string[], unknown> {
-  return yield* doneDailyProjectionChildrenIds(dailyListId);
-});
+export const dailyListDoneChildrenIds = selector(
+  function* dailyListDoneChildrenIds(
+    dailyListId: string,
+  ): Generator<unknown, string[], unknown> {
+    return yield* doneDailyProjectionChildrenIds(dailyListId);
+  },
+);
 
-export const dailyListTaskIds = selector(function* dailyListTaskIds(dailyListId: string) {
+export const dailyListTaskIds = selector(function* dailyListTaskIds(
+  dailyListId: string,
+) {
   return yield* dailyListChildrenIds(dailyListId);
 });
 
-export const dailyListAllTaskIds = selector(function* dailyListAllTaskIds(dailyListIds: string[]) {
+export const dailyListAllTaskIds = selector(function* dailyListAllTaskIds(
+  dailyListIds: string[],
+) {
   const result = new Set<string>();
 
   for (const dailyListId of dailyListIds) {
@@ -126,7 +133,9 @@ export const dailyListDateIdsMap = selector(function* dailyListDateIdsMap() {
   >;
 });
 
-export const dailyListIdsByDates = selector(function* dailyListIdsByDates(dates: Date[]) {
+export const dailyListIdsByDates = selector(function* dailyListIdsByDates(
+  dates: Date[],
+) {
   const map = yield* dailyListDateIdsMap();
   return dates
     .map((date) => {
@@ -177,7 +186,9 @@ export const dailyListGetId = selector(function* dailyListGetId(date: string) {
   return yield* genUUIDV5(dailyListType, date);
 });
 
-export const createDailyList = action(function* createDailyList(dailyList: { date: string }) {
+export const createDailyList = action(function* createDailyList(dailyList: {
+  date: string;
+}) {
   const id = yield* dailyListGetId(dailyList.date);
   const newDailyList: DailyList = {
     type: dailyListType,
@@ -189,26 +200,32 @@ export const createDailyList = action(function* createDailyList(dailyList: { dat
   return newDailyList;
 });
 
-export const createDailyListIfNotPresent = action(function* createDailyListIfNotPresent(date: string) {
-  const existing = yield* dailyListByDate(date);
-  if (existing) {
-    return existing;
-  }
+export const createDailyListIfNotPresent = action(
+  function* createDailyListIfNotPresent(date: string) {
+    const existing = yield* dailyListByDate(date);
+    if (existing) {
+      return existing;
+    }
 
-  return yield* createDailyList({ date });
-});
+    return yield* createDailyList({ date });
+  },
+);
 
-export const createManyDailyListsIfNotPresent = action(function* createManyDailyListsIfNotPresent(dates: Date[]) {
-  const results: DailyList[] = [];
-  for (const date of dates) {
-    const dmy = getDMY(date);
-    const dailyList = yield* createDailyListIfNotPresent(dmy);
-    results.push(dailyList);
-  }
-  return results;
-});
+export const createManyDailyListsIfNotPresent = action(
+  function* createManyDailyListsIfNotPresent(dates: Date[]) {
+    const results: DailyList[] = [];
+    for (const date of dates) {
+      const dmy = getDMY(date);
+      const dailyList = yield* createDailyListIfNotPresent(dmy);
+      results.push(dailyList);
+    }
+    return results;
+  },
+);
 
-export const deleteDailyLists = action(function* deleteDailyLists(ids: string[]) {
+export const deleteDailyLists = action(function* deleteDailyLists(
+  ids: string[],
+) {
   yield* deleteRows(dailyListsTable, ids);
 });
 
@@ -239,11 +256,7 @@ export const createTaskInList = action(function* createTaskInList(
     ];
   }
 
-  yield* addToDailyList(
-    task.id,
-    dailyListId,
-    position,
-  );
+  yield* addToDailyList(task.id, dailyListId, position);
 
   return yield* taskByIdOrDefault(task.id);
 });

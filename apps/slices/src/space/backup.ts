@@ -18,19 +18,13 @@ import {
 } from "./dailyListsProjections";
 import { inboxProjectId as getInboxProjectId } from "./projects";
 import { type Task, taskType } from "./cardsTasks";
-
 import { type TaskTemplate, taskTemplateType } from "./cardsTaskTemplates";
-
 import { dailyListType, type DailyList } from "./dailyLists";
-
-
 import { projectType, type Project } from "./projects";
 import { AnyModel, appTypeTablesMap } from "./maps";
 import { registeredSpaceSyncableTables } from "./syncMap";
 import { ProjectCategory, projectCategoryType } from "./projectsCategories";
-
 import { projectionType, TaskProjection } from "./dailyListsProjections";
-
 
 import {
   ChecklistItem,
@@ -129,9 +123,7 @@ const getNewModels = action(function* getNewModels(backup: Backup) {
   for (const projectBackup of backup.projects) {
     const project: Project = {
       type: projectType,
-      id: projectBackup.isInbox
-        ? yield* getInboxProjectId()
-        : projectBackup.id,
+      id: projectBackup.isInbox ? yield* getInboxProjectId() : projectBackup.id,
       title: projectBackup.title,
       icon: projectBackup.icon,
       isInbox: projectBackup.isInbox,
@@ -329,11 +321,11 @@ const getNewModels = action(function* getNewModels(backup: Backup) {
   return models;
 });
 
-export const loadSpaceBackup = selector(function* loadSpaceBackup(backup: Backup) {
+export const loadSpaceBackup = selector(function* loadSpaceBackup(
+  backup: Backup,
+) {
   for (const table of registeredSpaceSyncableTables) {
-    const allIds = (yield* selectFrom(table, "byIds")).map(
-      (r) => r.id,
-    );
+    const allIds = (yield* selectFrom(table, "byIds")).map((r) => r.id);
 
     yield* deleteRows(table, allIds);
   }

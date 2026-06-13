@@ -6,7 +6,6 @@ import {
   syncDispatch,
   BptreeInmemDriver,
 } from "@will-be-done/hyperdb-lib";
-
 import { dbIdTrait } from "../traits";
 import {
   type ChecklistItem,
@@ -26,10 +25,7 @@ function createDB() {
   return db;
 }
 
-function createItem(
-  db: DB,
-  item: Pick<ChecklistItem, "id" | "state">,
-) {
+function createItem(db: DB, item: Pick<ChecklistItem, "id" | "state">) {
   syncDispatch(
     db,
     createChecklistItem({

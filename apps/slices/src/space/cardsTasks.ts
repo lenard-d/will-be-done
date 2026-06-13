@@ -22,12 +22,8 @@ import {
 } from "./checklistItems";
 import { deleteDailyProjections } from "./dailyListsProjections";
 import { firstProjectCategoryChild } from "./projectsCategories";
-import {
-  projectCategoryCardSiblings,
-} from "./projectsCategoriesCards";
-import {
-  updateTemplate,
-} from "./cardsTaskTemplates";
+import { projectCategoryCardSiblings } from "./projectsCategoriesCards";
+import { updateTemplate } from "./cardsTaskTemplates";
 import { isTaskTemplate, TaskTemplate } from "./cardsTaskTemplates";
 import { registerSpaceSyncableTable } from "./syncMap";
 import { registerModelSlice, AnyModelType } from "./maps";

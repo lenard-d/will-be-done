@@ -9,7 +9,6 @@ import {
   selectFrom,
   BptreeInmemDriver,
 } from "@will-be-done/hyperdb-lib";
-
 import { tasksTable, type Task } from "./cardsTasks";
 import {
   taskTemplatesTable,
@@ -210,7 +209,9 @@ describe("cardsTaskTemplates timezone consistency", () => {
     const idsB = tasksB.map((t) => t.id);
     const idsBSet = new Set(idsB);
     for (const id of idsA) {
-      expect(idsBSet.has(id), `Device A task ${id} missing from Device B`).toBe(true);
+      expect(idsBSet.has(id), `Device A task ${id} missing from Device B`).toBe(
+        true,
+      );
     }
   });
 

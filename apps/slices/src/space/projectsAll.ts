@@ -1,8 +1,5 @@
 import { selectFrom, selector } from "@will-be-done/hyperdb-lib";
-import {
-  inboxProjectId,
-  projectById,
-} from "./projects";
+import { inboxProjectId, projectById } from "./projects";
 import { type Project, projectsTable, defaultProject } from "./projects";
 
 export const allProjects = selector(function* allProjects() {
@@ -19,10 +16,12 @@ export const projectChildrenIds = selector(function* projectChildrenIds() {
   return (yield* allProjectsSorted()).map((p) => p.id);
 });
 
-export const projectChildrenIdsWithoutInbox = selector(function* projectChildrenIdsWithoutInbox() {
-  const projects = yield* allProjectsSorted();
-  return projects.filter((p) => !p.isInbox).map((p) => p.id);
-});
+export const projectChildrenIdsWithoutInbox = selector(
+  function* projectChildrenIdsWithoutInbox() {
+    const projects = yield* allProjectsSorted();
+    return projects.filter((p) => !p.isInbox).map((p) => p.id);
+  },
+);
 
 export const firstProjectChild = selector(function* firstProjectChild() {
   const ids = yield* projectChildrenIds();
@@ -37,13 +36,12 @@ export const lastProjectChild = selector(function* lastProjectChild() {
 });
 
 export const inboxProject = selector(function* inboxProject() {
-  return (
-    (yield* projectById(yield* inboxProjectId())) ||
-    defaultProject
-  );
+  return (yield* projectById(yield* inboxProjectId())) || defaultProject;
 });
 
-export const projectSiblings = selector(function* projectSiblings(projectId: string) {
+export const projectSiblings = selector(function* projectSiblings(
+  projectId: string,
+) {
   const ids = yield* projectChildrenIds();
   const index = ids.findIndex((id) => id === projectId);
 
