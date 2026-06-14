@@ -34,37 +34,60 @@ import clsx from "clsx";
 import { CircleDashed, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  appSlice,
-  cardsSlice,
-  checklistItemsSlice,
-  projectCategoriesSlice,
-  cardsTasksSlice,
-  cardsTaskTemplatesSlice,
-  dailyListsSlice,
-  dailyListsProjectionsSlice,
+  addToDailyList,
   AnyModelType,
-  type Task,
+  appById,
+  appCanDrop,
+  appDeleteModel,
+  appHandleDrop,
+  Card,
+  CardWrapper,
+  cardWrapperIdOrDefault,
   type CardWrapperType,
+  createDailyListIfNotPresent,
+  createItem,
+  createSiblingCard,
+  createTaskTemplateFromTask,
+  dailyListType,
+  dailyProjectionDateOfTask,
+  deleteTasks,
+  getDMY,
   isTask,
   isTaskTemplate,
-  dailyListType,
-  projectionType,
+  moveTaskToProject,
+  moveTemplateToProject,
+  Project,
+  ProjectCategory,
+  projectCategoryByIdOrDefault,
+  projectCategoryCardByIdOrDefault,
   projectCategoryType,
+  projectionType,
+  projectOfCategoryOrDefault,
+  removeFromDailyList,
   STASH_ID,
   stashProjectionType,
   stashType,
+  type Task,
+  taskById,
+  taskOfModel,
+  taskTemplateById,
   taskType,
-  getDMY,
-  Project,
+  toggleTaskState,
+  updateTask,
+  updateTemplate,
 } from "@will-be-done/slices/space";
-import { useDispatch, useSelect, useSyncSelector } from "@will-be-done/hyperdb";
+import {
+  useDispatch,
+  useSelect,
+  useSyncSelector,
+} from "@will-be-done/hyperdb-lib";
 import {
   buildFocusKey,
   focusTextareaAtEnd,
   useFocusStore,
   parseColumnKey,
 } from "@/store/focusSlice.ts";
-import { projectCategoryCardsSlice } from "@will-be-done/slices/space";
+
 import { useCurrentDate } from "../DaysBoard/hooks";
 import { format, startOfDay } from "date-fns";
 import { TaskDatePicker } from "./TaskDatePicker";
@@ -121,6 +144,7 @@ export const PreloadedTaskComp = ({
   cardWrapper,
   project,
   lastScheduleTime,
+  hasCheclistItems,
 
   displayedUnderProjectId,
   alwaysShowProject,
@@ -128,11 +152,12 @@ export const PreloadedTaskComp = ({
   displayLastScheduleTime,
   centerScheduleDate,
 }: {
-  card: projectCategoryCardsSlice.Card;
-  category: projectCategoriesSlice.ProjectCategory;
-  cardWrapper: cardsSlice.CardWrapper;
+  card: Card;
+  category: ProjectCategory;
+  cardWrapper: CardWrapper;
   project: Project;
   lastScheduleTime: Date | undefined;
+  hasCheclistItems: boolean | undefined;
 
   displayedUnderProjectId?: string;
   alwaysShowProject?: boolean;
@@ -173,10 +198,10 @@ export const PreloadedTaskComp = ({
   const persistTaskTitle = useCallback(
     (title: string) => {
       if (isTask(card)) {
-        if (!select(cardsTasksSlice.byId(taskId))) return;
+        if (!select(taskById(taskId))) return;
 
         dispatch(
-          cardsTasksSlice.updateTask(taskId, {
+          updateTask(taskId, {
             title,
           }),
         );
@@ -184,10 +209,10 @@ export const PreloadedTaskComp = ({
       }
 
       if (isTaskTemplate(card)) {
-        if (!select(cardsTaskTemplatesSlice.byId(taskId))) return;
+        if (!select(taskTemplateById(taskId))) return;
 
         dispatch(
-          cardsTaskTemplatesSlice.updateTemplate(taskId, {
+          updateTemplate(taskId, {
             title,
           }),
         );
@@ -211,26 +236,21 @@ export const PreloadedTaskComp = ({
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
     const taskState = card.state;
-    dispatch(cardsTasksSlice.toggleState(taskId));
+    dispatch(toggleTaskState(taskId));
 
     if (!isFocused) return;
 
     const upModel = upKey
-      ? select(
-          appSlice.byId(parseColumnKey(upKey).id, parseColumnKey(upKey).type),
-        )
+      ? select(appById(parseColumnKey(upKey).id, parseColumnKey(upKey).type))
       : undefined;
     const downModel = downKey
       ? select(
-          appSlice.byId(
-            parseColumnKey(downKey).id,
-            parseColumnKey(downKey).type,
-          ),
+          appById(parseColumnKey(downKey).id, parseColumnKey(downKey).type),
         )
       : undefined;
 
-    const upTask = upModel && select(cardsSlice.taskOfModel(upModel));
-    const downTask = downModel && select(cardsSlice.taskOfModel(downModel));
+    const upTask = upModel && select(taskOfModel(upModel));
+    const downTask = downModel && select(taskOfModel(downModel));
 
     if (downTask && downTask.state === taskState) {
       useFocusStore.getState().focusByKey(downKey!);
@@ -243,7 +263,7 @@ export const PreloadedTaskComp = ({
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
     flushEditedTitle();
-    dispatch(appSlice.deleteModel(cardWrapper.id, cardWrapper.type));
+    dispatch(appDeleteModel(cardWrapper.id, cardWrapper.type));
 
     if (downKey) {
       useFocusStore.getState().focusByKey(downKey);
@@ -278,7 +298,7 @@ export const PreloadedTaskComp = ({
       const { id, type } = parseColumnKey(dropTarget.targetKey);
 
       dispatch(
-        appSlice.handleDrop(
+        appHandleDrop(
           id,
           type as AnyModelType,
           cardWrapper.id,
@@ -345,9 +365,7 @@ export const PreloadedTaskComp = ({
           ? "top"
           : "bottom";
 
-      dispatch(
-        appSlice.handleDrop(id, type, cardWrapper.id, cardWrapper.type, edge),
-      );
+      dispatch(appHandleDrop(id, type, cardWrapper.id, cardWrapper.type, edge));
 
       setTimeout(() => {
         const el = document.querySelector<HTMLElement>(
@@ -373,7 +391,7 @@ export const PreloadedTaskComp = ({
     useFocusStore.getState().resetEdit();
 
     const item = dispatch(
-      checklistItemsSlice.createItem({
+      createItem({
         parentId: card.id,
         parentType: card.type,
       }),
@@ -388,7 +406,7 @@ export const PreloadedTaskComp = ({
 
       unstable_batchedUpdates(() => {
         const newBox = dispatch(
-          cardsSlice.createSiblingCard(cardWrapper, position, newTaskParams),
+          createSiblingCard(cardWrapper, position, newTaskParams),
         );
         useFocusStore
           .getState()
@@ -417,19 +435,15 @@ export const PreloadedTaskComp = ({
   const handleScheduleToday = useCallback(() => {
     if (!isTask(card)) return;
 
-    const dailyList = dispatch(
-      dailyListsSlice.createIfNotPresent(getDMY(date)),
-    );
+    const dailyList = dispatch(createDailyListIfNotPresent(getDMY(date)));
 
-    dispatch(
-      dailyListsProjectionsSlice.addToDailyList(taskId, dailyList.id, "append"),
-    );
+    dispatch(addToDailyList(taskId, dailyList.id, "append"));
   }, [card, date, dispatch, taskId]);
 
   const handleResetSchedule = useCallback(() => {
     if (!isTask(card)) return;
 
-    dispatch(dailyListsProjectionsSlice.removeFromDailyList(taskId));
+    dispatch(removeFromDailyList(taskId));
   }, [card, dispatch, taskId]);
 
   const handleStashTask = useCallback(() => {
@@ -444,7 +458,7 @@ export const PreloadedTaskComp = ({
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
     dispatch(
-      appSlice.handleDrop(
+      appHandleDrop(
         STASH_ID,
         stashType,
         cardWrapper.id,
@@ -476,9 +490,9 @@ export const PreloadedTaskComp = ({
       setIsRepeatModalOpen(false);
       flushEditedTitle();
 
-      const task = select(cardsTasksSlice.byId(taskId)) ?? card;
+      const task = select(taskById(taskId)) ?? card;
       const template = dispatch(
-        cardsTaskTemplatesSlice.createFromTask(task, {
+        createTaskTemplateFromTask(task, {
           repeatRule: ruleString,
         }),
       );
@@ -583,10 +597,10 @@ export const PreloadedTaskComp = ({
       if (e.code === "Digit1" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(card)) {
-            dispatch(cardsTasksSlice.updateTask(taskId, { nature: "red" }));
+            dispatch(updateTask(taskId, { nature: "red" }));
           } else if (isTaskTemplate(card)) {
             dispatch(
-              cardsTaskTemplatesSlice.updateTemplate(taskId, {
+              updateTemplate(taskId, {
                 nature: "red",
               }),
             );
@@ -595,10 +609,10 @@ export const PreloadedTaskComp = ({
       } else if (e.code === "Digit2" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(card)) {
-            dispatch(cardsTasksSlice.updateTask(taskId, { nature: "green" }));
+            dispatch(updateTask(taskId, { nature: "green" }));
           } else if (isTaskTemplate(card)) {
             dispatch(
-              cardsTaskTemplatesSlice.updateTemplate(taskId, {
+              updateTemplate(taskId, {
                 nature: "green",
               }),
             );
@@ -607,10 +621,10 @@ export const PreloadedTaskComp = ({
       } else if (e.code === "Digit3" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(card)) {
-            dispatch(cardsTasksSlice.updateTask(taskId, { nature: "unknown" }));
+            dispatch(updateTask(taskId, { nature: "unknown" }));
           } else if (isTaskTemplate(card)) {
             dispatch(
-              cardsTaskTemplatesSlice.updateTemplate(taskId, {
+              updateTemplate(taskId, {
                 nature: "unknown",
               }),
             );
@@ -620,7 +634,7 @@ export const PreloadedTaskComp = ({
         return runShortcutAction(() => {
           const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
-          dispatch(cardsTasksSlice.deleteTasks([taskId]));
+          dispatch(deleteTasks([taskId]));
 
           if (downKey) {
             useFocusStore.getState().focusByKey(downKey);
@@ -782,11 +796,9 @@ export const PreloadedTaskComp = ({
     setIsMoveModalOpen(false);
 
     if (isTask(card)) {
-      dispatch(cardsTasksSlice.moveToProject(taskId, projectId));
+      dispatch(moveTaskToProject(taskId, projectId));
     } else if (isTaskTemplate(card)) {
-      dispatch(
-        cardsTaskTemplatesSlice.moveTemplateToProject(taskId, projectId),
-      );
+      dispatch(moveTemplateToProject(taskId, projectId));
     }
   };
 
@@ -852,7 +864,7 @@ export const PreloadedTaskComp = ({
           if (!isModelDNDData(data)) return false;
 
           return select(
-            appSlice.canDrop(
+            appCanDrop(
               cardWrapper.id,
               cardWrapper.type,
               data.modelId,
@@ -1170,6 +1182,7 @@ export const PreloadedTaskComp = ({
             </div>
             {(isTask(card) || isTaskTemplate(card)) && (
               <ChecklistItems
+                hasChecklistItems={hasCheclistItems}
                 parentId={card.id}
                 parentType={card.type}
                 visible={isFocused || isEditing}
@@ -1318,24 +1331,23 @@ export const TaskComp = ({
   centerScheduleDate?: boolean;
 }) => {
   const card = useSyncSelector(
-    () => projectCategoryCardsSlice.byIdOrDefault(taskId),
+    () => projectCategoryCardByIdOrDefault(taskId),
     [taskId],
   );
   const category = useSyncSelector(
-    () => projectCategoriesSlice.byIdOrDefault(card.projectCategoryId),
+    () => projectCategoryByIdOrDefault(card.projectCategoryId),
     [card.projectCategoryId],
   );
   const cardWrapper = useSyncSelector(
-    () => cardsSlice.cardWrapperIdOrDefault(cardWrapperId, cardWrapperType),
+    () => cardWrapperIdOrDefault(cardWrapperId, cardWrapperType),
     [cardWrapperId, cardWrapperType],
   );
   const project = useSyncSelector(
-    () =>
-      projectCategoriesSlice.projectOfCategoryOrDefault(card.projectCategoryId),
+    () => projectOfCategoryOrDefault(card.projectCategoryId),
     [card.projectCategoryId],
   );
   const lastScheduleTime = useSyncSelector(
-    () => dailyListsProjectionsSlice.getDateOfTask(taskId),
+    () => dailyProjectionDateOfTask(taskId),
     [taskId],
   );
 
@@ -1351,6 +1363,7 @@ export const TaskComp = ({
       newTaskParams={newTaskParams}
       displayLastScheduleTime={displayLastScheduleTime}
       centerScheduleDate={centerScheduleDate}
+      hasCheclistItems={undefined}
     />
   );
 };

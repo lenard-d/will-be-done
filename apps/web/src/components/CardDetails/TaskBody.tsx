@@ -8,19 +8,23 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { format } from "date-fns";
-import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb";
+import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb-lib";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
-  projectCategoriesSlice,
-  dailyListsProjectionsSlice,
-  cardsTasksSlice,
-  cardsTaskTemplatesSlice,
+  createTaskTemplateFromTask,
+  dailyProjectionDateOfTask,
+  deleteTemplates,
+  moveTaskToProject,
+  projectCategoriesByProjectId,
+  projectOfCategoryOrDefault,
   type Task,
+  taskTemplateById,
+  taskTemplateRuleText,
+  toggleTaskState,
+  updateTask,
+  updateTemplate,
 } from "@will-be-done/slices/space";
-import {
-  CheckboxComp,
-  ChecklistItems,
-} from "@/components/Checklist/Checklist";
+import { CheckboxComp, ChecklistItems } from "@/components/Checklist/Checklist";
 import { MoveModal } from "@/components/MoveTaskModel/MoveModel.tsx";
 import { RepeatModal } from "@/components/RepeatModal/RepeatModal.tsx";
 import { TaskDatePicker } from "@/components/Task/TaskDatePicker.tsx";
@@ -52,26 +56,25 @@ export function TaskBody({
   const taskId = task.id;
 
   const project = useSyncSelector(
-    () =>
-      projectCategoriesSlice.projectOfCategoryOrDefault(task.projectCategoryId),
+    () => projectOfCategoryOrDefault(task.projectCategoryId),
     [task.projectCategoryId],
   );
   const projectCategories = useSyncSelector(
-    () => projectCategoriesSlice.byProjectId(project.id),
+    () => projectCategoriesByProjectId(project.id),
     [project.id],
   );
   const scheduleDate = useSyncSelector(
-    () => dailyListsProjectionsSlice.getDateOfTask(taskId),
+    () => dailyProjectionDateOfTask(taskId),
     [taskId],
   );
 
   const taskTemplateId = task.templateId ?? null;
   const template = useSyncSelector(
-    () => cardsTaskTemplatesSlice.byId(taskTemplateId ?? ""),
+    () => taskTemplateById(taskTemplateId ?? ""),
     [taskTemplateId],
   );
   const ruleText = useSyncSelector(
-    () => cardsTaskTemplatesSlice.ruleText(taskTemplateId ?? ""),
+    () => taskTemplateRuleText(taskTemplateId ?? ""),
     [taskTemplateId],
   );
 
@@ -88,8 +91,7 @@ export function TaskBody({
     title: task.title,
     setIsEditingTitle,
     onSave: useCallback(
-      (trimmed: string) =>
-        dispatch(cardsTasksSlice.updateTask(taskId, { title: trimmed })),
+      (trimmed: string) => dispatch(updateTask(taskId, { title: trimmed })),
       [dispatch, taskId],
     ),
   });
@@ -105,8 +107,7 @@ export function TaskBody({
     isEditingDescription,
     setIsEditingDescription,
     onSave: useCallback(
-      (content: string) =>
-        dispatch(cardsTasksSlice.updateTask(taskId, { content })),
+      (content: string) => dispatch(updateTask(taskId, { content })),
       [dispatch, taskId],
     ),
   });
@@ -118,7 +119,7 @@ export function TaskBody({
         "Remove repeat template? This will unlink all generated tasks.",
       )
     ) {
-      dispatch(cardsTaskTemplatesSlice.deleteTemplates([task.templateId]));
+      dispatch(deleteTemplates([task.templateId]));
     }
   }, [task.templateId, dispatch]);
 
@@ -127,13 +128,13 @@ export function TaskBody({
       setIsRepeatModalOpen(false);
       if (task.templateId) {
         dispatch(
-          cardsTaskTemplatesSlice.updateTemplate(task.templateId, {
+          updateTemplate(task.templateId, {
             repeatRule: ruleString,
           }),
         );
       } else {
         const template = dispatch(
-          cardsTaskTemplatesSlice.createFromTask(task, {
+          createTaskTemplateFromTask(task, {
             repeatRule: ruleString,
           }),
         );
@@ -153,7 +154,7 @@ export function TaskBody({
         icon={
           <CheckboxComp
             checked={task.state === "done"}
-            onChange={() => dispatch(cardsTasksSlice.toggleState(taskId))}
+            onChange={() => dispatch(toggleTaskState(taskId))}
           />
         }
         isEditing={isEditingTitle}
@@ -181,7 +182,7 @@ export function TaskBody({
           projectCategories={projectCategories}
           onChange={(categoryId) =>
             dispatch(
-              cardsTasksSlice.updateTask(taskId, {
+              updateTask(taskId, {
                 projectCategoryId: categoryId,
               }),
             )
@@ -249,6 +250,7 @@ export function TaskBody({
         )}
 
         <ChecklistItems
+          hasChecklistItems={undefined}
           parentId={taskId}
           parentType={task.type}
           editTrigger="always"
@@ -282,7 +284,7 @@ export function TaskBody({
         <MoveModal
           setIsOpen={setIsMoveProjectModalOpen}
           handleMove={(projectId) => {
-            dispatch(cardsTasksSlice.moveToProject(taskId, projectId));
+            dispatch(moveTaskToProject(taskId, projectId));
             setIsMoveProjectModalOpen(false);
           }}
           exceptProjectId={project.id}

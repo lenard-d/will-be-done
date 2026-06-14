@@ -1,11 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDispatch, useSelect, useSyncSelector } from "@will-be-done/hyperdb";
+import {
+  useDispatch,
+  useSelect,
+  useSyncSelector,
+} from "@will-be-done/hyperdb-lib";
 import { flushSync } from "react-dom";
 import {
-  appSlice,
-  projectsSlice,
-  projectCategoriesSlice,
-  projectCategoryCardsSlice,
+  appCanDrop,
+  createCategory,
+  createProjectCategoryTask,
+  deleteCategories,
+  doneProjectCategoryCardsForDisplay,
+  moveLeft,
+  moveRight,
+  projectByIdOrDefault,
+  projectCategoriesByProjectId,
+  projectCategoryByIdOrDefault,
+  projectCategoryCardsForDisplayChildren,
+  updateCategory,
 } from "@will-be-done/slices/space";
 import { PreloadedTaskComp } from "@/components/Task/Task.tsx";
 import {
@@ -70,17 +82,17 @@ const CategorySection = ({
   const [isPlaceholderFocused, setIsPlaceholderFocused] = useState(false);
 
   const category = useSyncSelector(
-    () => projectCategoriesSlice.byIdOrDefault(categoryId),
+    () => projectCategoryByIdOrDefault(categoryId),
     [categoryId],
   );
 
   const cardsForDisplay = useSyncSelector(
-    () => projectCategoryCardsSlice.childrenForDisplay(category.id),
+    () => projectCategoryCardsForDisplayChildren(category.id),
     [category.id],
   );
 
   const doneCardsForDisplay = useSyncSelector(
-    () => projectCategoryCardsSlice.doneChildrenForDisplay(categoryId),
+    () => doneProjectCategoryCardsForDisplay(categoryId),
     [categoryId],
   );
 
@@ -98,12 +110,7 @@ const CategorySection = ({
         const data = source.data;
         if (!isModelDNDData(data)) return false;
         return select(
-          appSlice.canDrop(
-            categoryId,
-            category.type,
-            data.modelId,
-            data.modelType,
-          ),
+          appCanDrop(categoryId, category.type, data.modelId, data.modelType),
         );
       },
       getIsSticky: () => true,
@@ -122,9 +129,7 @@ const CategorySection = ({
   const handleTitleClick = async () => {
     const newTitle = await promptDialog("Section name", category.title);
     if (newTitle == null || newTitle === "") return;
-    dispatch(
-      projectCategoriesSlice.updateCategory(categoryId, { title: newTitle }),
-    );
+    dispatch(updateCategory(categoryId, { title: newTitle }));
   };
 
   const handleAddTask = () => {
@@ -134,9 +139,7 @@ const CategorySection = ({
 
     // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
     flushSync(() => {
-      const task = dispatch(
-        projectCategoriesSlice.createTask(categoryId, "prepend"),
-      );
+      const task = dispatch(createProjectCategoryTask(categoryId, "prepend"));
       focusKey = buildFocusKey(task.id, "task");
       useFocusStore.getState().editByKey(focusKey);
     });
@@ -153,7 +156,7 @@ const CategorySection = ({
 
   const handleDelete = () => {
     if (confirm(`Delete category "${category.title}"?`)) {
-      dispatch(projectCategoriesSlice.deleteCategories([categoryId]));
+      dispatch(deleteCategories([categoryId]));
     }
   };
 
@@ -179,9 +182,7 @@ const CategorySection = ({
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
             type="button"
-            onClick={() =>
-              dispatch(projectCategoriesSlice.moveLeft(categoryId))
-            }
+            onClick={() => dispatch(moveLeft(categoryId))}
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move up"
           >
@@ -189,9 +190,7 @@ const CategorySection = ({
           </button>
           <button
             type="button"
-            onClick={() =>
-              dispatch(projectCategoriesSlice.moveRight(categoryId))
-            }
+            onClick={() => dispatch(moveRight(categoryId))}
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move down"
           >
@@ -244,6 +243,7 @@ const CategorySection = ({
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={projectId}
+              hasCheclistItems={displayData.hasChecklist}
               displayLastScheduleTime
             />
           ))}
@@ -256,6 +256,7 @@ const CategorySection = ({
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={projectId}
+              hasCheclistItems={displayData.hasChecklist}
               displayLastScheduleTime
             />
           ))}
@@ -322,21 +323,19 @@ export const ProjectTaskPanel = ({
 }) => {
   const dispatch = useDispatch();
   const project = useSyncSelector(
-    () => projectsSlice.byIdOrDefault(projectId),
+    () => projectByIdOrDefault(projectId),
     [projectId],
   );
 
   const categories = useSyncSelector(
-    () => projectCategoriesSlice.byProjectId(projectId),
+    () => projectCategoriesByProjectId(projectId),
     [projectId],
   );
 
   const handleAddSection = async () => {
     const title = await promptDialog("Section name");
     if (!title) return;
-    dispatch(
-      projectCategoriesSlice.createCategory({ projectId, title }, "append"),
-    );
+    dispatch(createCategory({ projectId, title }, "append"));
   };
 
   if (embedded) {
