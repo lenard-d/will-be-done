@@ -195,7 +195,7 @@ export function GlobalListener() {
             }
             const entity = select(
               db,
-              appById(t.data.modelId, t.data.modelType),
+              appById({ id: t.data.modelId, modelType: t.data.modelType }),
             );
             if (!entity) {
               // Virtual models (e.g. stash) have no DB row — use DnD data directly
@@ -243,13 +243,7 @@ export function GlobalListener() {
           }
 
           dispatch(
-            appHandleDrop(
-              targetItemInfo[1].id,
-              targetItemInfo[1].type,
-              source.data.modelId,
-              source.data.modelType,
-              closestEdgeOfTarget || "top",
-            ),
+            appHandleDrop({ id: targetItemInfo[1].id, modelType: targetItemInfo[1].type, dropId: source.data.modelId, dropModelType: source.data.modelType, edge: closestEdgeOfTarget || "top" }),
           );
         },
       }),

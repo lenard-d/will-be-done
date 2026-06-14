@@ -33,12 +33,12 @@ import {
 
 const StashColumnView = ({ onTaskAdd }: { onTaskAdd: () => void }) => {
   const taskIds = useSyncSelector(
-    () => stashProjectionChildrenIds(),
+    () => stashProjectionChildrenIds({}),
     [],
   );
 
   const doneTaskIds = useSyncSelector(
-    () => doneStashProjectionChildrenIds(),
+    () => doneStashProjectionChildrenIds({}),
     [],
   );
 
@@ -103,9 +103,9 @@ export const Stash = () => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dispatch = useDispatch();
   const select = useSelect();
-  const inboxId = useSyncSelector(() => inboxProjectId(), []);
+  const inboxId = useSyncSelector(() => inboxProjectId({}), []);
   const stashTaskIds = useSyncSelector(
-    () => stashProjectionChildrenIds(),
+    () => stashProjectionChildrenIds({}),
     [],
   );
   const stashTaskCount = stashTaskIds.length;
@@ -152,7 +152,7 @@ export const Stash = () => {
           if (!isModelDNDData(data)) return false;
 
           return select(
-            appCanDrop(STASH_ID, stashType, data.modelId, data.modelType),
+            appCanDrop({ id: STASH_ID, modelType: stashType, dropId: data.modelId, dropModelType: data.modelType }),
           );
         },
         getIsSticky: () => true,
@@ -172,7 +172,7 @@ export const Stash = () => {
     // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
     flushSync(() => {
       const task = dispatch(
-        createTaskInStash(inboxId, "prepend", "prepend"),
+        createTaskInStash({ projectId: inboxId, position: "prepend", categoryPosition: "prepend" }),
       );
 
       focusKey = buildFocusKey(task.id, "stashProjection");

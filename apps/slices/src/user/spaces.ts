@@ -24,19 +24,34 @@ export const spacesTable = defineTable("spaces", {
   .index("byIds", ["id"]);
 export type Space = ExtractSchema<typeof spacesTable>;
 
-const getSpaceById = selector(function* getSpaceById(id: string) {
+const getSpaceById = selector({
+  name: "getSpaceById",
+  args: { id: v.string() },
+  handler: function* getSpaceById({ id }: {
+    id: string;
+  }) {
   const spaces = yield* selectFrom(spacesTable, "byId")
       .where((q) => q.eq("id", id))
       .limit(1);
   return spaces[0] as Space | undefined;
+}
 });
 
-const listSpaces = selector(function* listSpaces() {
+const listSpaces = selector({
+  name: "listSpaces",
+  args: {},
+  handler: function* listSpaces() {
   const spaces = yield* selectFrom(spacesTable, "byIds");
   return spaces as Space[];
+}
 });
 
-const createSpace = action(function* createSpace(name: string) {
+const createSpace = action({
+  name: "createSpace",
+  args: { name: v.string() },
+  handler: function* createSpace({ name }: {
+    name: string;
+  }) {
   const spaceId = uuidv7();
   const now = new Date().toISOString();
   const space: Space = {
@@ -50,10 +65,20 @@ const createSpace = action(function* createSpace(name: string) {
   yield* insert(spacesTable, [space]);
 
   return space;
+}
 });
 
-const updateSpace = action(function* updateSpace(id: string, name: string) {
-  const space = yield* getSpaceById(id);
+const updateSpace = action({
+  name: "updateSpace",
+  args: {
+    id: v.string(),
+    name: v.string(),
+  },
+  handler: function* updateSpace({ id, name }: {
+    id: string;
+    name: string;
+  }) {
+  const space = yield* getSpaceById({ id });
   if (!space) {
     return null as Space | null;
   }
@@ -67,10 +92,16 @@ const updateSpace = action(function* updateSpace(id: string, name: string) {
   yield* upsert(spacesTable, [updatedSpace]);
 
   return updatedSpace as Space | null;
+}
 });
 
-const deleteSpace = action(function* deleteSpace(id: string) {
-  const space = yield* getSpaceById(id);
+const deleteSpace = action({
+  name: "deleteSpace",
+  args: { id: v.string() },
+  handler: function* deleteSpace({ id }: {
+    id: string;
+  }) {
+  const space = yield* getSpaceById({ id });
   if (!space) {
     return false;
   }
@@ -78,6 +109,7 @@ const deleteSpace = action(function* deleteSpace(id: string) {
   yield* deleteRows(spacesTable, [id]);
 
   return true;
+}
 });
 
 export const spaceSlice = {

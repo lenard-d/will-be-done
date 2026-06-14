@@ -31,11 +31,11 @@ export const spaceDBConfig = (dbId: string) => {
     syncableDBTables: registeredSpaceSyncableTables,
     tableNameMap: registeredSpaceSyncableTableNameMap,
     afterInit: (db: HyperDB) => {
-      syncDispatch(db, createInboxIfNotExists());
+      syncDispatch(db, createInboxIfNotExists({}));
 
-      syncDispatch(db, generateTasksFromTemplates());
+      syncDispatch(db, generateTasksFromTemplates({}));
       setInterval(() => {
-        syncDispatch(db, generateTasksFromTemplates());
+        syncDispatch(db, generateTasksFromTemplates({}));
       }, 60 * 1000);
     },
   } satisfies SyncConfig;
@@ -46,22 +46,22 @@ export const demoSpaceDBConfig = () => {
     ...spaceDBConfig(demoDbId),
     disableSync: true,
     afterInit: async (db: HyperDB) => {
-      syncDispatch(db, createInboxIfNotExists());
+      syncDispatch(db, createInboxIfNotExists({}));
       const tasks = runSelector<Task[]>(
         db,
         function* () {
-          return yield* allTasks();
+          return yield* allTasks({});
         },
         [],
       );
 
       if (tasks.length === 0) {
-        syncDispatch(db, loadSpaceBackup(generateDemoBackup()));
+        syncDispatch(db, loadSpaceBackup({ backup: generateDemoBackup() }));
       }
 
-      syncDispatch(db, generateTasksFromTemplates());
+      syncDispatch(db, generateTasksFromTemplates({}));
       setInterval(() => {
-        syncDispatch(db, generateTasksFromTemplates());
+        syncDispatch(db, generateTasksFromTemplates({}));
       }, 60 * 1000);
     },
   } satisfies SyncConfig;

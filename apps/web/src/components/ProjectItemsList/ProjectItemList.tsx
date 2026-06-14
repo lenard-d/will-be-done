@@ -45,11 +45,11 @@ const ProjectTasksColumn = ({
   const dispatch = useDispatch();
 
   const cardsForDisplay = useSyncSelector(
-    () => projectCategoryCardsForDisplayChildren(category.id),
+    () => projectCategoryCardsForDisplayChildren({ projectCategoryId: category.id }),
     [category.id],
   );
   const doneCardsForDisplay = useSyncSelector(
-    () => doneProjectCategoryCardsForDisplay(category.id),
+    () => doneProjectCategoryCardsForDisplay({ projectCategoryId: category.id }),
     [category.id],
   );
   const [isHiddenClicked, setIsHiddenClicked] = useState(false);
@@ -61,7 +61,9 @@ const ProjectTasksColumn = ({
       setIsHiddenClicked(false);
     }
 
-    const task = dispatch(createProjectCategoryTask(category.id, "prepend"));
+    const task = dispatch(
+      createProjectCategoryTask({ categoryId: category.id, position: "prepend" }),
+    );
 
     useFocusStore.getState().editByKey(buildFocusKey(task.id, task.type));
   };
@@ -108,17 +110,14 @@ const ProjectTasksColumn = ({
                 if (!title) return;
 
                 const [left, _right] = dispatch(
-                  projectCategorySiblings(category.id),
+                  projectCategorySiblings({ categoryId: category.id }),
                 );
 
                 dispatch(
-                  createCategory(
-                    {
+                  createCategory({ categoryDraft: {
                       projectId: category.projectId,
                       title,
-                    },
-                    [left, category],
-                  ),
+                    }, position: [left ?? null, category] }),
                 );
               })();
             }}
@@ -135,17 +134,14 @@ const ProjectTasksColumn = ({
                 if (!title) return;
 
                 const [_left, right] = dispatch(
-                  projectCategorySiblings(category.id),
+                  projectCategorySiblings({ categoryId: category.id }),
                 );
 
                 dispatch(
-                  createCategory(
-                    {
+                  createCategory({ categoryDraft: {
                       projectId: category.projectId,
                       title,
-                    },
-                    [category, right],
-                  ),
+                    }, position: [category, right ?? null] }),
                 );
               })();
             }}
@@ -157,7 +153,7 @@ const ProjectTasksColumn = ({
             type="button"
             title="Move column to the left"
             onClick={() => {
-              dispatch(moveLeft(category.id));
+              dispatch(moveLeft({ categoryId: category.id }));
             }}
           >
             <MoveLeftIcon className="rotate-180" />
@@ -167,7 +163,7 @@ const ProjectTasksColumn = ({
             type="button"
             title="Move column to the right"
             onClick={() => {
-              dispatch(moveRight(category.id));
+              dispatch(moveRight({ categoryId: category.id }));
             }}
           >
             <MoveRightIcon className="rotate-180" />
@@ -182,7 +178,7 @@ const ProjectTasksColumn = ({
               );
               if (!confirmed) return;
 
-              dispatch(deleteCategories([category.id]));
+              dispatch(deleteCategories({ ids: [category.id] }));
             }}
           >
             <TrashIcon className="rotate-180" />
@@ -200,9 +196,9 @@ const ProjectTasksColumn = ({
                 if (!newTitle) return;
 
                 dispatch(
-                  updateCategory(category.id, {
+                  updateCategory({ categoryId: category.id, category: {
                     title: newTitle,
-                  }),
+                  } }),
                 );
               })();
             }}
@@ -272,17 +268,17 @@ export const ProjectItemsList = ({
   exceptStash?: boolean;
 }) => {
   const categories = useSyncSelector(
-    () => projectCategoriesByProjectId(project.id),
+    () => projectCategoriesByProjectId({ projectId: project.id }),
     [project.id],
   );
   const exceptTaskIds = useSyncSelector(
     function* () {
-      const dailyTaskIds = yield* dailyListAllTaskIds(exceptDailyListIds ?? []);
+      const dailyTaskIds = yield* dailyListAllTaskIds({ dailyListIds: exceptDailyListIds ?? [] });
       if (!exceptStash) {
         return dailyTaskIds;
       }
 
-      const stashTaskIds = yield* stashProjectionAllTaskIds();
+      const stashTaskIds = yield* stashProjectionAllTaskIds({});
       return new Set([...dailyTaskIds, ...stashTaskIds]);
     },
     [exceptDailyListIds, exceptStash],

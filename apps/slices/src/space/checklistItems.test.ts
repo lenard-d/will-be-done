@@ -29,10 +29,12 @@ function createItem(db: DB, item: Pick<ChecklistItem, "id" | "state">) {
   syncDispatch(
     db,
     createChecklistItem({
-      ...item,
-      parentId: "task-1",
-      parentType: "task",
-      content: item.id,
+      item: {
+        ...item,
+        parentId: "task-1",
+        parentType: "task",
+        content: item.id,
+      },
     }),
   );
 }
@@ -41,7 +43,10 @@ function childIds(db: DB) {
   return runSelector<string[]>(
     db,
     function* () {
-      return (yield* checklistItemChildren("task-1", "task")).map(
+      return (yield* checklistItemChildren({
+  parentId: "task-1",
+  parentType: "task",
+})).map(
         (item) => item.id,
       );
     },
@@ -58,7 +63,7 @@ describe("checklist item state ordering", () => {
     createItem(db, { id: "done-1", state: "done" });
     createItem(db, { id: "done-2", state: "done" });
 
-    syncDispatch(db, toggleChecklistItemState("todo-1"));
+    syncDispatch(db, toggleChecklistItemState({ id: "todo-1" }));
 
     expect(childIds(db)).toEqual(["todo-2", "todo-1", "done-1", "done-2"]);
   });
@@ -70,7 +75,7 @@ describe("checklist item state ordering", () => {
     createItem(db, { id: "todo-2", state: "todo" });
     createItem(db, { id: "todo-3", state: "todo" });
 
-    syncDispatch(db, toggleChecklistItemState("todo-1"));
+    syncDispatch(db, toggleChecklistItemState({ id: "todo-1" }));
 
     expect(childIds(db)).toEqual(["todo-2", "todo-3", "todo-1"]);
   });

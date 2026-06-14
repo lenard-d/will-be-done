@@ -92,10 +92,7 @@ const appRouter = router({
 
       return select(
         db,
-        changesSlice.getChangesetAfter(
-          opts.input.lastServerUpdatedAt,
-          config.tableNameMap,
-        ),
+        changesSlice.getChangesetAfter({ after: opts.input.lastServerUpdatedAt, registeredSyncableTableNameMap: config.tableNameMap }),
       );
     }),
   handleChanges: protectedProcedure
@@ -123,12 +120,7 @@ const appRouter = router({
 
       syncDispatch(
         db.withTraits({ type: "skip-sync" }),
-        changesSlice.mergeChanges(
-          opts.input.changeset,
-          nextClock,
-          clientId,
-          config.tableNameMap,
-        ),
+        changesSlice.mergeChanges({ input: opts.input.changeset, nextClock: nextClock(), clientId: clientId, registeredSyncableTableNameMap: config.tableNameMap }),
       );
 
       // Notify all subscribed clients that changes are available

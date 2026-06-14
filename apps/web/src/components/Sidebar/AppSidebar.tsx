@@ -138,7 +138,7 @@ const InboxNavItem = ({ inboxId }: { inboxId: string }) => {
   const closeMobile = useCloseMobileOnNav();
 
   const notDoneCount = useSyncSelector(
-    () => notDoneTasksCountExceptDailiesCount(inboxId, []),
+    () => notDoneTasksCountExceptDailiesCount({ projectId: inboxId, exceptDailyListIds: [] }),
     [inboxId],
   );
 
@@ -188,16 +188,16 @@ const NavStrip = () => {
 
 export const AppSidebar = () => {
   const dispatch = useDispatch();
-  const inbox = useSyncSelector(() => inboxProject(), []);
+  const inbox = useSyncSelector(() => inboxProject({}), []);
   const projectIdsWithoutInbox = useSyncSelector(
-    () => projectChildrenIdsWithoutInbox(),
+    () => projectChildrenIdsWithoutInbox({}),
     [],
   );
 
   const handleAddProjectClick = async () => {
     const title = await promptDialog("Enter project title");
     if (title) {
-      dispatch(createProject({ title }, "append"));
+      dispatch(createProject({ project: { title }, position: "append" }));
     }
   };
 
@@ -263,7 +263,7 @@ const GenerateTestDataButton = () => {
     const l = parseInt(todo, 10) || 0;
 
     const backup = generateTestBackup(n, m, k, l);
-    dispatch(loadSpaceBackup(backup));
+    dispatch(loadSpaceBackup({ backup: backup }));
     setOpen(false);
   };
 

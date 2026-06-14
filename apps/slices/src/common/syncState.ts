@@ -16,24 +16,40 @@ export const syncStateTable = defineTable("syncState", {
 });
 export type SyncState = ExtractSchema<typeof syncStateTable>;
 
-const getOrDefault = selector(function* getOrDefault() {
-  const currentSyncState = (yield* selectFrom(syncStateTable, "byId").where((q) => q.eq("id", syncStateId)))[0];
+const getOrDefault = selector({
+  name: "getOrDefault",
+  args: {},
+  handler: function* getOrDefault() {
+    const currentSyncState = (yield* selectFrom(syncStateTable, "byId").where(
+      (q) => q.eq("id", syncStateId),
+    ))[0];
 
-  return (currentSyncState ?? {
-    id: syncStateId,
-    lastSentClock: "",
-    lastServerAppliedClock: "",
-  }) as SyncState;
+    return (currentSyncState ?? {
+      id: syncStateId,
+      lastSentClock: "",
+      lastServerAppliedClock: "",
+    }) as SyncState;
+  },
 });
 
-const updateSyncState = action(function* updateSyncState(updates: Partial<SyncState>) {
-  const currentSyncState = yield* getOrDefault();
-  return yield* upsert(syncStateTable, [
-    {
-      ...currentSyncState,
-      ...updates,
-    },
-  ]);
+const updateSyncState = action({
+  name: "updateSyncState",
+  args: {
+    updates: v.object({
+      id: v.optional(v.string()),
+      lastSentClock: v.optional(v.string()),
+      lastServerAppliedClock: v.optional(v.string()),
+    }),
+  },
+  handler: function* updateSyncState({ updates }) {
+    const currentSyncState = yield* getOrDefault({});
+    return yield* upsert(syncStateTable, [
+      {
+        ...currentSyncState,
+        ...updates,
+      },
+    ]);
+  },
 });
 
 export const syncSlice = {

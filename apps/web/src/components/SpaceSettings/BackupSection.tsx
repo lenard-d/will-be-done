@@ -15,7 +15,7 @@ export function BackupSection() {
   const [importSuccess, setImportSuccess] = useState(false);
 
   const handleExport = () => {
-    const backup = dispatch(getSpaceBackup());
+    const backup = dispatch(getSpaceBackup({}));
     const json = JSON.stringify(backup, null, 2);
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -48,8 +48,8 @@ export function BackupSection() {
         const text = await file.text();
         const parsed = JSON.parse(text) as Parameters<
           typeof loadSpaceBackup
-        >[0];
-        dispatch(loadSpaceBackup(parsed));
+        >[0]["backup"];
+        dispatch(loadSpaceBackup({ backup: parsed }));
         setImportSuccess(true);
       } catch {
         setImportError(

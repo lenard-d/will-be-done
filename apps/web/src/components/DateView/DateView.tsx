@@ -94,7 +94,7 @@ const SingleDayColumn = ({
   const navigate = useNavigate();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const dailyList = useSyncSelector(
-    () => dailyListByIdOrDefault(dailyListId),
+    () => dailyListByIdOrDefault({ id: dailyListId }),
     [dailyListId],
   );
   const currentDate = useCurrentDMY();
@@ -103,12 +103,12 @@ const SingleDayColumn = ({
   }, [currentDate, dailyList.date]);
 
   const cardsForDisplay = useSyncSelector(
-    () => dailyProjectionChildrenForDisplay(dailyListId),
+    () => dailyProjectionChildrenForDisplay({ dailyListId: dailyListId }),
     [dailyListId],
   );
 
   const doneCardsForDisplay = useSyncSelector(
-    () => doneDailyProjectionChildrenForDisplay(dailyListId),
+    () => doneDailyProjectionChildrenForDisplay({ dailyListId: dailyListId }),
     [dailyListId],
   );
 
@@ -132,12 +132,7 @@ const SingleDayColumn = ({
           if (!isModelDNDData(data)) return false;
 
           return select(
-            appCanDrop(
-              dailyList.id,
-              dailyList.type,
-              data.modelId,
-              data.modelType,
-            ),
+            appCanDrop({ id: dailyList.id, modelType: dailyList.type, dropId: data.modelId, dropModelType: data.modelType }),
           );
         },
         getIsSticky: () => true,
@@ -302,15 +297,15 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
   );
 
   const dailyListsIds = useSyncSelector(
-    () => dailyListIdsByDates([startingDate]),
+    () => dailyListIdsByDates({ dates: [startingDate.getTime()] }),
     [startingDate],
   );
   const dispatch = useDispatch();
-  const inboxId = useSyncSelector(() => inboxProjectId(), []);
+  const inboxId = useSyncSelector(() => inboxProjectId({}), []);
   const stashOffset = useStashDesktopOffset();
 
   useEffect(() => {
-    dispatch(createManyDailyListsIfNotPresent([startingDate]));
+    dispatch(createManyDailyListsIfNotPresent({ dates: [startingDate.getTime()] }));
   }, [dispatch, startingDate]);
 
   const handleAddTask = useCallback(
@@ -322,7 +317,7 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
       // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
       flushSync(() => {
         const task = dispatch(
-          createTaskInList(dailyList.id, inboxId, "prepend", "prepend"),
+          createTaskInList({ dailyListId: dailyList.id, projectId: inboxId, listPosition: "prepend", categoryPosition: "prepend" }),
         );
 
         focusKey = buildFocusKey(task.id, "projection");

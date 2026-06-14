@@ -149,9 +149,9 @@ const ChecklistItemComp = ({
   const [isEditing, setIsEditing] = useState(false);
   const persistContent = useCallback(
     (content: string) => {
-      if (!select(checklistItemById(item.id))) return;
+      if (!select(checklistItemById({ id: item.id }))) return;
 
-      dispatch(updateChecklistItemContent(item.id, content));
+      dispatch(updateChecklistItemContent({ id: item.id, content: content }));
     },
     [dispatch, item.id, select],
   );
@@ -208,12 +208,7 @@ const ChecklistItemComp = ({
           if (!isModelDNDData(data)) return false;
 
           return select(
-            appCanDrop(
-              item.id,
-              checklistItemType,
-              data.modelId,
-              data.modelType,
-            ),
+            appCanDrop({ id: item.id, modelType: checklistItemType, dropId: data.modelId, dropModelType: data.modelType }),
           );
         },
         getIsSticky: () => true,
@@ -313,7 +308,7 @@ const ChecklistItemComp = ({
         </button>
         <CheckboxComp
           checked={item.state === "done"}
-          onChange={() => dispatch(toggleChecklistItemState(item.id))}
+          onChange={() => dispatch(toggleChecklistItemState({ id: item.id }))}
         />
         {isTextareaVisible ? (
           <TextareaAutosize
@@ -327,7 +322,7 @@ const ChecklistItemComp = ({
                 flushContent();
                 setIsEditing(false);
 
-                const newItem = dispatch(createItemAfter(item.id));
+                const newItem = dispatch(createItemAfter({ itemId: item.id }));
                 focusItemInCurrentChecklist(newItem.id);
               } else if (e.key === "Escape") {
                 e.preventDefault();
@@ -347,9 +342,9 @@ const ChecklistItemComp = ({
                 e.preventDefault();
                 e.stopPropagation();
 
-                const [before, after] = select(checklistItemSiblings(item.id));
+                const [before, after] = select(checklistItemSiblings({ itemId: item.id }));
                 flushContent();
-                dispatch(deleteItems([item.id]));
+                dispatch(deleteItems({ ids: [item.id] }));
 
                 if (before) {
                   focusItemInCurrentChecklist(before.id, { caret: "end" });
@@ -444,8 +439,10 @@ const ChecklistItemsView = ({
   const createItem = () => {
     const item = dispatch(
       createChecklistItem({
-        parentId,
-        parentType,
+        item: {
+          parentId,
+          parentType,
+        },
       }),
     );
 
@@ -465,7 +462,7 @@ const ChecklistItemsView = ({
         if (!isModelDNDData(data)) return false;
 
         return select(
-          appCanDrop(parentId, parentType, data.modelId, data.modelType),
+          appCanDrop({ id: parentId, modelType: parentType, dropId: data.modelId, dropModelType: data.modelType }),
         );
       },
       getIsSticky: () => true,
@@ -540,7 +537,7 @@ const ChecklistItemsView = ({
 const ChecklistItemsWithSelector = (props: ChecklistItemsBaseProps) => {
   const { parentId, parentType } = props;
   const items = useSyncSelector(
-    () => checklistItemChildren(parentId, parentType),
+    () => checklistItemChildren({ parentId: parentId, parentType: parentType }),
     [parentId, parentType],
   );
 

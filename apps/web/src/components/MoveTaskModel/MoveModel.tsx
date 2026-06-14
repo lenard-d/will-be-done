@@ -25,7 +25,7 @@ export const MoveModal = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const allProjects = useSyncSelector(() => allProjectsSorted(), []);
+  const allProjects = useSyncSelector(() => allProjectsSorted({}), []);
 
   const projects = useMemo(() => {
     return allProjects

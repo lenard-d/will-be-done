@@ -149,7 +149,7 @@ const ProjectItem = function ProjectItemComp({
 }) {
   const db = useDB();
   const project = useSyncSelector(
-    () => projectByIdOrDefault(projectId),
+    () => projectByIdOrDefault({ id: projectId }),
     [projectId],
   );
   const focusItemKey = buildFocusKey(project.id, project.type, "ProjectItem");
@@ -198,7 +198,7 @@ const ProjectItem = function ProjectItemComp({
 
       const [upKey, downKey] = getDOMSiblings(focusItemKey);
 
-      dispatch(deleteProjects([project.id]));
+      dispatch(deleteProjects({ ids: [project.id] }));
 
       if (downKey) {
         useFocusStore.getState().focusByKey(downKey);
@@ -268,7 +268,7 @@ const ProjectItem = function ProjectItemComp({
 
           return select(
             db,
-            projectCanDrop(project.id, data.modelId, data.modelType),
+            projectCanDrop({ projectId: project.id, dropItemId: data.modelId, dropModelType: data.modelType }),
           );
         },
         getIsSticky: () => true,
@@ -320,19 +320,12 @@ const ProjectItem = function ProjectItemComp({
 
   const overdueTasksCount = useSyncSelector(
     () =>
-      overdueTasksCountExceptDailiesAndStashCount(
-        project.id,
-        exceptDailyListIds,
-        currentDate,
-      ),
+      overdueTasksCountExceptDailiesAndStashCount({ projectId: project.id, exceptDailyListIds: exceptDailyListIds, currentDate: currentDate.getTime() }),
     [project.id, exceptDailyListIds, currentDate],
   );
   const notDoneTasksCount = useSyncSelector(
     () =>
-      notDoneTasksCountExceptDailiesAndStashCount(
-        project.id,
-        exceptDailyListIds,
-      ),
+      notDoneTasksCountExceptDailiesAndStashCount({ projectId: project.id, exceptDailyListIds: exceptDailyListIds }),
     [project.id, exceptDailyListIds],
   );
   //
@@ -341,7 +334,7 @@ const ProjectItem = function ProjectItemComp({
   //     projectItemsSlice2.overdueTaskCountExceptDailiesCount(
   //       project.id,
   //       exceptDailyListIds,
-  //       currentDate,
+  //       currentDate: currentDate.getTime(),
   //     ),
   //   [project.id, exceptDailyListIds, currentDate],
   // );
@@ -357,9 +350,9 @@ const ProjectItem = function ProjectItemComp({
     }
 
     dispatch(
-      updateProject(project.id, {
+      updateProject({ id: project.id, project: {
         title: newTitle,
-      }),
+      } }),
     );
   };
 
@@ -368,12 +361,12 @@ const ProjectItem = function ProjectItemComp({
       "Are you sure you want to delete this project?",
     );
     if (shouldDelete) {
-      dispatch(deleteProjects([project.id]));
+      dispatch(deleteProjects({ ids: [project.id] }));
     }
   };
 
   const inboxProjectId = useSyncSelector(
-    () => getInboxProjectId(),
+    () => getInboxProjectId({}),
     [],
   );
 
@@ -411,9 +404,9 @@ const ProjectItem = function ProjectItemComp({
               className="h-[326px] rounded-lg shadow-md"
               onEmojiSelect={({ emoji }) => {
                 dispatch(
-                  updateProject(project.id, {
+                  updateProject({ id: project.id, project: {
                     icon: emoji,
-                  }),
+                  } }),
                 );
               }}
             >
@@ -546,10 +539,10 @@ export const ProjectView = ({
   const project = useSyncSelector(
     function* () {
       if (selectedProjectId == "inbox") {
-        return yield* inboxProject();
+        return yield* inboxProject({});
       }
 
-      return yield* projectByIdOrDefault(selectedProjectId);
+      return yield* projectByIdOrDefault({ id: selectedProjectId });
     },
     [selectedProjectId],
   );
@@ -564,9 +557,9 @@ export const ProjectView = ({
   //   [exceptDailyListIds, project.id],
   // );
 
-  const inboxProjectId = useSyncSelector(() => inboxProject(), []);
+  const inboxProjectId = useSyncSelector(() => inboxProject({}), []);
   const projectIdsWithoutInbox = useSyncSelector(
-    () => projectChildrenIdsWithoutInbox(),
+    () => projectChildrenIdsWithoutInbox({}),
     [],
   );
 
@@ -574,7 +567,7 @@ export const ProjectView = ({
     const title = await promptDialog("Enter project title");
 
     if (title) {
-      dispatch(createProject({ title }, "append"));
+      dispatch(createProject({ project: { title }, position: "append" }));
     }
   };
 

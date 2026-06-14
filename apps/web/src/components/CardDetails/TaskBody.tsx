@@ -56,25 +56,25 @@ export function TaskBody({
   const taskId = task.id;
 
   const project = useSyncSelector(
-    () => projectOfCategoryOrDefault(task.projectCategoryId),
+    () => projectOfCategoryOrDefault({ categoryId: task.projectCategoryId }),
     [task.projectCategoryId],
   );
   const projectCategories = useSyncSelector(
-    () => projectCategoriesByProjectId(project.id),
+    () => projectCategoriesByProjectId({ projectId: project.id }),
     [project.id],
   );
   const scheduleDate = useSyncSelector(
-    () => dailyProjectionDateOfTask(taskId),
+    () => dailyProjectionDateOfTask({ taskId: taskId }),
     [taskId],
   );
 
   const taskTemplateId = task.templateId ?? null;
   const template = useSyncSelector(
-    () => taskTemplateById(taskTemplateId ?? ""),
+    () => taskTemplateById({ id: taskTemplateId ?? "" }),
     [taskTemplateId],
   );
   const ruleText = useSyncSelector(
-    () => taskTemplateRuleText(taskTemplateId ?? ""),
+    () => taskTemplateRuleText({ id: taskTemplateId ?? "" }),
     [taskTemplateId],
   );
 
@@ -91,7 +91,7 @@ export function TaskBody({
     title: task.title,
     setIsEditingTitle,
     onSave: useCallback(
-      (trimmed: string) => dispatch(updateTask(taskId, { title: trimmed })),
+      (trimmed: string) => dispatch(updateTask({ id: taskId, task: { title: trimmed } })),
       [dispatch, taskId],
     ),
   });
@@ -107,7 +107,7 @@ export function TaskBody({
     isEditingDescription,
     setIsEditingDescription,
     onSave: useCallback(
-      (content: string) => dispatch(updateTask(taskId, { content })),
+      (content: string) => dispatch(updateTask({ id: taskId, task: { content } })),
       [dispatch, taskId],
     ),
   });
@@ -119,7 +119,7 @@ export function TaskBody({
         "Remove repeat template? This will unlink all generated tasks.",
       )
     ) {
-      dispatch(deleteTemplates([task.templateId]));
+      dispatch(deleteTemplates({ taskTemplateIds: [task.templateId] }));
     }
   }, [task.templateId, dispatch]);
 
@@ -128,15 +128,15 @@ export function TaskBody({
       setIsRepeatModalOpen(false);
       if (task.templateId) {
         dispatch(
-          updateTemplate(task.templateId, {
+          updateTemplate({ id: task.templateId, template: {
             repeatRule: ruleString,
-          }),
+          } }),
         );
       } else {
         const template = dispatch(
-          createTaskTemplateFromTask(task, {
+          createTaskTemplateFromTask({ task: task, data: {
             repeatRule: ruleString,
-          }),
+          } }),
         );
 
         useFocusStore
@@ -154,7 +154,7 @@ export function TaskBody({
         icon={
           <CheckboxComp
             checked={task.state === "done"}
-            onChange={() => dispatch(toggleTaskState(taskId))}
+            onChange={() => dispatch(toggleTaskState({ taskId: taskId }))}
           />
         }
         isEditing={isEditingTitle}
@@ -182,9 +182,9 @@ export function TaskBody({
           projectCategories={projectCategories}
           onChange={(categoryId) =>
             dispatch(
-              updateTask(taskId, {
+              updateTask({ id: taskId, task: {
                 projectCategoryId: categoryId,
-              }),
+              } }),
             )
           }
         />
@@ -284,7 +284,7 @@ export function TaskBody({
         <MoveModal
           setIsOpen={setIsMoveProjectModalOpen}
           handleMove={(projectId) => {
-            dispatch(moveTaskToProject(taskId, projectId));
+            dispatch(moveTaskToProject({ taskId: taskId, projectId: projectId }));
             setIsMoveProjectModalOpen(false);
           }}
           exceptProjectId={project.id}

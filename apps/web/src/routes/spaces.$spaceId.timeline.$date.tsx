@@ -24,7 +24,7 @@ function RouteComponent() {
   const date = parse(params.date, "yyyy-MM-dd", new Date());
 
   const inboxProjectId = useSyncSelector(
-    () => getInboxProjectId(),
+    () => getInboxProjectId({}),
     [],
   );
 

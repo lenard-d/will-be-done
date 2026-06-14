@@ -47,11 +47,11 @@ export function TaskDatePicker({
     const dateString = getDMY(date);
 
     // Create daily list if it doesn't exist
-    const dailyList = dispatch(createDailyListIfNotPresent(dateString));
+    const dailyList = dispatch(createDailyListIfNotPresent({ date: dateString }));
 
     // Add task to the daily list
     dispatch(
-      addToDailyList(taskId, dailyList.id, "append"),
+      addToDailyList({ taskId: taskId, dailyListId: dailyList.id, position: "append" }),
     );
 
     // Close popover
@@ -59,7 +59,7 @@ export function TaskDatePicker({
   };
 
   const handleClearDate = () => {
-    dispatch(removeFromDailyList(taskId));
+    dispatch(removeFromDailyList({ taskId: taskId }));
     setIsOpen(false);
   };
 

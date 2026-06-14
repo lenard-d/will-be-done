@@ -9,7 +9,11 @@ import {
 } from "@will-be-done/hyperdb-lib";
 import path from "path";
 import { getEnvConfig } from "../env";
-import { changesSlice, changesTable } from "@will-be-done/slices/common";
+import {
+  changesSlice,
+  changesTable,
+  type PrimitiveRow,
+} from "@will-be-done/slices/common";
 import { noop } from "@will-be-done/hyperdb-lib";
 import { usersTable, tokensTable } from "../slices/authSlice";
 import { dbsTable } from "../slices/dbSlice";
@@ -141,12 +145,7 @@ export const getHyperDB = (dbConfig: DBConfig) => {
     for (const op of ops) {
       syncDispatch(
         db,
-        changesSlice.insertChangeFromInsert(
-          op.table,
-          op.newValue,
-          clientId,
-          nextClock,
-        ),
+        changesSlice.insertChangeFromInsert({ tableDef: op.table, row: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
       );
     }
 
@@ -163,25 +162,14 @@ export const getHyperDB = (dbConfig: DBConfig) => {
       if (!op.oldValue) {
         syncDispatch(
           db,
-          changesSlice.insertChangeFromInsert(
-            op.table,
-            op.newValue,
-            clientId,
-            nextClock,
-          ),
+          changesSlice.insertChangeFromInsert({ tableDef: op.table, row: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
         );
         continue;
       }
 
       syncDispatch(
         db,
-        changesSlice.insertChangeFromUpdate(
-          op.table,
-          op.oldValue,
-          op.newValue,
-          clientId,
-          nextClock,
-        ),
+        changesSlice.insertChangeFromUpdate({ tableDef: op.table, oldRow: op.oldValue as PrimitiveRow, newRow: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
       );
     }
 
@@ -197,12 +185,7 @@ export const getHyperDB = (dbConfig: DBConfig) => {
     for (const op of ops) {
       syncDispatch(
         db,
-        changesSlice.insertChangeFromDelete(
-          op.table,
-          op.oldValue,
-          clientId,
-          nextClock,
-        ),
+        changesSlice.insertChangeFromDelete({ tableDef: op.table, row: op.oldValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
       );
     }
 

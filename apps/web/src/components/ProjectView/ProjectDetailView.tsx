@@ -62,7 +62,7 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
     [projectId],
   );
   const project = useSyncSelector(
-    () => projectByIdOrDefault(projectId),
+    () => projectByIdOrDefault({ id: projectId }),
     [projectId],
   );
 
@@ -71,7 +71,7 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
       "Are you sure you want to delete this project?",
     );
     if (shouldDelete) {
-      dispatch(deleteProjects([project.id]));
+      dispatch(deleteProjects({ ids: [project.id] }));
     }
   };
 
@@ -81,7 +81,7 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
       project.title,
     );
     if (newTitle == "" || newTitle == null) return;
-    dispatch(updateProject(project.id, { title: newTitle }));
+    dispatch(updateProject({ id: project.id, project: { title: newTitle } }));
   };
 
   const isSmallScreen = useIsSmallScreen();
@@ -111,7 +111,7 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
                   className="h-[326px] rounded-lg shadow-md"
                   onEmojiSelect={({ emoji }) => {
                     dispatch(
-                      updateProject(project.id, { icon: emoji }),
+                      updateProject({ id: project.id, project: { icon: emoji } }),
                     );
                   }}
                 >
@@ -163,7 +163,7 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
 
 export const ProjectDetailView = ({ projectId }: { projectId: string }) => {
   const inboxProjectId = useSyncSelector(
-    () => getInboxProjectId(),
+    () => getInboxProjectId({}),
     [],
   );
   const stashOffset = useStashDesktopOffset();

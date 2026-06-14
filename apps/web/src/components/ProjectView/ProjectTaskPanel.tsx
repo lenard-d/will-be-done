@@ -82,17 +82,17 @@ const CategorySection = ({
   const [isPlaceholderFocused, setIsPlaceholderFocused] = useState(false);
 
   const category = useSyncSelector(
-    () => projectCategoryByIdOrDefault(categoryId),
+    () => projectCategoryByIdOrDefault({ id: categoryId }),
     [categoryId],
   );
 
   const cardsForDisplay = useSyncSelector(
-    () => projectCategoryCardsForDisplayChildren(category.id),
+    () => projectCategoryCardsForDisplayChildren({ projectCategoryId: category.id }),
     [category.id],
   );
 
   const doneCardsForDisplay = useSyncSelector(
-    () => doneProjectCategoryCardsForDisplay(categoryId),
+    () => doneProjectCategoryCardsForDisplay({ projectCategoryId: categoryId }),
     [categoryId],
   );
 
@@ -110,7 +110,7 @@ const CategorySection = ({
         const data = source.data;
         if (!isModelDNDData(data)) return false;
         return select(
-          appCanDrop(categoryId, category.type, data.modelId, data.modelType),
+          appCanDrop({ id: categoryId, modelType: category.type, dropId: data.modelId, dropModelType: data.modelType }),
         );
       },
       getIsSticky: () => true,
@@ -129,7 +129,7 @@ const CategorySection = ({
   const handleTitleClick = async () => {
     const newTitle = await promptDialog("Section name", category.title);
     if (newTitle == null || newTitle === "") return;
-    dispatch(updateCategory(categoryId, { title: newTitle }));
+    dispatch(updateCategory({ categoryId, category: { title: newTitle } }));
   };
 
   const handleAddTask = () => {
@@ -139,7 +139,9 @@ const CategorySection = ({
 
     // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
     flushSync(() => {
-      const task = dispatch(createProjectCategoryTask(categoryId, "prepend"));
+      const task = dispatch(
+        createProjectCategoryTask({ categoryId, position: "prepend" }),
+      );
       focusKey = buildFocusKey(task.id, "task");
       useFocusStore.getState().editByKey(focusKey);
     });
@@ -156,7 +158,7 @@ const CategorySection = ({
 
   const handleDelete = () => {
     if (confirm(`Delete category "${category.title}"?`)) {
-      dispatch(deleteCategories([categoryId]));
+      dispatch(deleteCategories({ ids: [categoryId] }));
     }
   };
 
@@ -182,7 +184,7 @@ const CategorySection = ({
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
             type="button"
-            onClick={() => dispatch(moveLeft(categoryId))}
+            onClick={() => dispatch(moveLeft({ categoryId: categoryId }))}
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move up"
           >
@@ -190,7 +192,7 @@ const CategorySection = ({
           </button>
           <button
             type="button"
-            onClick={() => dispatch(moveRight(categoryId))}
+            onClick={() => dispatch(moveRight({ categoryId: categoryId }))}
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move down"
           >
@@ -323,19 +325,19 @@ export const ProjectTaskPanel = ({
 }) => {
   const dispatch = useDispatch();
   const project = useSyncSelector(
-    () => projectByIdOrDefault(projectId),
+    () => projectByIdOrDefault({ id: projectId }),
     [projectId],
   );
 
   const categories = useSyncSelector(
-    () => projectCategoriesByProjectId(projectId),
+    () => projectCategoriesByProjectId({ projectId: projectId }),
     [projectId],
   );
 
   const handleAddSection = async () => {
     const title = await promptDialog("Section name");
     if (!title) return;
-    dispatch(createCategory({ projectId, title }, "append"));
+    dispatch(createCategory({ categoryDraft: { projectId, title }, position: "append" }));
   };
 
   if (embedded) {

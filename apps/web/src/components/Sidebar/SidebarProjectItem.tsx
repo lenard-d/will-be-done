@@ -71,24 +71,20 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
   const { isMobile, setOpenMobile } = useSidebar();
 
   const project = useSyncSelector(
-    () => projectByIdOrDefault(projectId),
+    () => projectByIdOrDefault({ id: projectId }),
     [projectId],
   );
 
   const currentDate = useCurrentDate();
 
   const notDoneCount = useSyncSelector(
-    () => notDoneTasksCountExceptDailiesCount(projectId, []),
+    () => notDoneTasksCountExceptDailiesCount({ projectId: projectId, exceptDailyListIds: [] }),
     [projectId],
   );
 
   const overdueCount = useSyncSelector(
     () =>
-      overdueTasksCountExceptDailiesCount(
-        projectId,
-        [],
-        currentDate,
-      ),
+      overdueTasksCountExceptDailiesCount({ projectId: projectId, exceptDailyListIds: [], currentDate: currentDate.getTime() }),
     [projectId, currentDate],
   );
 
@@ -140,7 +136,7 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
           if (!isModelDNDData(data)) return false;
           return select(
             db,
-            projectCanDrop(project.id, data.modelId, data.modelType),
+            projectCanDrop({ projectId: project.id, dropItemId: data.modelId, dropModelType: data.modelType }),
           );
         },
         getIsSticky: () => true,

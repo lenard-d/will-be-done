@@ -44,15 +44,15 @@ export function TemplateBody({
   const templateId = template.id;
 
   const project = useSyncSelector(
-    () => projectOfCategoryOrDefault(template.projectCategoryId),
+    () => projectOfCategoryOrDefault({ categoryId: template.projectCategoryId }),
     [template.projectCategoryId],
   );
   const projectCategories = useSyncSelector(
-    () => projectCategoriesByProjectId(project.id),
+    () => projectCategoriesByProjectId({ projectId: project.id }),
     [project.id],
   );
   const ruleText = useSyncSelector(
-    () => taskTemplateRuleText(templateId),
+    () => taskTemplateRuleText({ id: templateId }),
     [templateId],
   );
 
@@ -71,9 +71,9 @@ export function TemplateBody({
     onSave: useCallback(
       (trimmed: string) =>
         dispatch(
-          updateTemplate(templateId, {
+          updateTemplate({ id: templateId, template: {
             title: trimmed,
-          }),
+          } }),
         ),
       [dispatch, templateId],
     ),
@@ -90,13 +90,13 @@ export function TemplateBody({
     isEditingDescription,
     setIsEditingDescription,
     onSave: useCallback(
-      (content: string) => dispatch(updateTemplate(templateId, { content })),
+      (content: string) => dispatch(updateTemplate({ id: templateId, template: { content } })),
       [dispatch, templateId],
     ),
   });
 
   const handleConvertToTask = useCallback(() => {
-    const task = dispatch(createTaskFromTemplate(template));
+    const task = dispatch(createTaskFromTemplate({ taskTemplate: template }));
     useFocusStore.getState().focusByKey(buildFocusKey(task.id, task.type));
     onCardIdChange?.(task.id);
   }, [template, dispatch, onCardIdChange]);
@@ -105,9 +105,9 @@ export function TemplateBody({
     (ruleString: string) => {
       setIsRepeatModalOpen(false);
       dispatch(
-        updateTemplate(templateId, {
+        updateTemplate({ id: templateId, template: {
           repeatRule: ruleString,
-        }),
+        } }),
       );
     },
     [dispatch, templateId],
@@ -142,9 +142,9 @@ export function TemplateBody({
           projectCategories={projectCategories}
           onChange={(categoryId) =>
             dispatch(
-              updateTemplate(templateId, {
+              updateTemplate({ id: templateId, template: {
                 projectCategoryId: categoryId,
-              }),
+              } }),
             )
           }
         />
@@ -201,7 +201,7 @@ export function TemplateBody({
         <MoveModal
           setIsOpen={setIsMoveProjectModalOpen}
           handleMove={(projectId) => {
-            dispatch(moveTemplateToProject(templateId, projectId));
+            dispatch(moveTemplateToProject({ templateId: templateId, projectId: projectId }));
             setIsMoveProjectModalOpen(false);
           }}
           exceptProjectId={project.id}
