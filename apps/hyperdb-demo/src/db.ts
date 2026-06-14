@@ -342,7 +342,7 @@ export const clearWorkload = action({
 export const toggleTaskDone = action({
   name: "toggleTaskDone",
   args: {
-    task: v.any(),
+    task: tasksTable.v(),
   },
   handler: function* toggleTaskDone({ task }: { task: Task }) {
     const status: Task["status"] = task.status === "done" ? "todo" : "done";
