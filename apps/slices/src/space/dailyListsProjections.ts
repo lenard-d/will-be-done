@@ -3,7 +3,6 @@ import { shouldNeverHappen } from "../utils";
 import {
   action,
   deleteRows,
-  defineTable,
   type ExtractSchema,
   insert,
   selectFrom,
@@ -28,24 +27,13 @@ import {
 } from "./projectsCategoriesCards";
 import { deleteStashProjections } from "./stashProjections";
 import { taskById } from "./cardsTasks";
-import { isTask, type Task, tasksTable, taskType } from "./cardsTasks";
+import { isTask, type Task } from "./cardsTasks";
 import { isStashProjection } from "./stashProjections";
 import { parse } from "date-fns";
+import { projectionType, taskProjectionsTable, tasksTable, taskType } from "./tables";
 
-// Type definitions
-// projection.id = task.id (1:1 relationship)
-export const projectionType = "projection";
+export { projectionType, taskProjectionsTable };
 
-export const taskProjectionsTable = defineTable("task_projections", {
-  type: v.literal(projectionType),
-  id: v.string(),
-  orderToken: v.string(),
-  dailyListId: v.string(),
-  createdAt: v.number(),
-})
-  .index("byIds", ["id"])
-  .index("byDailyListId", ["dailyListId"], { type: "hash" })
-  .index("byDailyListIdTokenOrdered", ["dailyListId", "orderToken"]);
 export type TaskProjection = ExtractSchema<typeof taskProjectionsTable>;
 
 export const isTaskProjection = isObjectType<TaskProjection>(projectionType);

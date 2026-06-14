@@ -3,7 +3,6 @@ import { shouldNeverHappen } from "../utils";
 import {
   action,
   deleteRows,
-  defineTable,
   type ExtractSchema,
   insert,
   selectFrom,
@@ -19,23 +18,14 @@ import { appById } from "./app";
 import { createProjectTask } from "./projects";
 import { createSiblingTask } from "./projectsCategoriesCards";
 import { deleteDailyProjections } from "./dailyListsProjections";
-import { taskById, taskByIdOrDefault, taskType } from "./cardsTasks";
+import { taskById, taskByIdOrDefault } from "./cardsTasks";
 import { isTask, type Task } from "./cardsTasks";
 import { isTaskProjection } from "./dailyListsProjections";
 import type { OrderableItem } from "./utils";
+import { stashProjectionType, stashProjectionsTable, taskType } from "./tables";
 
-// Type definitions
-// stashProjection.id = task.id (1:1 relationship)
-export const stashProjectionType = "stashProjection";
+export { stashProjectionType, stashProjectionsTable };
 
-export const stashProjectionsTable = defineTable("stash_projections", {
-  type: v.literal(stashProjectionType),
-  id: v.string(),
-  orderToken: v.string(),
-  createdAt: v.number(),
-})
-  .index("byIds", ["id"])
-  .index("byTokenOrdered", ["orderToken"]);
 export type StashProjection = ExtractSchema<typeof stashProjectionsTable>;
 
 export const isStashProjection =

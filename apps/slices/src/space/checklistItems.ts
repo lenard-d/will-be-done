@@ -2,7 +2,6 @@ import { isObjectType, shouldNeverHappen } from "../utils";
 import {
   action,
   deleteRows,
-  defineTable,
   type ExtractSchema,
   insert,
   selectFrom,
@@ -15,8 +14,10 @@ import { uuidv7 } from "uuidv7";
 import { appById } from "./app";
 import { AnyModelType, registerModelSlice } from "./maps";
 import { registerSpaceSyncableTable } from "./syncMap";
+import { checklistItemType, checklistItemsTable } from "./tables";
 
-export const checklistItemType = "checklistItem";
+export { checklistItemType, checklistItemsTable };
+
 const taskParentType = "task";
 const taskTemplateParentType = "template";
 export type ChecklistParentType =
@@ -29,19 +30,6 @@ const checklistParentTypeValidator = v.union(
   v.literal(taskTemplateParentType),
 );
 
-export const checklistItemsTable = defineTable("checklist_items", {
-  type: v.literal(checklistItemType),
-  id: v.string(),
-  parentId: v.string(),
-  parentType: checklistParentTypeValidator,
-  orderToken: v.string(),
-  state: v.union(v.literal("todo"), v.literal("done")),
-  content: v.string(),
-  createdAt: v.number(),
-  checkedAt: v.union(v.number(), v.null()),
-})
-  .index("byIds", ["id"])
-  .index("byParentOrder", ["parentType", "parentId", "orderToken"]);
 export type ChecklistItem = ExtractSchema<typeof checklistItemsTable>;
 
 export const isChecklistItem = isObjectType<ChecklistItem>(checklistItemType);

@@ -1,18 +1,7 @@
 import { action, selector, v } from "@will-be-done/hyperdb-lib";
 import { defaultTask } from "./cardsTasks";
 import { AnyModel, appTypeSlicesMap } from "./maps";
-
-export const possibleModelType = v.union(
-  v.literal("task"),
-  v.literal("template"),
-  v.literal("project"),
-  v.literal("dailyList"),
-  v.literal("projectCategory"),
-  v.literal("projection"),
-  v.literal("stashProjection"),
-  v.literal("checklistItem"),
-  v.literal("stash"),
-);
+import { possibleModelType } from "./tables";
 
 export const appById = selector({
   name: "appById",

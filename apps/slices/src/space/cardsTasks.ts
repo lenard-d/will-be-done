@@ -3,7 +3,6 @@ import { shouldNeverHappen } from "../utils";
 import {
   action,
   deleteRows,
-  defineTable,
   type ExtractSchema,
   insert,
   selectFrom,
@@ -13,7 +12,7 @@ import {
 } from "@will-be-done/hyperdb-lib";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { uuidv7 } from "uuidv7";
-import { appById, appDeleteModel, possibleModelType } from "./app";
+import { appById, appDeleteModel } from "./app";
 import {
   checklistItemCanDropOnParent,
   checklistItemHandleDropOnParent,
@@ -23,40 +22,21 @@ import {
 import { deleteDailyProjections } from "./dailyListsProjections";
 import { firstProjectCategoryChild } from "./projectsCategories";
 import { projectCategoryCardSiblings } from "./projectsCategoriesCards";
-import { taskTemplatesTable, updateTemplate } from "./cardsTaskTemplates";
-import { isTaskTemplate } from "./cardsTaskTemplates";
+import { updateTemplate, isTaskTemplate } from "./cardsTaskTemplates";
 import { registerSpaceSyncableTable } from "./syncMap";
 import { registerModelSlice } from "./maps";
 import { isTaskProjection } from "./dailyListsProjections";
+import {
+  taskType,
+  tasksTable,
+  taskTemplatesTable,
+  possibleModelType,
+} from "./tables";
 
-// Type definitions
-export const taskType = "task";
+export { taskType, tasksTable };
 
 export type TaskNature = "red" | "green" | "unknown";
 
-export const tasksTable = defineTable("tasks", {
-  type: v.literal(taskType),
-  id: v.string(),
-  title: v.string(),
-  content: v.optional(v.string()),
-  state: v.union(v.literal("todo"), v.literal("done")),
-  projectCategoryId: v.string(),
-  orderToken: v.string(),
-  lastToggledAt: v.number(),
-  nature: v.optional(
-    v.union(v.literal("red"), v.literal("green"), v.literal("unknown")),
-  ),
-  createdAt: v.number(),
-  templateId: v.union(v.string(), v.null()),
-  templateDate: v.union(v.number(), v.null()),
-})
-  .index("byIds", ["id"])
-  .index("byCategoryIdOrderStates", [
-    "projectCategoryId",
-    "state",
-    "orderToken",
-  ])
-  .index("byTemplateId", ["templateId"], { type: "hash" });
 export type Task = ExtractSchema<typeof tasksTable>;
 
 export const isTask = isObjectType<Task>(taskType);

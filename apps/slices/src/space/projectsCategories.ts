@@ -1,7 +1,6 @@
 import {
   action,
   deleteRows,
-  defineTable,
   type ExtractSchema,
   insert,
   selectFrom,
@@ -24,7 +23,7 @@ import {
   projectCategoryCardIds,
 } from "./projectsCategoriesCards";
 import { projectById, projectByIdOrDefault } from "./projects";
-import { createTask, taskById, taskType, updateTask } from "./cardsTasks";
+import { createTask, taskById, updateTask } from "./cardsTasks";
 import { updateTemplate } from "./cardsTaskTemplates";
 import { defaultProject, Project } from "./projects";
 import { Task, isTask } from "./cardsTasks";
@@ -33,19 +32,10 @@ import { isTaskTemplate } from "./cardsTaskTemplates";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { isTaskProjection } from "./dailyListsProjections";
 import { genUUIDV5 } from "../traits";
+import { projectCategoryType, projectCategoriesTable, taskType } from "./tables";
 
-export const projectCategoryType = "projectCategory";
+export { projectCategoryType, projectCategoriesTable };
 
-export const projectCategoriesTable = defineTable("project_categories", {
-  type: v.literal(projectCategoryType),
-  id: v.string(),
-  orderToken: v.string(),
-  title: v.string(),
-  projectId: v.string(),
-  createdAt: v.number(),
-})
-  .index("byIds", ["id"])
-  .index("byProjectIdOrderToken", ["projectId", "orderToken"]);
 export type ProjectCategory = ExtractSchema<typeof projectCategoriesTable>;
 
 export const isProjectCategory =

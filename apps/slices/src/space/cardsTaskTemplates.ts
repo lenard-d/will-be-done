@@ -2,7 +2,6 @@ import { isObjectType } from "../utils";
 import {
   action,
   deleteRows,
-  defineTable,
   type ExtractSchema,
   insert,
   selectFrom,
@@ -29,8 +28,6 @@ import {
   deleteTasks,
   taskById,
   taskIdsOfTemplateId,
-  tasksTable,
-  taskType,
   updateTask,
 } from "./cardsTasks";
 import { isTask, type Task } from "./cardsTasks";
@@ -39,27 +36,10 @@ import { AnyModelType, registerModelSlice } from "./maps";
 import { genUUIDV5 } from "../traits/";
 import { generateKeyPositionedBetween, getDMY } from "./utils";
 import { isTaskProjection } from "./dailyListsProjections";
+import { taskType, tasksTable, taskTemplateType, taskTemplatesTable } from "./tables";
 
-// Type definitions
-export const taskTemplateType = "template";
+export { taskTemplateType, taskTemplatesTable };
 
-export const taskTemplatesTable = defineTable("task_templates", {
-  type: v.literal(taskTemplateType),
-  id: v.string(),
-  title: v.string(),
-  content: v.optional(v.string()),
-  orderToken: v.string(),
-  repeatRule: v.string(),
-  repeatRuleDtStart: v.number(),
-  createdAt: v.number(),
-  lastGeneratedAt: v.number(),
-  projectCategoryId: v.string(),
-  nature: v.optional(
-    v.union(v.literal("red"), v.literal("green"), v.literal("unknown")),
-  ),
-})
-  .index("byIds", ["id"])
-  .index("byCategoryIdOrderStates", ["projectCategoryId", "orderToken"]);
 export type TaskTemplate = ExtractSchema<typeof taskTemplatesTable>;
 
 export const isTaskTemplate = isObjectType<TaskTemplate>(taskTemplateType);

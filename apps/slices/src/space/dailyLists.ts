@@ -2,7 +2,6 @@ import { isObjectType } from "../utils";
 import {
   action,
   deleteRows,
-  defineTable,
   type ExtractSchema,
   insert,
   selectFrom,
@@ -29,17 +28,10 @@ import { AnyModelType } from "./maps";
 import { registerSpaceSyncableTable } from "./syncMap";
 import { registerModelSlice } from "./maps";
 import { genUUIDV5 } from "../traits";
+import { dailyListType, dailyListsTable } from "./tables";
 
-// Type definitions
-export const dailyListType = "dailyList";
+export { dailyListType, dailyListsTable };
 
-export const dailyListsTable = defineTable("daily_lists", {
-  type: v.literal(dailyListType),
-  id: v.string(),
-  date: v.string(),
-})
-  .index("byIds", ["id"])
-  .index("byDate", ["date"], { type: "hash" });
 export type DailyList = ExtractSchema<typeof dailyListsTable>;
 
 export const isDailyList = isObjectType<DailyList>(dailyListType);

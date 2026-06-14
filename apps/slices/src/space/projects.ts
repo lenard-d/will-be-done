@@ -3,7 +3,6 @@ import { shouldNeverHappen } from "../utils";
 import {
   action,
   deleteRows,
-  defineTable,
   type ExtractSchema,
   insert,
   selectFrom,
@@ -41,20 +40,10 @@ import { registerModelSlice, AnyModelType } from "./maps";
 import { isTaskProjection } from "./dailyListsProjections";
 import { genUUIDV5 } from "../traits";
 import { startOfDay } from "date-fns";
+import { projectType, projectsTable } from "./tables";
 
-export const projectType = "project";
-export const projectsTable = defineTable("projects", {
-  type: v.literal(projectType),
-  id: v.string(),
-  title: v.string(),
-  icon: v.string(),
-  isInbox: v.boolean(),
-  orderToken: v.string(),
-  createdAt: v.number(),
-})
-  .index("byIds", ["id"])
-  .index("byOrderToken", ["orderToken"])
-  .index("byIsInbox", ["isInbox"], { type: "hash" });
+export { projectType, projectsTable };
+
 export type Project = ExtractSchema<typeof projectsTable>;
 
 export const isProject = isObjectType<Project>(projectType);

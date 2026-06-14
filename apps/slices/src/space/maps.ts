@@ -1,11 +1,21 @@
-import { type Task, tasksTable } from "./cardsTasks";
-import { TaskTemplate, taskTemplatesTable } from "./cardsTaskTemplates";
-import { DailyList, dailyListsTable } from "./dailyLists";
-import { TaskProjection, taskProjectionsTable } from "./dailyListsProjections";
-import { Project, projectsTable } from "./projects";
-import { ProjectCategory, projectCategoriesTable } from "./projectsCategories";
-import { StashProjection, stashProjectionsTable } from "./stashProjections";
-import { ChecklistItem, checklistItemsTable } from "./checklistItems";
+import { type Task } from "./cardsTasks";
+import { TaskTemplate } from "./cardsTaskTemplates";
+import { DailyList } from "./dailyLists";
+import { TaskProjection } from "./dailyListsProjections";
+import { Project } from "./projects";
+import { ProjectCategory } from "./projectsCategories";
+import { StashProjection } from "./stashProjections";
+import { ChecklistItem } from "./checklistItems";
+import {
+  tasksTable,
+  taskTemplatesTable,
+  dailyListsTable,
+  taskProjectionsTable,
+  projectsTable,
+  projectCategoriesTable,
+  stashProjectionsTable,
+  checklistItemsTable,
+} from "./tables";
 
 export type AnyModel =
   | Task

@@ -3,13 +3,11 @@ import { assertUnreachable } from "./utils";
 import {
   createDailyProjectionSibling,
   deleteDailyProjections,
-  taskProjectionsTable,
 } from "./dailyListsProjections";
 import { createSiblingTask } from "./projectsCategoriesCards";
 import {
   createStashProjectionSibling,
   deleteStashProjections,
-  stashProjectionsTable,
 } from "./stashProjections";
 import {
   deleteTasksByIds,
@@ -18,20 +16,24 @@ import {
   defaultTask,
   isTask,
   taskType,
-  tasksTable,
 } from "./cardsTasks";
 import {
   deleteTemplates,
   taskTemplateById,
-  taskTemplatesTable,
 } from "./cardsTaskTemplates";
 import { type TaskTemplate, isTaskTemplate } from "./cardsTaskTemplates";
 import { AnyModel, appTypeSlicesMap } from "./maps";
 import { isTaskProjection, TaskProjection } from "./dailyListsProjections";
 import { isStashProjection, StashProjection } from "./stashProjections";
-import { projectsTable } from "./projects";
-import { dailyListsTable } from "./dailyLists";
-import { checklistItemsTable } from "./checklistItems";
+import {
+  tasksTable,
+  taskTemplatesTable,
+  taskProjectionsTable,
+  stashProjectionsTable,
+  projectsTable,
+  dailyListsTable,
+  checklistItemsTable,
+} from "./tables";
 
 export type CardWrapper =
   | Task
