@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDispatch, useSelect, useSyncSelector } from "@will-be-done/hyperdb-lib";
+import {
+  useDispatch,
+  useSelect,
+  useSyncSelector,
+} from "@will-be-done/hyperdb-lib";
 import { flushSync } from "react-dom";
 import {
   appCanDrop,
@@ -106,12 +110,7 @@ const CategorySection = ({
         const data = source.data;
         if (!isModelDNDData(data)) return false;
         return select(
-          appCanDrop(
-            categoryId,
-            category.type,
-            data.modelId,
-            data.modelType,
-          ),
+          appCanDrop(categoryId, category.type, data.modelId, data.modelType),
         );
       },
       getIsSticky: () => true,
@@ -130,9 +129,7 @@ const CategorySection = ({
   const handleTitleClick = async () => {
     const newTitle = await promptDialog("Section name", category.title);
     if (newTitle == null || newTitle === "") return;
-    dispatch(
-      updateCategory(categoryId, { title: newTitle }),
-    );
+    dispatch(updateCategory(categoryId, { title: newTitle }));
   };
 
   const handleAddTask = () => {
@@ -142,9 +139,7 @@ const CategorySection = ({
 
     // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
     flushSync(() => {
-      const task = dispatch(
-        createProjectCategoryTask(categoryId, "prepend"),
-      );
+      const task = dispatch(createProjectCategoryTask(categoryId, "prepend"));
       focusKey = buildFocusKey(task.id, "task");
       useFocusStore.getState().editByKey(focusKey);
     });
@@ -187,9 +182,7 @@ const CategorySection = ({
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
             type="button"
-            onClick={() =>
-              dispatch(moveLeft(categoryId))
-            }
+            onClick={() => dispatch(moveLeft(categoryId))}
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move up"
           >
@@ -197,9 +190,7 @@ const CategorySection = ({
           </button>
           <button
             type="button"
-            onClick={() =>
-              dispatch(moveRight(categoryId))
-            }
+            onClick={() => dispatch(moveRight(categoryId))}
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move down"
           >
@@ -252,6 +243,7 @@ const CategorySection = ({
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={projectId}
+              hasCheclistItems={displayData.hasChecklist}
               displayLastScheduleTime
             />
           ))}
@@ -264,6 +256,7 @@ const CategorySection = ({
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={projectId}
+              hasCheclistItems={displayData.hasChecklist}
               displayLastScheduleTime
             />
           ))}
@@ -342,9 +335,7 @@ export const ProjectTaskPanel = ({
   const handleAddSection = async () => {
     const title = await promptDialog("Section name");
     if (!title) return;
-    dispatch(
-      createCategory({ projectId, title }, "append"),
-    );
+    dispatch(createCategory({ projectId, title }, "append"));
   };
 
   if (embedded) {

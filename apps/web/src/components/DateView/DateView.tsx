@@ -1,6 +1,10 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { addDays, format, startOfDay, subDays } from "date-fns";
-import { useDispatch, useSyncSelector, useSelect } from "@will-be-done/hyperdb-lib";
+import {
+  useDispatch,
+  useSyncSelector,
+  useSelect,
+} from "@will-be-done/hyperdb-lib";
 import { flushSync } from "react-dom";
 import {
   appCanDrop,
@@ -256,6 +260,7 @@ const SingleDayColumn = ({
             cardWrapper={displayData.cardWrapper}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
+            hasCheclistItems={displayData.hasChecklist}
             alwaysShowProject
             displayLastScheduleTime
             centerScheduleDate
@@ -270,6 +275,7 @@ const SingleDayColumn = ({
             cardWrapper={displayData.cardWrapper}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
+            hasCheclistItems={displayData.hasChecklist}
             alwaysShowProject
             displayLastScheduleTime
             centerScheduleDate
@@ -316,12 +322,7 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
       // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
       flushSync(() => {
         const task = dispatch(
-          createTaskInList(
-            dailyList.id,
-            inboxId,
-            "prepend",
-            "prepend",
-          ),
+          createTaskInList(dailyList.id, inboxId, "prepend", "prepend"),
         );
 
         focusKey = buildFocusKey(task.id, "projection");

@@ -122,6 +122,7 @@ const ColumnView = ({
               cardWrapper={displayData.cardWrapper}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
+              hasCheclistItems={displayData.hasChecklist}
               alwaysShowProject
             />
           );
@@ -136,6 +137,7 @@ const ColumnView = ({
               cardWrapper={displayData.cardWrapper}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
+              hasCheclistItems={displayData.hasChecklist}
               alwaysShowProject
             />
           );
@@ -197,12 +199,7 @@ const BoardView = ({
   const handleAddTask = useCallback(
     (dailyList: DailyList) => {
       const task = dispatch(
-        createTaskInList(
-          dailyList.id,
-          inboxId,
-          "prepend",
-          "prepend",
-        ),
+        createTaskInList(dailyList.id, inboxId, "prepend", "prepend"),
       );
 
       useFocusStore.getState().editByKey(buildFocusKey(task.id, "projection"));

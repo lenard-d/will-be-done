@@ -44,10 +44,7 @@ export function TemplateBody({
   const templateId = template.id;
 
   const project = useSyncSelector(
-    () =>
-      projectOfCategoryOrDefault(
-        template.projectCategoryId,
-      ),
+    () => projectOfCategoryOrDefault(template.projectCategoryId),
     [template.projectCategoryId],
   );
   const projectCategories = useSyncSelector(
@@ -93,10 +90,7 @@ export function TemplateBody({
     isEditingDescription,
     setIsEditingDescription,
     onSave: useCallback(
-      (content: string) =>
-        dispatch(
-          updateTemplate(templateId, { content }),
-        ),
+      (content: string) => dispatch(updateTemplate(templateId, { content })),
       [dispatch, templateId],
     ),
   });
@@ -175,6 +169,7 @@ export function TemplateBody({
         </DetailRow>
 
         <ChecklistItems
+          hasChecklistItems={undefined}
           parentId={templateId}
           parentType={template.type}
           editTrigger="always"
@@ -206,12 +201,7 @@ export function TemplateBody({
         <MoveModal
           setIsOpen={setIsMoveProjectModalOpen}
           handleMove={(projectId) => {
-            dispatch(
-              moveTemplateToProject(
-                templateId,
-                projectId,
-              ),
-            );
+            dispatch(moveTemplateToProject(templateId, projectId));
             setIsMoveProjectModalOpen(false);
           }}
           exceptProjectId={project.id}

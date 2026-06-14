@@ -24,10 +24,7 @@ import {
   updateTask,
   updateTemplate,
 } from "@will-be-done/slices/space";
-import {
-  CheckboxComp,
-  ChecklistItems,
-} from "@/components/Checklist/Checklist";
+import { CheckboxComp, ChecklistItems } from "@/components/Checklist/Checklist";
 import { MoveModal } from "@/components/MoveTaskModel/MoveModel.tsx";
 import { RepeatModal } from "@/components/RepeatModal/RepeatModal.tsx";
 import { TaskDatePicker } from "@/components/Task/TaskDatePicker.tsx";
@@ -59,8 +56,7 @@ export function TaskBody({
   const taskId = task.id;
 
   const project = useSyncSelector(
-    () =>
-      projectOfCategoryOrDefault(task.projectCategoryId),
+    () => projectOfCategoryOrDefault(task.projectCategoryId),
     [task.projectCategoryId],
   );
   const projectCategories = useSyncSelector(
@@ -95,8 +91,7 @@ export function TaskBody({
     title: task.title,
     setIsEditingTitle,
     onSave: useCallback(
-      (trimmed: string) =>
-        dispatch(updateTask(taskId, { title: trimmed })),
+      (trimmed: string) => dispatch(updateTask(taskId, { title: trimmed })),
       [dispatch, taskId],
     ),
   });
@@ -112,8 +107,7 @@ export function TaskBody({
     isEditingDescription,
     setIsEditingDescription,
     onSave: useCallback(
-      (content: string) =>
-        dispatch(updateTask(taskId, { content })),
+      (content: string) => dispatch(updateTask(taskId, { content })),
       [dispatch, taskId],
     ),
   });
@@ -256,6 +250,7 @@ export function TaskBody({
         )}
 
         <ChecklistItems
+          hasChecklistItems={undefined}
           parentId={taskId}
           parentType={task.type}
           editTrigger="always"

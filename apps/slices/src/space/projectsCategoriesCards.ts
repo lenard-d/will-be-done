@@ -12,6 +12,7 @@ import { ProjectCategory, projectCategoriesTable } from "./projectsCategories";
 import { DailyList, dailyListsTable } from "./dailyLists";
 import { TaskProjection, taskProjectionsTable } from "./dailyListsProjections";
 import { CardWrapper } from "./cards";
+import { hasChecklistItems } from "./checklistItems";
 
 export type Card = Task | TaskTemplate;
 export type CardForDisplay = {
@@ -22,6 +23,7 @@ export type CardForDisplay = {
   dailyList: DailyList | undefined;
   dateOfTask: Date | undefined;
   lastScheduleTime: Date | undefined;
+  hasChecklist: boolean;
 };
 
 // TODO: check if all items renamed to card
@@ -177,6 +179,12 @@ export const projectCategoryCardsForDisplay = selector(
       cardWrappers.map((wrapper) => [`${wrapper.type}:${wrapper.id}`, wrapper]),
     );
 
+    const hasChecklistMap = new Map<string, boolean>();
+    for (const c of cards) {
+      const has = yield* hasChecklistItems(c.type, c.id);
+      hasChecklistMap.set(`${c.id}:${c.type}`, has);
+    }
+
     return cards.map((card) => {
       const category = categoryMap.get(card.projectCategoryId);
       if (!category) throw new Error("failed to find project category");
@@ -205,6 +213,7 @@ export const projectCategoryCardsForDisplay = selector(
         dailyList,
         dateOfTask,
         lastScheduleTime: dateOfTask,
+        hasChecklist: hasChecklistMap.get(`${card.id}:${card.type}`) ?? false,
       };
     });
   },

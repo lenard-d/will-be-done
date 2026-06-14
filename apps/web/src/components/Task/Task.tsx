@@ -76,7 +76,11 @@ import {
   updateTask,
   updateTemplate,
 } from "@will-be-done/slices/space";
-import { useDispatch, useSelect, useSyncSelector } from "@will-be-done/hyperdb-lib";
+import {
+  useDispatch,
+  useSelect,
+  useSyncSelector,
+} from "@will-be-done/hyperdb-lib";
 import {
   buildFocusKey,
   focusTextareaAtEnd,
@@ -140,6 +144,7 @@ export const PreloadedTaskComp = ({
   cardWrapper,
   project,
   lastScheduleTime,
+  hasCheclistItems,
 
   displayedUnderProjectId,
   alwaysShowProject,
@@ -152,6 +157,7 @@ export const PreloadedTaskComp = ({
   cardWrapper: CardWrapper;
   project: Project;
   lastScheduleTime: Date | undefined;
+  hasCheclistItems: boolean | undefined;
 
   displayedUnderProjectId?: string;
   alwaysShowProject?: boolean;
@@ -235,16 +241,11 @@ export const PreloadedTaskComp = ({
     if (!isFocused) return;
 
     const upModel = upKey
-      ? select(
-          appById(parseColumnKey(upKey).id, parseColumnKey(upKey).type),
-        )
+      ? select(appById(parseColumnKey(upKey).id, parseColumnKey(upKey).type))
       : undefined;
     const downModel = downKey
       ? select(
-          appById(
-            parseColumnKey(downKey).id,
-            parseColumnKey(downKey).type,
-          ),
+          appById(parseColumnKey(downKey).id, parseColumnKey(downKey).type),
         )
       : undefined;
 
@@ -364,9 +365,7 @@ export const PreloadedTaskComp = ({
           ? "top"
           : "bottom";
 
-      dispatch(
-        appHandleDrop(id, type, cardWrapper.id, cardWrapper.type, edge),
-      );
+      dispatch(appHandleDrop(id, type, cardWrapper.id, cardWrapper.type, edge));
 
       setTimeout(() => {
         const el = document.querySelector<HTMLElement>(
@@ -436,13 +435,9 @@ export const PreloadedTaskComp = ({
   const handleScheduleToday = useCallback(() => {
     if (!isTask(card)) return;
 
-    const dailyList = dispatch(
-      createDailyListIfNotPresent(getDMY(date)),
-    );
+    const dailyList = dispatch(createDailyListIfNotPresent(getDMY(date)));
 
-    dispatch(
-      addToDailyList(taskId, dailyList.id, "append"),
-    );
+    dispatch(addToDailyList(taskId, dailyList.id, "append"));
   }, [card, date, dispatch, taskId]);
 
   const handleResetSchedule = useCallback(() => {
@@ -803,9 +798,7 @@ export const PreloadedTaskComp = ({
     if (isTask(card)) {
       dispatch(moveTaskToProject(taskId, projectId));
     } else if (isTaskTemplate(card)) {
-      dispatch(
-        moveTemplateToProject(taskId, projectId),
-      );
+      dispatch(moveTemplateToProject(taskId, projectId));
     }
   };
 
@@ -1189,6 +1182,7 @@ export const PreloadedTaskComp = ({
             </div>
             {(isTask(card) || isTaskTemplate(card)) && (
               <ChecklistItems
+                hasChecklistItems={hasCheclistItems}
                 parentId={card.id}
                 parentType={card.type}
                 visible={isFocused || isEditing}
@@ -1349,8 +1343,7 @@ export const TaskComp = ({
     [cardWrapperId, cardWrapperType],
   );
   const project = useSyncSelector(
-    () =>
-      projectOfCategoryOrDefault(card.projectCategoryId),
+    () => projectOfCategoryOrDefault(card.projectCategoryId),
     [card.projectCategoryId],
   );
   const lastScheduleTime = useSyncSelector(
@@ -1370,6 +1363,7 @@ export const TaskComp = ({
       newTaskParams={newTaskParams}
       displayLastScheduleTime={displayLastScheduleTime}
       centerScheduleDate={centerScheduleDate}
+      hasCheclistItems={undefined}
     />
   );
 };

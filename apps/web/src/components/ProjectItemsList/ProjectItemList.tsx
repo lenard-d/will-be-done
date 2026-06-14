@@ -61,9 +61,7 @@ const ProjectTasksColumn = ({
       setIsHiddenClicked(false);
     }
 
-    const task = dispatch(
-      createProjectCategoryTask(category.id, "prepend"),
-    );
+    const task = dispatch(createProjectCategoryTask(category.id, "prepend"));
 
     useFocusStore.getState().editByKey(buildFocusKey(task.id, task.type));
   };
@@ -230,6 +228,7 @@ const ProjectTasksColumn = ({
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={project.id}
+              hasCheclistItems={displayData.hasChecklist}
               displayLastScheduleTime
             />
           );
@@ -244,6 +243,7 @@ const ProjectTasksColumn = ({
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={project.id}
+              hasCheclistItems={displayData.hasChecklist}
               displayLastScheduleTime
             />
           );
@@ -277,9 +277,7 @@ export const ProjectItemsList = ({
   );
   const exceptTaskIds = useSyncSelector(
     function* () {
-      const dailyTaskIds = yield* dailyListAllTaskIds(
-        exceptDailyListIds ?? [],
-      );
+      const dailyTaskIds = yield* dailyListAllTaskIds(exceptDailyListIds ?? []);
       if (!exceptStash) {
         return dailyTaskIds;
       }

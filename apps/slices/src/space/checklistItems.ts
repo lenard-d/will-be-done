@@ -63,6 +63,17 @@ function isChecklistParentType(
   return modelType === taskParentType || modelType === taskTemplateParentType;
 }
 
+export const hasChecklistItems = selector(function* hasChecklistItem(
+  parentType: ChecklistParentType,
+  paretId: string,
+) {
+  return (
+    (yield* selectFrom(checklistItemsTable, "byParentOrder")
+      .where((q) => q.eq("parentId", paretId).eq("parentType", parentType))
+      .first()) !== undefined
+  );
+});
+
 export const checklistItemById = selector(function* checklistItemById(
   id: string,
 ) {

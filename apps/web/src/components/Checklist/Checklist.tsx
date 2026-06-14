@@ -23,7 +23,11 @@ import {
 import TextareaAutosize from "react-textarea-autosize";
 import clsx from "clsx";
 import { GripVertical, Plus } from "lucide-react";
-import { useDispatch, useSelect, useSyncSelector } from "@will-be-done/hyperdb-lib";
+import {
+  useDispatch,
+  useSelect,
+  useSyncSelector,
+} from "@will-be-done/hyperdb-lib";
 import {
   appCanDrop,
   type ChecklistItem,
@@ -323,9 +327,7 @@ const ChecklistItemComp = ({
                 flushContent();
                 setIsEditing(false);
 
-                const newItem = dispatch(
-                  createItemAfter(item.id),
-                );
+                const newItem = dispatch(createItemAfter(item.id));
                 focusItemInCurrentChecklist(newItem.id);
               } else if (e.key === "Escape") {
                 e.preventDefault();
@@ -345,9 +347,7 @@ const ChecklistItemComp = ({
                 e.preventDefault();
                 e.stopPropagation();
 
-                const [before, after] = select(
-                  checklistItemSiblings(item.id),
-                );
+                const [before, after] = select(checklistItemSiblings(item.id));
                 flushContent();
                 dispatch(deleteItems([item.id]));
 
@@ -403,7 +403,28 @@ const ChecklistItemComp = ({
   );
 };
 
-export const ChecklistItems = ({
+type ChecklistItemsProps = {
+  parentId: string;
+  parentType: ChecklistParentType;
+  hasChecklistItems: boolean | undefined;
+  visible?: boolean;
+  focusableItemKey?: ChecklistFocusKey;
+  onItemsRemoved?: () => void;
+  editTrigger?: ChecklistEditTrigger;
+  showAddItem?: boolean;
+  className?: string;
+};
+
+type ChecklistItemsBaseProps = Omit<
+  ChecklistItemsProps,
+  "hasChecklistItems" | "visible"
+>;
+
+type ChecklistItemsViewProps = ChecklistItemsBaseProps & {
+  items: ChecklistItem[];
+};
+
+const ChecklistItemsView = ({
   parentId,
   parentType,
   focusableItemKey,
@@ -411,24 +432,12 @@ export const ChecklistItems = ({
   editTrigger = "doubleClick",
   showAddItem = false,
   className,
-}: {
-  parentId: string;
-  parentType: ChecklistParentType;
-  visible?: boolean;
-  focusableItemKey?: ChecklistFocusKey;
-  onItemsRemoved?: () => void;
-  editTrigger?: ChecklistEditTrigger;
-  showAddItem?: boolean;
-  className?: string;
-}) => {
+  items,
+}: ChecklistItemsViewProps) => {
   const dispatch = useDispatch();
   const select = useSelect();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
-  const items = useSyncSelector(
-    () => checklistItemChildren(parentId, parentType),
-    [parentId, parentType],
-  );
   const isParentDropTargetEnabled = items.length === 0;
   const activeClosestEdge = isParentDropTargetEnabled ? closestEdge : null;
 
@@ -526,4 +535,28 @@ export const ChecklistItems = ({
       )}
     </div>
   );
+};
+
+const ChecklistItemsWithSelector = (props: ChecklistItemsBaseProps) => {
+  const { parentId, parentType } = props;
+  const items = useSyncSelector(
+    () => checklistItemChildren(parentId, parentType),
+    [parentId, parentType],
+  );
+
+  return <ChecklistItemsView {...props} items={items} />;
+};
+
+export const ChecklistItems = ({
+  hasChecklistItems,
+  visible: _visible,
+  ...props
+}: ChecklistItemsProps) => {
+  if (hasChecklistItems === false) {
+    if (!props.showAddItem) return null;
+
+    return <ChecklistItemsView {...props} items={[]} />;
+  }
+
+  return <ChecklistItemsWithSelector {...props} />;
 };
