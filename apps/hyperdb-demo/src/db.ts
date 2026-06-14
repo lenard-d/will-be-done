@@ -90,58 +90,66 @@ const EMPTY_TASK_STATS: TaskStats = {
   done: 0,
 };
 
-export const getDashboardSnapshot = selector(function* getDashboardSnapshot(
-  taskLimit = 10,
-  projectLimit = 10,
-  selectedProjectId: string | null = null,
-) {
-  const projects = yield* selectFrom(projectsTable, "byCreatedAt")
-    .where((q) => q)
-    .order("asc")
-    .limit(projectLimit);
-  const selectedProject = selectedProjectId
-    ? yield* selectFrom(projectsTable, "byId")
-        .where((q) => q.eq("id", selectedProjectId))
-        .firstOr(null)
-    : (projects[0] ?? null);
-  const visibleProjectTaskStats =
-    projects.length > 0
-      ? yield* selectFrom(projectTaskStatsTable, "byId").where((q) =>
-          projects.map((project) => q.eq("id", project.id)),
-        )
+export const getDashboardSnapshot = selector({
+  name: "getDashboardSnapshot",
+  args: {
+    taskLimit: v.number(),
+    projectLimit: v.number(),
+    selectedProjectId: v.union(v.string(), v.null()),
+  },
+  handler: function* getDashboardSnapshot({
+    taskLimit,
+    projectLimit,
+    selectedProjectId,
+  }) {
+    const projects = yield* selectFrom(projectsTable, "byCreatedAt")
+      .where((q) => q)
+      .order("asc")
+      .limit(projectLimit);
+    const selectedProject = selectedProjectId
+      ? yield* selectFrom(projectsTable, "byId")
+          .where((q) => q.eq("id", selectedProjectId))
+          .firstOr(null)
+      : (projects[0] ?? null);
+    const visibleProjectTaskStats =
+      projects.length > 0
+        ? yield* selectFrom(projectTaskStatsTable, "byId").where((q) =>
+            projects.map((project) => q.eq("id", project.id)),
+          )
+        : [];
+    const selectedProjectTaskStats = selectedProject
+      ? yield* selectFrom(projectTaskStatsTable, "byId")
+          .where((q) => q.eq("id", selectedProject.id))
+          .firstOr(null)
+      : null;
+    const selectedTasks = selectedProject
+      ? yield* selectFrom(tasksTable, "byProjectPosition")
+          .where((q) => q.eq("projectId", selectedProject.id))
+          .order("asc")
+          .limit(taskLimit)
       : [];
-  const selectedProjectTaskStats = selectedProject
-    ? yield* selectFrom(projectTaskStatsTable, "byId")
-        .where((q) => q.eq("id", selectedProject.id))
-        .firstOr(null)
-    : null;
-  const selectedTasks = selectedProject
-    ? yield* selectFrom(tasksTable, "byProjectPosition")
-        .where((q) => q.eq("projectId", selectedProject.id))
-        .order("asc")
-        .limit(taskLimit)
-    : [];
-  const stats = yield* selectFrom(taskStatsTable, "byId")
-    .where((q) => q.eq("id", TASK_STATS_ID))
-    .firstOr(EMPTY_TASK_STATS);
+    const stats = yield* selectFrom(taskStatsTable, "byId")
+      .where((q) => q.eq("id", TASK_STATS_ID))
+      .firstOr(EMPTY_TASK_STATS);
 
-  return {
-    projects,
-    selectedProject,
-    selectedTasks,
-    selectedTaskCount: selectedProjectTaskStats?.total ?? 0,
-    projectTaskCountsById: Object.fromEntries(
-      visibleProjectTaskStats.map((stats) => [stats.id, stats.total]),
-    ),
-    projectNamesById: Object.fromEntries(
-      projects.map((project) => [project.id, project.name]),
-    ),
-    totalProjects: stats.projects,
-    totalTasks: stats.total,
-    todoTasks: stats.todo,
-    doingTasks: stats.doing,
-    doneTasks: stats.done,
-  } satisfies DashboardSnapshot;
+    return {
+      projects,
+      selectedProject,
+      selectedTasks,
+      selectedTaskCount: selectedProjectTaskStats?.total ?? 0,
+      projectTaskCountsById: Object.fromEntries(
+        visibleProjectTaskStats.map((stats) => [stats.id, stats.total]),
+      ),
+      projectNamesById: Object.fromEntries(
+        projects.map((project) => [project.id, project.name]),
+      ),
+      totalProjects: stats.projects,
+      totalTasks: stats.total,
+      todoTasks: stats.todo,
+      doingTasks: stats.doing,
+      doneTasks: stats.done,
+    } satisfies DashboardSnapshot;
+  },
 });
 
 function applyTaskStatusDelta(
@@ -282,47 +290,65 @@ export function installTaskStatsHooks(db: SubscribableDB) {
   });
 }
 
-export const generateWorkload = action(function* generateWorkload(
-  projectCount: number,
-  tasksPerProject: number,
-) {
-  const { projects, tasks, result } = createWorkloadRows(
-    projectCount,
-    tasksPerProject,
-  );
+export const generateWorkload = action({
+  name: "generateWorkload",
+  args: {
+    projectCount: v.number(),
+    tasksPerProject: v.number(),
+  },
+  handler: function* generateWorkload({ projectCount, tasksPerProject }) {
+    const { projects, tasks, result } = createWorkloadRows(
+      projectCount,
+      tasksPerProject,
+    );
 
-  yield* insert(projectsTable, projects);
-  yield* insert(tasksTable, tasks);
-  yield* getDashboardSnapshot(10, 10);
+    yield* insert(projectsTable, projects);
+    yield* insert(tasksTable, tasks);
+    yield* getDashboardSnapshot({
+      taskLimit: 10,
+      projectLimit: 10,
+      selectedProjectId: null,
+    });
 
-  return result;
+    return result;
+  },
 });
 
-export const clearWorkload = action(function* clearWorkload() {
-  const projects = yield* selectFrom(projectsTable, "byCreatedAt").where(
-    (q) => q,
-  );
-  const tasks = yield* selectFrom(tasksTable, "byCreatedAt").where((q) => q);
+export const clearWorkload = action({
+  name: "clearWorkload",
+  args: {},
+  handler: function* clearWorkload() {
+    const projects = yield* selectFrom(projectsTable, "byCreatedAt").where(
+      (q) => q,
+    );
+    const tasks = yield* selectFrom(tasksTable, "byCreatedAt").where((q) => q);
 
-  yield* deleteRows(
-    tasksTable,
-    tasks.map((task) => task.id),
-  );
-  yield* deleteRows(
-    projectsTable,
-    projects.map((project) => project.id),
-  );
+    yield* deleteRows(
+      tasksTable,
+      tasks.map((task) => task.id),
+    );
+    yield* deleteRows(
+      projectsTable,
+      projects.map((project) => project.id),
+    );
 
-  return {
-    projectsDeleted: projects.length,
-    tasksDeleted: tasks.length,
-  };
+    return {
+      projectsDeleted: projects.length,
+      tasksDeleted: tasks.length,
+    };
+  },
 });
 
-export const toggleTaskDone = action(function* toggleTaskDone(task: Task) {
-  const status: Task["status"] = task.status === "done" ? "todo" : "done";
+export const toggleTaskDone = action({
+  name: "toggleTaskDone",
+  args: {
+    task: tasksTable.v(),
+  },
+  handler: function* toggleTaskDone({ task }: { task: Task }) {
+    const status: Task["status"] = task.status === "done" ? "todo" : "done";
 
-  yield* upsert(tasksTable, [{ ...task, status }]);
+    yield* upsert(tasksTable, [{ ...task, status }]);
 
-  return status;
+    return status;
+  },
 });
