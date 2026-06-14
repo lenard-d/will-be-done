@@ -25,6 +25,7 @@ export default defineConfig(
     },
     rules: {
       ...eslintPluginReactHooks.configs.recommended.rules,
+      'react-hooks/set-state-in-effect': 'off',
       ...eslintPluginReactRefresh.configs.vite.rules
     }
   },
