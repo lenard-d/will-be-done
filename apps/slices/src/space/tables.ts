@@ -4,8 +4,8 @@ import {
   type Infer,
   v,
 } from "@will-be-done/hyperdb-lib";
-import { isObjectType } from "@/utils";
 import { registerSpaceSyncableTable } from "./syncMap";
+import { isObjectType } from "..";
 
 export const taskType = "task";
 export const tasksTable = defineTable("tasks", {

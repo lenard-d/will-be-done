@@ -5,7 +5,7 @@ import {
   execAsync,
 } from "@will-be-done/hyperdb-lib";
 import {
-  changesSlice,
+  insertChangeFromInsert,
   changesTable,
   syncStateTable,
   ChangesetArrayType,
@@ -87,7 +87,7 @@ export async function initPopupStore(spaceId: string) {
           const task = yield* createProjectCategoryTask({ categoryId: inboxCategory.id, position: "prepend", taskAttrs: { title } });
 
           // Create change record
-          const change = yield* changesSlice.insertChangeFromInsert({ tableDef: tasksTable, row: task, clientId: clientId, nextClock: nextClock() });
+          const change = yield* insertChangeFromInsert({ tableDef: tasksTable, row: task, clientId: clientId, nextClock: nextClock() });
 
           return { task, change };
         })(),

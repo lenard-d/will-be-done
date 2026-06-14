@@ -120,7 +120,7 @@ export interface Backup {
   checklistItems?: ChecklistItemBackup[];
 }
 
-const backupValidator = v.object({
+const backupSchema = v.object({
   tasks: v.array(
     v.object({
       id: v.string(),
@@ -207,7 +207,7 @@ const backupValidator = v.object({
 
 const getNewModels = action({
   name: "getNewModels",
-  args: { backup: backupValidator },
+  args: { backup: backupSchema },
   handler: function* getNewModels({ backup }) {
     const models: AnyModel[] = [];
 
@@ -421,7 +421,7 @@ const getNewModels = action({
 
 export const loadSpaceBackup = selector({
   name: "loadSpaceBackup",
-  args: { backup: backupValidator },
+  args: { backup: backupSchema },
   handler: function* loadSpaceBackup({ backup }) {
     for (const table of registeredSpaceSyncableTables) {
       const allIds = (yield* selectFrom(table, "byId")).map((r) => r.id);

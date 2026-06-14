@@ -3,23 +3,16 @@ import {
   selectFrom,
   action,
   upsert,
-  defineTable,
-  type ExtractSchema,
   v,
 } from "@will-be-done/hyperdb-lib";
+import { syncStateTable, syncStateId, type SyncState } from "./tables";
 
-const syncStateId = "deae72d6-ffca-4d20-9b3f-87e71acce8b6";
-export const syncStateTable = defineTable("syncState", {
-  id: v.string(),
-  lastSentClock: v.string(),
-  lastServerAppliedClock: v.string(),
-});
-export type SyncState = ExtractSchema<typeof syncStateTable>;
+export { syncStateTable, type SyncState } from "./tables";
 
-const getOrDefault = selector({
-  name: "getOrDefault",
+export const getSyncStateOrDefault = selector({
+  name: "getSyncStateOrDefault",
   args: {},
-  handler: function* getOrDefault() {
+  handler: function* getSyncStateOrDefault() {
     const currentSyncState = (yield* selectFrom(syncStateTable, "byId").where(
       (q) => q.eq("id", syncStateId),
     ))[0];
@@ -32,7 +25,7 @@ const getOrDefault = selector({
   },
 });
 
-const updateSyncState = action({
+export const updateSyncState = action({
   name: "updateSyncState",
   args: {
     updates: v.object({
@@ -42,7 +35,7 @@ const updateSyncState = action({
     }),
   },
   handler: function* updateSyncState({ updates }) {
-    const currentSyncState = yield* getOrDefault({});
+    const currentSyncState = yield* getSyncStateOrDefault({});
     return yield* upsert(syncStateTable, [
       {
         ...currentSyncState,
@@ -51,8 +44,3 @@ const updateSyncState = action({
     ]);
   },
 });
-
-export const syncSlice = {
-  getOrDefault,
-  update: updateSyncState,
-};

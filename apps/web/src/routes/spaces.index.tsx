@@ -16,7 +16,7 @@ import {
   useDispatch,
   useSyncSelector,
 } from "@will-be-done/hyperdb-lib";
-import { spaceSlice } from "@will-be-done/slices/user";
+import { listSpaces, createSpace, updateSpace, deleteSpace } from "@will-be-done/slices/user";
 import { userDBConfig } from "@/store/configs";
 
 export const Route = createFileRoute("/spaces/")({
@@ -102,7 +102,7 @@ function Logo({ size = 32 }: { size?: number }) {
 function SpacePageComponent() {
   const navigate = useNavigate();
 
-  const spaces = useSyncSelector(() => spaceSlice.listSpaces({}), []);
+  const spaces = useSyncSelector(() => listSpaces({}), []);
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -120,7 +120,7 @@ function SpacePageComponent() {
     const name = await promptDialog("Enter space name:");
     if (!name?.trim()) return;
 
-    const space = dispatch(spaceSlice.createSpace({ name: name }));
+    const space = dispatch(createSpace({ name: name }));
     authUtils.setSpaceNames([{ spaceId: space.id, name: space.name }]);
   };
 
@@ -134,7 +134,7 @@ function SpacePageComponent() {
 
     const name = await promptDialog("Enter new space name:", currentName);
     if (name?.trim() && name !== currentName) {
-      dispatch(spaceSlice.updateSpace({ id: spaceId, name: name }));
+      dispatch(updateSpace({ id: spaceId, name: name }));
       authUtils.setSpaceNames([{ spaceId, name }]);
     }
   };
@@ -153,7 +153,7 @@ function SpacePageComponent() {
 
     if (!ok) return;
 
-    dispatch(spaceSlice.deleteSpace({ id: spaceId }));
+    dispatch(deleteSpace({ id: spaceId }));
   };
 
   return (

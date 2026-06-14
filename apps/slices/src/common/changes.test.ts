@@ -14,7 +14,8 @@ import {
   v,
 } from "@will-be-done/hyperdb-lib";
 import {
-  changesSlice,
+  mergeChanges,
+  getChangesetAfter,
   changesTable,
   type Change,
   type ChangesetArrayType,
@@ -208,7 +209,7 @@ describe("first-creator-wins merge", () => {
     // Merge client2's creation into client1's DB
     syncDispatch(
       db,
-      changesSlice.mergeChanges({
+      mergeChanges({
         input: incoming,
         nextClock: makeClockFn("0000000030")(),
         clientId: "local",
@@ -248,7 +249,7 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges({
+      mergeChanges({
         input: incoming,
         nextClock: makeClockFn("0000000030")(),
         clientId: "local",
@@ -315,7 +316,7 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges({
+      mergeChanges({
         input: incoming,
         nextClock: makeClockFn("0000000040")(),
         clientId: "local",
@@ -376,7 +377,7 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges({
+      mergeChanges({
         input: incoming,
         nextClock: makeClockFn("0000000030")(),
         clientId: "local",
@@ -406,7 +407,7 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges({
+      mergeChanges({
         input: incoming,
         nextClock: makeClockFn("0000000020")(),
         clientId: "local",
@@ -474,7 +475,7 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges({
+      mergeChanges({
         input: incoming,
         nextClock: makeClockFn("0000000030")(),
         clientId: "local",
@@ -531,7 +532,7 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges({
+      mergeChanges({
         input: incoming,
         nextClock: makeClockFn("0000000020")(),
         clientId: "local",
@@ -546,7 +547,7 @@ describe("first-creator-wins merge", () => {
     const { changesets } = runSelector(
       db,
       function* () {
-        return yield* changesSlice.getChangesetAfter({
+        return yield* getChangesetAfter({
           after: "",
           registeredSyncableTableNameMap: registeredTables,
         });

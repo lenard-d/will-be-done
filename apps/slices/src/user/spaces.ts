@@ -1,8 +1,6 @@
 import {
   action,
   deleteRows,
-  defineTable,
-  type ExtractSchema,
   insert,
   selectFrom,
   selector,
@@ -11,19 +9,11 @@ import {
 } from "@will-be-done/hyperdb-lib";
 import { uuidv7 } from "uuidv7";
 import { registerUserSyncableTable } from "./syncMap";
+import { spacesTable, spacesTableType, type Space } from "./tables";
 
-export const spacesTableType = "space";
+export { spacesTable, spacesTableType, type Space } from "./tables";
 
-export const spacesTable = defineTable("spaces", {
-  id: v.string(),
-  type: v.literal(spacesTableType),
-  name: v.string(),
-  createdAt: v.string(),
-  updatedAt: v.string(),
-}).index("byIds", ["id"]);
-export type Space = ExtractSchema<typeof spacesTable>;
-
-const getSpaceById = selector({
+export const getSpaceById = selector({
   name: "getSpaceById",
   args: { id: v.string() },
   handler: function* getSpaceById({ id }) {
@@ -34,7 +24,7 @@ const getSpaceById = selector({
   },
 });
 
-const listSpaces = selector({
+export const listSpaces = selector({
   name: "listSpaces",
   args: {},
   handler: function* listSpaces() {
@@ -43,7 +33,7 @@ const listSpaces = selector({
   },
 });
 
-const createSpace = action({
+export const createSpace = action({
   name: "createSpace",
   args: { name: v.string() },
   handler: function* createSpace({ name }) {
@@ -63,7 +53,7 @@ const createSpace = action({
   },
 });
 
-const updateSpace = action({
+export const updateSpace = action({
   name: "updateSpace",
   args: {
     id: v.string(),
@@ -87,7 +77,7 @@ const updateSpace = action({
   },
 });
 
-const deleteSpace = action({
+export const deleteSpace = action({
   name: "deleteSpace",
   args: { id: v.string() },
   handler: function* deleteSpace({ id }) {
@@ -101,13 +91,5 @@ const deleteSpace = action({
     return true;
   },
 });
-
-export const spaceSlice = {
-  getSpaceById,
-  listSpaces,
-  createSpace,
-  updateSpace,
-  deleteSpace,
-};
 
 registerUserSyncableTable(spacesTable, spacesTableType);

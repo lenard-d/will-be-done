@@ -1,8 +1,6 @@
 import {
   action,
   deleteRows,
-  defineTable,
-  type ExtractSchema,
   insert,
   Row,
   selectFrom,
@@ -16,6 +14,9 @@ import { isEqual } from "es-toolkit";
 import { uniq } from "es-toolkit/array";
 import { z } from "zod";
 import { groupBy } from "es-toolkit";
+import { changesTable, type Change } from "./tables";
+
+export { changesTable, type Change } from "./tables";
 
 export type PrimitiveRow = Record<string, string | number | boolean | null> & {
   id: string;
@@ -65,28 +66,13 @@ const chunkArray = <T>(items: T[], chunkSize: number): T[][] => {
   return chunks;
 };
 
-export const changesTable = defineTable("changes", {
-  id: v.string(),
-  entityId: v.string(),
-  tableName: v.string(),
-  createdAt: v.string(),
-  updatedAt: v.string(),
-  deletedAt: v.union(v.string(), v.null()),
-  clientId: v.string(),
-  changes: v.record(v.string(), v.string()),
-})
-  .index("byEntityId", ["entityId"], { type: "hash" })
-  .index("byEntityIdAndTableName", ["entityId", "tableName"])
-  .index("byUpdatedAt", ["updatedAt"]);
-export type Change = ExtractSchema<typeof changesTable>;
-
-const byIdAndName = selector({
-  name: "byIdAndName",
+const getChangeByEntityAndTableName = selector({
+  name: "getChangeByEntityAndTableName",
   args: {
     entityId: v.string(),
     tableName: v.string(),
   },
-  handler: function* byIdAndName({ entityId, tableName }) {
+  handler: function* getChangeByEntityAndTableName({ entityId, tableName }) {
     const changes = yield* selectFrom(changesTable, "byEntityIdAndTableName")
       .where((q) => q.eq("entityId", entityId).eq("tableName", tableName))
       .limit(1);
@@ -105,7 +91,7 @@ const allChangesAfter = selector({
   },
 });
 
-const getChangesetAfter = selector({
+export const getChangesetAfter = selector({
   name: "getChangesetAfter",
   args: {
     after: v.string(),
@@ -187,7 +173,7 @@ const getChangesetAfter = selector({
   },
 });
 
-const insertChangeFromInsert = action({
+export const insertChangeFromInsert = action({
   name: "insertChangeFromInsert",
   args: {
     tableDef: tableDefinitionArgSchema,
@@ -225,7 +211,7 @@ const insertChangeFromInsert = action({
   },
 });
 
-const insertChangeFromUpdate = action({
+export const insertChangeFromUpdate = action({
   name: "insertChangeFromUpdate",
   args: {
     tableDef: tableDefinitionArgSchema,
@@ -247,7 +233,7 @@ const insertChangeFromUpdate = action({
 
     const updatedAt = nextClock;
     const change: Change =
-      (yield* byIdAndName({
+      (yield* getChangeByEntityAndTableName({
         entityId: oldRow.id,
         tableName: tableDef.tableName,
       })) ||
@@ -285,7 +271,7 @@ const insertChangeFromUpdate = action({
   },
 });
 
-const insertChangeFromDelete = action({
+export const insertChangeFromDelete = action({
   name: "insertChangeFromDelete",
   args: {
     tableDef: tableDefinitionArgSchema,
@@ -301,7 +287,7 @@ const insertChangeFromDelete = action({
   }) {
     const deletedAt = nextClock;
 
-    const change = (yield* byIdAndName({
+    const change = (yield* getChangeByEntityAndTableName({
       entityId: row.id,
       tableName: tableDef.tableName,
     })) || {
@@ -327,7 +313,7 @@ const insertChangeFromDelete = action({
   },
 });
 
-const mergeChangesAction = action({
+export const mergeChanges = action({
   name: "mergeChangesAction",
   args: {
     input: changesetArray,
@@ -338,7 +324,7 @@ const mergeChangesAction = action({
       tableDefinitionArgSchema,
     ),
   },
-  handler: function* mergeChangesAction({
+  handler: function* mergeChanges({
     input,
     nextClock,
     clientId,
@@ -448,7 +434,7 @@ const mergeChangesAction = action({
           continue; // Skip normal LWW merge
         }
 
-        const { mergedChanges, mergedRow } = mergeChanges(
+        const { mergedChanges, mergedRow } = lwwMerge(
           currentChanges?.changes ?? {},
           incomingChange.changes,
           currentRow ?? { id: incomingChange.entityId },
@@ -505,17 +491,7 @@ const mergeChangesAction = action({
   },
 });
 
-export const changesSlice = {
-  byIdAndName,
-  allChangesAfter,
-  getChangesetAfter,
-  insertChangeFromInsert,
-  insertChangeFromUpdate,
-  insertChangeFromDelete,
-  mergeChanges: mergeChangesAction,
-};
-
-const mergeChanges = (
+const lwwMerge = (
   aChange: Record<string, string>,
   bChange: Record<string, string>,
   aRow: Row,
@@ -580,10 +556,6 @@ const row = z.intersection(
   }),
 );
 
-// const row = z.union([
-//   z.record(z.intersection([z.string(), z.number(), z.boolean(), z.null()])),
-//   z.object({ id: z.string() }),
-// ]);
 export const Changeset = z.object({
   tableName: z.string(),
   data: z.array(

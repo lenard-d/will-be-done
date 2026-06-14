@@ -10,7 +10,9 @@ import {
 import path from "path";
 import { getEnvConfig } from "../env";
 import {
-  changesSlice,
+  insertChangeFromInsert,
+  insertChangeFromUpdate,
+  insertChangeFromDelete,
   changesTable,
   type PrimitiveRow,
 } from "@will-be-done/slices/common";
@@ -145,7 +147,7 @@ export const getHyperDB = (dbConfig: DBConfig) => {
     for (const op of ops) {
       syncDispatch(
         db,
-        changesSlice.insertChangeFromInsert({ tableDef: op.table, row: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
+        insertChangeFromInsert({ tableDef: op.table, row: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
       );
     }
 
@@ -162,14 +164,14 @@ export const getHyperDB = (dbConfig: DBConfig) => {
       if (!op.oldValue) {
         syncDispatch(
           db,
-          changesSlice.insertChangeFromInsert({ tableDef: op.table, row: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
+          insertChangeFromInsert({ tableDef: op.table, row: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
         );
         continue;
       }
 
       syncDispatch(
         db,
-        changesSlice.insertChangeFromUpdate({ tableDef: op.table, oldRow: op.oldValue as PrimitiveRow, newRow: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
+        insertChangeFromUpdate({ tableDef: op.table, oldRow: op.oldValue as PrimitiveRow, newRow: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
       );
     }
 
@@ -185,7 +187,7 @@ export const getHyperDB = (dbConfig: DBConfig) => {
     for (const op of ops) {
       syncDispatch(
         db,
-        changesSlice.insertChangeFromDelete({ tableDef: op.table, row: op.oldValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
+        insertChangeFromDelete({ tableDef: op.table, row: op.oldValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
       );
     }
 

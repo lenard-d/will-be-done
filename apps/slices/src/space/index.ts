@@ -2,6 +2,7 @@
 export * from "./utils";
 export * from "./maps";
 export * from "./syncMap";
+export * from "./tables";
 
 // Slice selectors and actions
 export * from "./app";

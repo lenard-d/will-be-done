@@ -7,7 +7,7 @@ import {
 } from "./trpc";
 import { syncDispatch, select } from "@will-be-done/hyperdb-lib";
 import * as dotenv from "dotenv";
-import { ChangesetArray, changesSlice } from "@will-be-done/slices/common";
+import { ChangesetArray, getChangesetAfter, mergeChanges } from "@will-be-done/slices/common";
 import fastify from "fastify";
 import staticPlugin from "@fastify/static";
 import multipart from "@fastify/multipart";
@@ -19,9 +19,9 @@ import {
   type FastifyTRPCPluginOptions,
 } from "@trpc/server/adapters/fastify";
 import { getHyperDB, getMainHyperDB } from "./db/db";
-import { authSlice } from "./slices/authSlice";
+import { revokeToken, register, getUserByEmail, generateToken } from "./slices/authSlice";
 import { TRPCError } from "@trpc/server";
-import { dbSlice } from "./slices/dbSlice";
+import { getDbByIdOrCreate } from "./slices/dbSlice";
 import { assertUnreachable } from "./utils";
 import { dbConfigByType } from "./db/configs";
 import { subscriptionManager, NotificationData } from "./subscriptionManager";
@@ -53,7 +53,7 @@ const checkDBAccessOrCreateDB = (
   } else if (dbType === "space") {
     const db = syncDispatch(
       mainDB,
-      dbSlice.getByIdOrCreate(dbId, dbType, authedUserId),
+      getDbByIdOrCreate({ id: dbId, type: dbType, userId: authedUserId }),
     );
 
     if (db.userId !== authedUserId) {
@@ -92,7 +92,7 @@ const appRouter = router({
 
       return select(
         db,
-        changesSlice.getChangesetAfter({ after: opts.input.lastServerUpdatedAt, registeredSyncableTableNameMap: config.tableNameMap }),
+        getChangesetAfter({ after: opts.input.lastServerUpdatedAt, registeredSyncableTableNameMap: config.tableNameMap }),
       );
     }),
   handleChanges: protectedProcedure
@@ -120,7 +120,7 @@ const appRouter = router({
 
       syncDispatch(
         db.withTraits({ type: "skip-sync" }),
-        changesSlice.mergeChanges({ input: opts.input.changeset, nextClock: nextClock(), clientId: clientId, registeredSyncableTableNameMap: config.tableNameMap }),
+        mergeChanges({ input: opts.input.changeset, nextClock: nextClock(), clientId: clientId, registeredSyncableTableNameMap: config.tableNameMap }),
       );
 
       // Notify all subscribed clients that changes are available
@@ -186,7 +186,7 @@ const appRouter = router({
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
 
-      syncDispatch(mainDB, authSlice.revokeToken(opts.input.tokenId));
+      syncDispatch(mainDB, revokeToken({ tokenId: opts.input.tokenId }));
       return { success: true };
     }),
 
@@ -232,7 +232,7 @@ const appRouter = router({
       const hashedPassword = await Bun.password.hash(password);
       const result = syncDispatch(
         mainDB,
-        authSlice.register(email, hashedPassword),
+        register({ email, hashedPassword }),
       );
       return result;
     }),
@@ -252,7 +252,7 @@ const appRouter = router({
       const { email, password } = opts.input;
 
       // Get user to verify password
-      const user = syncDispatch(mainDB, authSlice.getUserByEmail(email));
+      const user = syncDispatch(mainDB, getUserByEmail({ email }));
       if (!user) {
         throw new Error("Invalid credentials");
       }
@@ -264,7 +264,7 @@ const appRouter = router({
       }
 
       // Generate token for authenticated user
-      const result = syncDispatch(mainDB, authSlice.generateToken(user.id));
+      const result = syncDispatch(mainDB, generateToken({ userId: user.id }));
 
       return result;
     }),
