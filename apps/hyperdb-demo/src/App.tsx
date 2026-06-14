@@ -39,19 +39,15 @@ import "./App.css";
 function HyperdbBenchmark() {
   const dispatch = useHyperdbDispatch();
   const benchmarkState = useBenchmarkState();
-  const dashboard = useSyncSelector(
-    () =>
-      getDashboardSnapshot(
-        benchmarkState.taskLimit,
-        benchmarkState.projectLimit,
-        benchmarkState.selectedProjectId,
-      ),
-    [
-      benchmarkState.taskLimit,
-      benchmarkState.projectLimit,
-      benchmarkState.selectedProjectId,
-    ],
-  );
+  const dashboard = useSyncSelector({
+    selector: getDashboardSnapshot,
+    args: {
+      taskLimit: benchmarkState.taskLimit,
+      projectLimit: benchmarkState.projectLimit,
+      selectedProjectId: benchmarkState.selectedProjectId,
+    },
+    debugKey: "getDashboardSnapshot",
+  });
 
   return (
     <>
@@ -60,11 +56,11 @@ function HyperdbBenchmark() {
         benchmarkState={benchmarkState}
         dashboard={dashboard}
         generateWorkload={(projectCount, tasksPerProject) =>
-          dispatch(generateHyperdbWorkload(projectCount, tasksPerProject))
+          dispatch(generateHyperdbWorkload({ projectCount, tasksPerProject }))
         }
-        clearWorkload={() => dispatch(clearHyperdbWorkload())}
+        clearWorkload={() => dispatch(clearHyperdbWorkload({}))}
         toggleTaskDone={(task: Task) => {
-          dispatch(toggleHyperdbTaskDone(task));
+          dispatch(toggleHyperdbTaskDone({ task }));
         }}
       />
       <HyperDBDevtools position="bottom" buttonPosition="bottom-right" />
