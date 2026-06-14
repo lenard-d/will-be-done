@@ -8,12 +8,11 @@ import {
 } from "@will-be-done/hyperdb-lib";
 import { dbIdTrait } from "../traits";
 import {
-  type ChecklistItem,
   checklistItemChildren,
-  checklistItemsTable,
   createItem as createChecklistItem,
   toggleChecklistItemState,
 } from "./checklistItems";
+import { ChecklistItem, checklistItemsTable } from "./tables";
 
 function createDB() {
   const driver = new BptreeInmemDriver();
@@ -44,11 +43,9 @@ function childIds(db: DB) {
     db,
     function* () {
       return (yield* checklistItemChildren({
-  parentId: "task-1",
-  parentType: "task",
-})).map(
-        (item) => item.id,
-      );
+        parentId: "task-1",
+        parentType: "task",
+      })).map((item) => item.id);
     },
     [],
   );

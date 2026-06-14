@@ -18,20 +18,26 @@ import {
   dailyProjectionById,
 } from "./dailyListsProjections";
 import { inboxProjectId as getInboxProjectId } from "./projects";
-import { type Task, taskType } from "./cardsTasks";
-import { type TaskTemplate, taskTemplateType } from "./cardsTaskTemplates";
-import { dailyListType, type DailyList } from "./dailyLists";
-import { projectType, type Project } from "./projects";
-import { AnyModel, appTypeTablesMap } from "./maps";
+import { appTypeTablesMap } from "./maps";
 import { registeredSpaceSyncableTables } from "./syncMap";
-import { ProjectCategory, projectCategoryType } from "./projectsCategories";
-import { projectionType, TaskProjection } from "./dailyListsProjections";
 import {
+  AnyModel,
   ChecklistItem,
-  ChecklistItemState,
-  ChecklistParentType,
   checklistItemType,
-} from "./checklistItems";
+  ChecklistParentType,
+  DailyList,
+  dailyListType,
+  Project,
+  ProjectCategory,
+  projectCategoryType,
+  projectionType,
+  projectType,
+  Task,
+  TaskProjection,
+  TaskTemplate,
+  taskTemplateType,
+  taskType,
+} from "./tables";
 
 // TODO: use type from  vackupValidator
 interface CategoryBackup {
@@ -98,7 +104,7 @@ interface ChecklistItemBackup {
   parentId: string;
   parentType: ChecklistParentType;
   orderToken: string;
-  state: ChecklistItemState;
+  state: "todo" | "done";
   content: string;
   createdAt: number;
   checkedAt: number | null;
@@ -418,7 +424,7 @@ export const loadSpaceBackup = selector({
   args: { backup: backupValidator },
   handler: function* loadSpaceBackup({ backup }) {
     for (const table of registeredSpaceSyncableTables) {
-      const allIds = (yield* selectFrom(table, "byIds")).map((r) => r.id);
+      const allIds = (yield* selectFrom(table, "byId")).map((r) => r.id);
 
       yield* deleteRows(table, allIds);
     }

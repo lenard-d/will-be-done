@@ -1,10 +1,11 @@
-import { AnyTable } from "./maps";
+import { AnyTable } from "./tables";
 
 export const registeredSpaceSyncableModelTableMap: Record<string, AnyTable> =
   {};
 export const registeredSpaceSyncableTableNameMap: Record<string, AnyTable> = {};
 export const registeredSpaceSyncableTables: AnyTable[] = [];
 
+// TODO: use traits for schemas
 export const registerSpaceSyncableTable = (
   table: AnyTable,
   modelType: string,

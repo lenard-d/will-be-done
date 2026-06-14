@@ -1,9 +1,7 @@
-import { isObjectType } from "../utils";
 import { shouldNeverHappen } from "../utils";
 import {
   action,
   deleteRows,
-  type ExtractSchema,
   insert,
   selectFrom,
   selector,
@@ -22,24 +20,18 @@ import {
 import { deleteDailyProjections } from "./dailyListsProjections";
 import { firstProjectCategoryChild } from "./projectsCategories";
 import { projectCategoryCardSiblings } from "./projectsCategoriesCards";
-import { updateTemplate, isTaskTemplate } from "./cardsTaskTemplates";
-import { registerSpaceSyncableTable } from "./syncMap";
+import { updateTemplate } from "./cardsTaskTemplates";
 import { registerModelSlice } from "./maps";
-import { isTaskProjection } from "./dailyListsProjections";
 import {
   taskType,
   tasksTable,
   taskTemplatesTable,
   possibleModelType,
+  Task,
+  isTask,
+  isTaskProjection,
+  isTaskTemplate,
 } from "./tables";
-
-export { taskType, tasksTable };
-
-export type TaskNature = "red" | "green" | "unknown";
-
-export type Task = ExtractSchema<typeof tasksTable>;
-
-export const isTask = isObjectType<Task>(taskType);
 
 export const defaultTask: Task = {
   type: taskType,
@@ -54,8 +46,6 @@ export const defaultTask: Task = {
   templateId: null,
   templateDate: null,
 };
-
-registerSpaceSyncableTable(tasksTable, taskType);
 
 // Selectors and actions
 export const taskById = selector({
@@ -124,23 +114,7 @@ export const updateTask = action({
   name: "updateTask",
   args: {
     id: v.string(),
-    // TODO: use v.partial(tasksTable.v()),
-    task: v.object({
-      type: v.optional(v.literal(taskType)),
-      id: v.optional(v.string()),
-      title: v.optional(v.string()),
-      content: v.optional(v.string()),
-      state: v.optional(v.union(v.literal("todo"), v.literal("done"))),
-      projectCategoryId: v.optional(v.string()),
-      orderToken: v.optional(v.string()),
-      lastToggledAt: v.optional(v.number()),
-      nature: v.optional(
-        v.union(v.literal("red"), v.literal("green"), v.literal("unknown")),
-      ),
-      createdAt: v.optional(v.number()),
-      templateId: v.optional(v.union(v.string(), v.null())),
-      templateDate: v.optional(v.union(v.number(), v.null())),
-    }),
+    task: v.partial(tasksTable.v()),
   },
   handler: function* updateTask({ id, task }) {
     const taskInState = yield* taskById({ id });
@@ -153,23 +127,10 @@ export const updateTask = action({
 export const createTask = action({
   name: "createTask",
   args: {
-    // TODO: make v.required(v.partial(tasksTable.v()), ['orderToken', 'projectCategoryId']),
-    task: v.object({
-      type: v.optional(v.literal(taskType)),
-      id: v.optional(v.string()),
-      title: v.optional(v.string()),
-      content: v.optional(v.string()),
-      state: v.optional(v.union(v.literal("todo"), v.literal("done"))),
-      projectCategoryId: v.string(),
-      orderToken: v.string(),
-      lastToggledAt: v.optional(v.number()),
-      nature: v.optional(
-        v.union(v.literal("red"), v.literal("green"), v.literal("unknown")),
-      ),
-      createdAt: v.optional(v.number()),
-      templateId: v.optional(v.union(v.string(), v.null())),
-      templateDate: v.optional(v.union(v.number(), v.null())),
-    }),
+    task: v.required(v.partial(tasksTable.v()), [
+      "orderToken",
+      "projectCategoryId",
+    ]),
   },
   handler: function* createTask({ task }) {
     const id = task.id || uuidv7();
@@ -433,19 +394,8 @@ export const deleteTaskById = action({
 // Local slice object for registerModelSlice (not exported)
 const cardsTasksSlice = {
   byId: taskById,
-  taskExists,
-  taskByIdOrDefault,
-  taskIdsOfTemplateId,
-  allTasks,
   delete: deleteTasks,
-  update: updateTask,
-  createTask,
   canDrop: taskCanDrop,
   handleDrop: taskHandleDrop,
-  moveTaskToProject,
-  toggleTaskState,
-  createTaskFromTemplate,
-  deleteTasksByIds,
-  deleteTaskById,
 };
 registerModelSlice(cardsTasksSlice, tasksTable, taskType);

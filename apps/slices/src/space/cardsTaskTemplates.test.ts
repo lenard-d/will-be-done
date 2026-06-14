@@ -9,21 +9,23 @@ import {
   selectFrom,
   BptreeInmemDriver,
 } from "@will-be-done/hyperdb-lib";
-import { tasksTable, type Task } from "./cardsTasks";
 import {
-  taskTemplatesTable,
-  type TaskTemplate,
   taskTemplateNewTasksInRange,
   newTasksToGenForTaskTemplate,
   createTaskTemplateFromTask,
 } from "./cardsTaskTemplates";
 import { dbIdTrait } from "@/traits";
-import { checklistItemsTable } from "./checklistItems";
-import { dailyListsTable, type DailyList } from "./dailyLists";
 import {
+  checklistItemsTable,
+  DailyList,
+  dailyListsTable,
+  Task,
+  TaskProjection,
   taskProjectionsTable,
-  type TaskProjection,
-} from "./dailyListsProjections";
+  tasksTable,
+  TaskTemplate,
+  taskTemplatesTable,
+} from "./tables";
 
 function createDB(timezoneOffsetMinutes: number) {
   // Mock timezone before creating DB/running selectors
@@ -50,12 +52,12 @@ function insertTemplate(db: DB, template: TaskTemplate) {
   syncDispatch(
     db,
     action({
-  name: "anonymousAction",
-  args: {},
-  handler: function* anonymousAction() {
-      yield* insert(taskTemplatesTable, [template]);
-    }
-})({}),
+      name: "anonymousAction",
+      args: {},
+      handler: function* anonymousAction() {
+        yield* insert(taskTemplatesTable, [template]);
+      },
+    })({}),
   );
 }
 
@@ -64,9 +66,9 @@ function getNewTasks(db: DB, templateId: string, toDate: Date): Task[] {
     db,
     function* () {
       return yield* newTasksToGenForTaskTemplate({
-  templateId,
-  toDate: toDate.getTime(),
-});
+        templateId,
+        toDate: toDate.getTime(),
+      });
     },
     [],
   );
@@ -77,9 +79,9 @@ function getNewTasksInRange(db: DB, fromDate: Date, toDate: Date): Task[] {
     db,
     function* () {
       return yield* taskTemplateNewTasksInRange({
-  fromDate: fromDate.getTime(),
-  toDate: toDate.getTime(),
-});
+        fromDate: fromDate.getTime(),
+        toDate: toDate.getTime(),
+      });
     },
     [],
   );
@@ -469,13 +471,13 @@ describe("cardsTaskTemplates timezone consistency", () => {
     const template = syncDispatch(
       db,
       action({
-  name: "anonymousAction",
-  args: {},
-  handler: function* anonymousAction() {
-        yield* insert(tasksTable, [task]);
-        return yield* createTaskTemplateFromTask({ task, data: {} });
-      }
-})({}),
+        name: "anonymousAction",
+        args: {},
+        handler: function* anonymousAction() {
+          yield* insert(tasksTable, [task]);
+          return yield* createTaskTemplateFromTask({ task, data: {} });
+        },
+      })({}),
     ) as TaskTemplate;
 
     const tasks = runSelector<Task[]>(

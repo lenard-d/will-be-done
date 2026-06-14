@@ -22,20 +22,20 @@ export type PrimitiveRow = Record<string, string | number | boolean | null> & {
 };
 
 const SELECT_OR_CHUNK_SIZE = 400;
-const primitiveValueValidator = v.union(
+const primitiveValueSchema = v.union(
   v.string(),
   v.number(),
   v.boolean(),
   v.null(),
 );
-const rowValidator = v.record(
+const rowSchema = v.record(
   v.string(),
-  primitiveValueValidator,
+  primitiveValueSchema,
 ) as Validator<PrimitiveRow>;
-const tableDefinitionArgValidator = v.object({
+const tableDefinitionArgSchema = v.object({
   tableName: v.string(),
 });
-const changeValidator = v.object({
+const changeSchema = v.object({
   id: v.string(),
   entityId: v.string(),
   tableName: v.string(),
@@ -45,13 +45,13 @@ const changeValidator = v.object({
   createdAt: v.string(),
   updatedAt: v.string(),
 });
-const changesetArrayValidator = v.array(
+const changesetArray = v.array(
   v.object({
     tableName: v.string(),
     data: v.array(
       v.object({
-        row: v.optional(rowValidator),
-        change: changeValidator,
+        row: v.optional(rowSchema),
+        change: changeSchema,
       }),
     ),
   }),
@@ -86,13 +86,7 @@ const byIdAndName = selector({
     entityId: v.string(),
     tableName: v.string(),
   },
-  handler: function* byIdAndName({
-    entityId,
-    tableName,
-  }: {
-    entityId: string;
-    tableName: string;
-  }) {
+  handler: function* byIdAndName({ entityId, tableName }) {
     const changes = yield* selectFrom(changesTable, "byEntityIdAndTableName")
       .where((q) => q.eq("entityId", entityId).eq("tableName", tableName))
       .limit(1);
@@ -104,7 +98,7 @@ const byIdAndName = selector({
 const allChangesAfter = selector({
   name: "allChangesAfter",
   args: { after: v.string() },
-  handler: function* allChangesAfter({ after }: { after: string }) {
+  handler: function* allChangesAfter({ after }) {
     return (yield* selectFrom(changesTable, "byUpdatedAt").where((q) =>
       q.gt("updatedAt", after),
     )) as Change[];
@@ -117,15 +111,12 @@ const getChangesetAfter = selector({
     after: v.string(),
     registeredSyncableTableNameMap: v.record(
       v.string(),
-      tableDefinitionArgValidator,
+      tableDefinitionArgSchema,
     ),
   },
   handler: function* getChangesetAfter({
     after,
     registeredSyncableTableNameMap,
-  }: {
-    after: string;
-    registeredSyncableTableNameMap: Record<string, { tableName: string }>;
   }) {
     const changesToSend = yield* allChangesAfter({ after });
     const changesets: ChangesetArrayType = [];
@@ -199,8 +190,8 @@ const getChangesetAfter = selector({
 const insertChangeFromInsert = action({
   name: "insertChangeFromInsert",
   args: {
-    tableDef: tableDefinitionArgValidator,
-    row: rowValidator,
+    tableDef: tableDefinitionArgSchema,
+    row: rowSchema,
     clientId: v.string(),
     nextClock: v.string(),
   },
@@ -209,11 +200,6 @@ const insertChangeFromInsert = action({
     row,
     clientId,
     nextClock,
-  }: {
-    tableDef: { tableName: string };
-    row: PrimitiveRow;
-    clientId: string;
-    nextClock: string;
   }) {
     const createdAt = nextClock;
 
@@ -242,9 +228,9 @@ const insertChangeFromInsert = action({
 const insertChangeFromUpdate = action({
   name: "insertChangeFromUpdate",
   args: {
-    tableDef: tableDefinitionArgValidator,
-    oldRow: rowValidator,
-    newRow: rowValidator,
+    tableDef: tableDefinitionArgSchema,
+    oldRow: rowSchema,
+    newRow: rowSchema,
     clientId: v.string(),
     nextClock: v.string(),
   },
@@ -254,12 +240,6 @@ const insertChangeFromUpdate = action({
     newRow,
     clientId,
     nextClock,
-  }: {
-    tableDef: { tableName: string };
-    oldRow: PrimitiveRow;
-    newRow: PrimitiveRow;
-    clientId: string;
-    nextClock: string;
   }) {
     if (oldRow.id !== newRow.id) {
       throw new Error("Cannot update row with different id");
@@ -308,8 +288,8 @@ const insertChangeFromUpdate = action({
 const insertChangeFromDelete = action({
   name: "insertChangeFromDelete",
   args: {
-    tableDef: tableDefinitionArgValidator,
-    row: rowValidator,
+    tableDef: tableDefinitionArgSchema,
+    row: rowSchema,
     clientId: v.string(),
     nextClock: v.string(),
   },
@@ -318,11 +298,6 @@ const insertChangeFromDelete = action({
     row,
     clientId,
     nextClock,
-  }: {
-    tableDef: { tableName: string };
-    row: PrimitiveRow;
-    clientId: string;
-    nextClock: string;
   }) {
     const deletedAt = nextClock;
 
@@ -355,12 +330,12 @@ const insertChangeFromDelete = action({
 const mergeChangesAction = action({
   name: "mergeChangesAction",
   args: {
-    input: changesetArrayValidator,
+    input: changesetArray,
     nextClock: v.string(),
     clientId: v.string(),
     registeredSyncableTableNameMap: v.record(
       v.string(),
-      tableDefinitionArgValidator,
+      tableDefinitionArgSchema,
     ),
   },
   handler: function* mergeChangesAction({

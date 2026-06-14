@@ -9,45 +9,23 @@ import {
   createStashProjectionSibling,
   deleteStashProjections,
 } from "./stashProjections";
-import {
-  deleteTasksByIds,
-  taskById,
-  type Task,
-  defaultTask,
-  isTask,
-  taskType,
-} from "./cardsTasks";
-import {
-  deleteTemplates,
-  taskTemplateById,
-} from "./cardsTaskTemplates";
-import { type TaskTemplate, isTaskTemplate } from "./cardsTaskTemplates";
-import { AnyModel, appTypeSlicesMap } from "./maps";
-import { isTaskProjection, TaskProjection } from "./dailyListsProjections";
-import { isStashProjection, StashProjection } from "./stashProjections";
+import { deleteTasksByIds, taskById, defaultTask } from "./cardsTasks";
+import { deleteTemplates, taskTemplateById } from "./cardsTaskTemplates";
+import { appTypeSlicesMap } from "./maps";
 import {
   tasksTable,
   taskTemplatesTable,
   taskProjectionsTable,
   stashProjectionsTable,
-  projectsTable,
-  dailyListsTable,
-  checklistItemsTable,
+  cardWrapperType,
+  possibleModel,
+  CardWrapper,
+  Task,
+  isTaskProjection,
+  isStashProjection,
+  isTask,
+  isTaskTemplate,
 } from "./tables";
-
-export type CardWrapper =
-  | Task
-  | TaskTemplate
-  | TaskProjection
-  | StashProjection;
-export type CardWrapperType = CardWrapper["type"];
-
-const cardWrapperType = v.union(
-  v.literal(taskType),
-  v.literal("template"),
-  v.literal("projection"),
-  v.literal("stashProjection"),
-);
 
 export const cardById = selector({
   name: "cardById",
@@ -81,25 +59,7 @@ export const createSiblingCard = action({
       stashProjectionsTable.v(),
     ),
     position: v.union(v.literal("before"), v.literal("after")),
-    taskParams: v.optional(
-      // TODO: use v.partial(tasksTable.v()),
-      v.object({
-        type: v.optional(v.literal(taskType)),
-        id: v.optional(v.string()),
-        title: v.optional(v.string()),
-        content: v.optional(v.string()),
-        state: v.optional(v.union(v.literal("todo"), v.literal("done"))),
-        projectCategoryId: v.optional(v.string()),
-        orderToken: v.optional(v.string()),
-        lastToggledAt: v.optional(v.number()),
-        nature: v.optional(
-          v.union(v.literal("red"), v.literal("green"), v.literal("unknown")),
-        ),
-        createdAt: v.optional(v.number()),
-        templateId: v.optional(v.union(v.string(), v.null())),
-        templateDate: v.optional(v.union(v.number(), v.null())),
-      }),
-    ),
+    taskParams: v.optional(v.partial(tasksTable.v())),
   },
   handler: function* createSiblingCard({ taskBox, position, taskParams }) {
     if (isTaskProjection(taskBox)) {
@@ -162,17 +122,9 @@ export const cardWrapperIdOrDefault = selector({
 export const taskOfModel = selector({
   name: "taskOfModel",
   args: {
-    model: v.union(
-      tasksTable.v(),
-      taskTemplatesTable.v(),
-      projectsTable.v(),
-      dailyListsTable.v(),
-      taskProjectionsTable.v(),
-      stashProjectionsTable.v(),
-      checklistItemsTable.v(),
-    ),
+    model: possibleModel,
   },
-  handler: function* taskOfModel({ model }: { model: AnyModel }) {
+  handler: function* taskOfModel({ model }) {
     if (isTaskProjection(model)) {
       return yield* taskById({ id: model.id });
     }
@@ -192,7 +144,7 @@ export const taskOfModel = selector({
 export const deleteCardsByIds = action({
   name: "deleteCardsByIds",
   args: { ids: v.array(v.string()) },
-  handler: function* deleteCardsByIds({ ids }: { ids: string[] }) {
+  handler: function* deleteCardsByIds({ ids }) {
     yield* deleteTasksByIds({ ids });
     yield* deleteTemplates({ taskTemplateIds: ids });
     yield* deleteDailyProjections({ ids });

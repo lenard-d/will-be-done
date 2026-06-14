@@ -1,7 +1,7 @@
 import { action, selector, v } from "@will-be-done/hyperdb-lib";
 import { defaultTask } from "./cardsTasks";
-import { AnyModel, appTypeSlicesMap } from "./maps";
-import { possibleModelType } from "./tables";
+import { appTypeSlicesMap } from "./maps";
+import { AnyModel, possibleModelType } from "./tables";
 
 export const appById = selector({
   name: "appById",

@@ -21,16 +21,19 @@ import {
   createProjectCategoryTask,
   projectCategoriesByProjectId,
 } from "./projectsCategories";
-import { tasksTable, type Task } from "./cardsTasks";
-import { taskTemplatesTable } from "./cardsTaskTemplates";
-import { dailyListsTable, type DailyList } from "./dailyLists";
-import { taskProjectionsTable } from "./dailyListsProjections";
 import {
+  DailyList,
+  dailyListsTable,
+  Project,
   projectCategoriesTable,
-  type ProjectCategory,
-} from "./projectsCategories";
-import { projectsTable, type Project } from "./projects";
-import { stashProjectionsTable } from "./stashProjections";
+  ProjectCategory,
+  projectsTable,
+  stashProjectionsTable,
+  Task,
+  taskProjectionsTable,
+  tasksTable,
+  taskTemplatesTable,
+} from "./tables";
 
 function createDB() {
   const driver = new BptreeInmemDriver();
@@ -67,7 +70,9 @@ function createProject(db: DB) {
   const category = runSelector<ProjectCategory>(
     db,
     function* () {
-      return (yield* projectCategoriesByProjectId({ projectId: project.id }))[0];
+      return (yield* projectCategoriesByProjectId({
+        projectId: project.id,
+      }))[0];
     },
     [],
   );
@@ -79,10 +84,10 @@ function createTask(db: DB, categoryId: string, id: string) {
   return syncDispatch(
     db,
     createProjectCategoryTask({
-  categoryId,
-  position: "append",
-  taskAttrs: { id },
-}),
+      categoryId,
+      position: "append",
+      taskAttrs: { id },
+    }),
   ) as Task;
 }
 
@@ -99,25 +104,29 @@ describe("project stash-aware timeline counts", () => {
       db,
       createDailyList({ dailyList: { date: "2026-04-19" } }),
     ) as DailyList;
-    syncDispatch(db, addToDailyList({
-  taskId: dailyTask.id,
-  dailyListId: dailyList.id,
-  position: "append",
-}));
-    syncDispatch(db, addToStash({
-  taskId: stashedTask.id,
-  position: "append",
-}));
+    syncDispatch(
+      db,
+      addToDailyList({
+        taskId: dailyTask.id,
+        dailyListId: dailyList.id,
+        position: "append",
+      }),
+    );
+    syncDispatch(
+      db,
+      addToStash({
+        taskId: stashedTask.id,
+        position: "append",
+      }),
+    );
 
     const existingCount = runSelector<number>(
       db,
       function* () {
         return yield* notDoneTasksCountExceptDailiesCount({
-  projectId: project.id,
-  exceptDailyListIds: [
-          dailyList.id,
-        ],
-});
+          projectId: project.id,
+          exceptDailyListIds: [dailyList.id],
+        });
       },
       [],
     );
@@ -125,11 +134,9 @@ describe("project stash-aware timeline counts", () => {
       db,
       function* () {
         return yield* notDoneTasksCountExceptDailiesAndStashCount({
-  projectId: project.id,
-  exceptDailyListIds: [
-          dailyList.id,
-        ],
-});
+          projectId: project.id,
+          exceptDailyListIds: [dailyList.id],
+        });
       },
       [],
     );
@@ -167,41 +174,47 @@ describe("project stash-aware timeline counts", () => {
       createDailyList({ dailyList: { date: "2026-04-16" } }),
     ) as DailyList;
 
-    syncDispatch(db, addToDailyList({
-  taskId: overdueTask.id,
-  dailyListId: overdueList.id,
-  position: "append",
-}));
     syncDispatch(
       db,
       addToDailyList({
-  taskId: stashedOverdueTask.id,
-  dailyListId: stashedOverdueList.id,
-  position: "append",
-}),
+        taskId: overdueTask.id,
+        dailyListId: overdueList.id,
+        position: "append",
+      }),
     );
     syncDispatch(
       db,
       addToDailyList({
-  taskId: excludedDailyTask.id,
-  dailyListId: excludedList.id,
-  position: "append",
-}),
+        taskId: stashedOverdueTask.id,
+        dailyListId: stashedOverdueList.id,
+        position: "append",
+      }),
     );
-    syncDispatch(db, addToStash({
-  taskId: stashedOverdueTask.id,
-  position: "append",
-}));
+    syncDispatch(
+      db,
+      addToDailyList({
+        taskId: excludedDailyTask.id,
+        dailyListId: excludedList.id,
+        position: "append",
+      }),
+    );
+    syncDispatch(
+      db,
+      addToStash({
+        taskId: stashedOverdueTask.id,
+        position: "append",
+      }),
+    );
 
     const currentDate = new Date("2026-04-19T12:00:00Z");
     const existingCount = runSelector<number>(
       db,
       function* () {
         return yield* overdueTasksCountExceptDailiesCount({
-  projectId: project.id,
-  exceptDailyListIds: [excludedList.id],
-  currentDate: currentDate.getTime(),
-});
+          projectId: project.id,
+          exceptDailyListIds: [excludedList.id],
+          currentDate: currentDate.getTime(),
+        });
       },
       [],
     );
@@ -209,10 +222,10 @@ describe("project stash-aware timeline counts", () => {
       db,
       function* () {
         return yield* overdueTasksCountExceptDailiesAndStashCount({
-  projectId: project.id,
-  exceptDailyListIds: [excludedList.id],
-  currentDate: currentDate.getTime(),
-});
+          projectId: project.id,
+          exceptDailyListIds: [excludedList.id],
+          currentDate: currentDate.getTime(),
+        });
       },
       [],
     );

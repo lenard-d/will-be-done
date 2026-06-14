@@ -1,43 +1,4 @@
-import { type Task } from "./cardsTasks";
-import { TaskTemplate } from "./cardsTaskTemplates";
-import { DailyList } from "./dailyLists";
-import { TaskProjection } from "./dailyListsProjections";
-import { Project } from "./projects";
-import { ProjectCategory } from "./projectsCategories";
-import { StashProjection } from "./stashProjections";
-import { ChecklistItem } from "./checklistItems";
-import {
-  tasksTable,
-  taskTemplatesTable,
-  dailyListsTable,
-  taskProjectionsTable,
-  projectsTable,
-  projectCategoriesTable,
-  stashProjectionsTable,
-  checklistItemsTable,
-} from "./tables";
-
-export type AnyModel =
-  | Task
-  | TaskTemplate
-  | Project
-  | DailyList
-  | ProjectCategory
-  | TaskProjection
-  | StashProjection
-  | ChecklistItem;
-
-export type AnyModelType = AnyModel["type"] | "stash";
-
-export type AnyTable =
-  | typeof tasksTable
-  | typeof taskTemplatesTable
-  | typeof projectsTable
-  | typeof dailyListsTable
-  | typeof projectCategoriesTable
-  | typeof taskProjectionsTable
-  | typeof stashProjectionsTable
-  | typeof checklistItemsTable;
+import { AnyModel, AnyModelType, AnyTable } from "./tables";
 
 type ModelSlice<T> = {
   byId: (id: string) => Generator<unknown, T | undefined, unknown>;

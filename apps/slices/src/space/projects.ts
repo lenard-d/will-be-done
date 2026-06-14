@@ -1,9 +1,7 @@
-import { isObjectType } from "../utils";
 import { shouldNeverHappen } from "../utils";
 import {
   action,
   deleteRows,
-  type ExtractSchema,
   insert,
   selectFrom,
   selector,
@@ -12,8 +10,11 @@ import {
 } from "@will-be-done/hyperdb-lib";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { uuidv7 } from "uuidv7";
-import type { OrderableItem } from "./utils";
-import { generateOrderTokenPositioned } from "./utils";
+import {
+  generateOrderTokenPositioned,
+  normalizeOrderPosition,
+  orderPositionArg,
+} from "./utils";
 import { appById } from "./app";
 import {
   createCategory,
@@ -33,20 +34,23 @@ import {
 import { dailyListAllTaskIds, dailyListsByIds } from "./dailyLists";
 import { dailyProjectionByTaskId } from "./dailyListsProjections";
 import { stashProjectionAllTaskIds } from "./stashProjections";
-import { taskById, updateTask, type Task, isTask } from "./cardsTasks";
-import { updateTemplate, isTaskTemplate } from "./cardsTaskTemplates";
-import { registerSpaceSyncableTable } from "./syncMap";
-import { registerModelSlice, AnyModelType } from "./maps";
-import { isTaskProjection } from "./dailyListsProjections";
+import { taskById, updateTask } from "./cardsTasks";
+import { updateTemplate } from "./cardsTaskTemplates";
+import { registerModelSlice } from "./maps";
 import { genUUIDV5 } from "../traits";
 import { startOfDay } from "date-fns";
-import { projectType, projectsTable } from "./tables";
-
-export { projectType, projectsTable };
-
-export type Project = ExtractSchema<typeof projectsTable>;
-
-export const isProject = isObjectType<Project>(projectType);
+import {
+  projectType,
+  projectsTable,
+  tasksTable,
+  possibleModelType,
+  type Task,
+  Project,
+  isProject,
+  isTaskProjection,
+  isTask,
+  isTaskTemplate,
+} from "./tables";
 
 export const defaultProject: Project = {
   type: projectType,
@@ -56,51 +60,6 @@ export const defaultProject: Project = {
   isInbox: false,
   orderToken: "",
   createdAt: 0,
-};
-
-registerSpaceSyncableTable(projectsTable, projectType);
-
-const projectValidator = projectsTable.v();
-if (projectValidator.kind !== "object") {
-  throw new Error("projectsTable validator must be an object validator");
-}
-
-const taskValidator = v.object({
-  type: v.literal("task"),
-  id: v.string(),
-  title: v.string(),
-  content: v.optional(v.string()),
-  state: v.union(v.literal("todo"), v.literal("done")),
-  projectCategoryId: v.string(),
-  orderToken: v.string(),
-  lastToggledAt: v.number(),
-  nature: v.optional(
-    v.union(v.literal("red"), v.literal("green"), v.literal("unknown")),
-  ),
-  createdAt: v.number(),
-  templateId: v.union(v.string(), v.null()),
-  templateDate: v.union(v.number(), v.null()),
-});
-
-const projectPatchValidator = v.partial(projectValidator);
-const taskPatchValidator = v.partial(taskValidator);
-
-const orderPositionArg = v.union(
-  v.literal("append"),
-  v.literal("prepend"),
-  v.array(v.union(v.object({ orderToken: v.string() }), v.null())),
-);
-
-type OrderPositionArg = "append" | "prepend" | (OrderableItem | null)[];
-
-const normalizeOrderPosition = (
-  position: OrderPositionArg,
-):
-  | "append"
-  | "prepend"
-  | [OrderableItem | undefined, OrderableItem | undefined] => {
-  if (position === "append" || position === "prepend") return position;
-  return [position[0] ?? undefined, position[1] ?? undefined];
 };
 
 // Selectors and actions
@@ -119,7 +78,7 @@ export const projectAllIds = selector({
 export const projectById = selector({
   name: "projectById",
   args: { id: v.string() },
-  handler: function* projectById({ id }: { id: string }) {
+  handler: function* projectById({ id }) {
     const projects = yield* selectFrom(projectsTable, "byId")
       .where((q) => q.eq("id", id))
       .limit(1);
@@ -130,7 +89,7 @@ export const projectById = selector({
 export const projectByIdOrDefault = selector({
   name: "projectByIdOrDefault",
   args: { id: v.string() },
-  handler: function* projectByIdOrDefault({ id }: { id: string }) {
+  handler: function* projectByIdOrDefault({ id }) {
     return (yield* projectById({ id })) || defaultProject;
   },
 });
@@ -140,26 +99,12 @@ export const projectCanDrop = selector({
   args: {
     projectId: v.string(),
     dropItemId: v.string(),
-    dropModelType: v.union(
-      v.literal("task"),
-      v.literal("template"),
-      v.literal("project"),
-      v.literal("dailyList"),
-      v.literal("projectCategory"),
-      v.literal("projection"),
-      v.literal("stashProjection"),
-      v.literal("checklistItem"),
-      v.literal("stash"),
-    ),
+    dropModelType: possibleModelType,
   },
   handler: function* projectCanDrop({
     projectId,
     dropItemId,
     dropModelType,
-  }: {
-    projectId: string;
-    dropItemId: string;
-    dropModelType: AnyModelType;
   }): Generator<unknown, boolean, unknown> {
     const project = yield* projectById({ id: projectId });
     if (!project) return false;
@@ -203,10 +148,6 @@ export const overdueTasksCountExceptDailiesCount = selector({
     projectId,
     exceptDailyListIds,
     currentDate,
-  }: {
-    projectId: string;
-    exceptDailyListIds: string[];
-    currentDate: number;
   }): Generator<unknown, number, unknown> {
     const currentDay = startOfDay(new Date(currentDate));
 
@@ -280,9 +221,6 @@ export const notDoneTasksCountExceptDailiesCount = selector({
   handler: function* notDoneTasksCountExceptDailiesCount({
     projectId,
     exceptDailyListIds,
-  }: {
-    projectId: string;
-    exceptDailyListIds: string[];
   }): Generator<unknown, number, unknown> {
     const categories = yield* projectCategoriesByProjectId({ projectId });
 
@@ -315,10 +253,6 @@ export const overdueTasksCountExceptDailiesAndStashCount = selector({
     projectId,
     exceptDailyListIds,
     currentDate,
-  }: {
-    projectId: string;
-    exceptDailyListIds: string[];
-    currentDate: number;
   }): Generator<unknown, number, unknown> {
     const currentDay = startOfDay(new Date(currentDate));
 
@@ -389,9 +323,6 @@ export const notDoneTasksCountExceptDailiesAndStashCount = selector({
   handler: function* notDoneTasksCountExceptDailiesAndStashCount({
     projectId,
     exceptDailyListIds,
-  }: {
-    projectId: string;
-    exceptDailyListIds: string[];
   }): Generator<unknown, number, unknown> {
     const categories = yield* projectCategoriesByProjectId({ projectId });
 
@@ -417,15 +348,12 @@ export const notDoneTasksCountExceptDailiesAndStashCount = selector({
 export const createProject = action({
   name: "createProject",
   args: {
-    project: projectPatchValidator,
+    project: v.partial(projectsTable.v()),
     position: orderPositionArg,
   },
   handler: function* createProject({
     project,
     position,
-  }: {
-    project: Partial<Project>;
-    position: OrderPositionArg;
   }): Generator<unknown, Project, unknown> {
     const orderToken = yield* generateOrderTokenPositioned(
       "all-projects-list",
@@ -507,14 +435,11 @@ export const updateProject = action({
   name: "updateProject",
   args: {
     id: v.string(),
-    project: projectPatchValidator,
+    project: v.partial(projectsTable.v()),
   },
   handler: function* updateProject({
     id,
     project,
-  }: {
-    id: string;
-    project: Partial<Project>;
   }): Generator<unknown, void, unknown> {
     const projectInState = yield* projectById({ id });
     if (!projectInState) throw new Error("Project not found");
@@ -528,8 +453,6 @@ export const deleteProjects = action({
   args: { ids: v.array(v.string()) },
   handler: function* deleteProjects({
     ids,
-  }: {
-    ids: string[];
   }): Generator<unknown, void, unknown> {
     const projectCategories = yield* projectCategoriesByProjectIds({
       projectIds: ids,
@@ -545,17 +468,7 @@ export const projectHandleDrop = action({
   args: {
     projectId: v.string(),
     dropItemId: v.string(),
-    dropModelType: v.union(
-      v.literal("task"),
-      v.literal("template"),
-      v.literal("project"),
-      v.literal("dailyList"),
-      v.literal("projectCategory"),
-      v.literal("projection"),
-      v.literal("stashProjection"),
-      v.literal("checklistItem"),
-      v.literal("stash"),
-    ),
+    dropModelType: possibleModelType,
     edge: v.union(v.literal("top"), v.literal("bottom")),
   },
   handler: function* projectHandleDrop({
@@ -563,11 +476,6 @@ export const projectHandleDrop = action({
     dropItemId,
     dropModelType,
     edge,
-  }: {
-    projectId: string;
-    dropItemId: string;
-    dropModelType: AnyModelType;
-    edge: "top" | "bottom";
   }): Generator<unknown, void, unknown> {
     const canDropResult = yield* projectCanDrop({
       projectId,
@@ -655,16 +563,12 @@ export const createProjectTask = action({
   args: {
     projectId: v.string(),
     position: orderPositionArg,
-    taskAttrs: v.optional(taskPatchValidator),
+    taskAttrs: v.optional(v.partial(tasksTable.v())),
   },
   handler: function* createProjectTask({
     projectId,
     position,
     taskAttrs,
-  }: {
-    projectId: string;
-    position: OrderPositionArg;
-    taskAttrs?: Partial<Task>;
   }): Generator<unknown, Task, unknown> {
     const project = yield* projectById({ id: projectId });
     if (!project) throw new Error("Project not found");
@@ -690,18 +594,13 @@ export const createProjectTaskIfNotExists = action({
     projectId: v.string(),
     taskId: v.string(),
     position: orderPositionArg,
-    taskAttrs: v.optional(taskPatchValidator),
+    taskAttrs: v.optional(v.partial(tasksTable.v())),
   },
   handler: function* createProjectTaskIfNotExists({
     projectId,
     taskId,
     position,
     taskAttrs,
-  }: {
-    projectId: string;
-    taskId: string;
-    position: OrderPositionArg;
-    taskAttrs?: Partial<Task>;
   }): Generator<unknown, Task, unknown> {
     const task = yield* taskById({ id: taskId });
     if (task) {
@@ -721,21 +620,9 @@ export const createProjectTaskIfNotExists = action({
 
 // Local slice object for registerModelSlice (not exported)
 const projectsSlice = {
-  projectAllIds,
   byId: projectById,
-  projectByIdOrDefault,
-  canDrop: projectCanDrop,
-  inboxProjectId,
-  overdueTasksCountExceptDailiesCount,
-  notDoneTasksCountExceptDailiesCount,
-  overdueTasksCountExceptDailiesAndStashCount,
-  notDoneTasksCountExceptDailiesAndStashCount,
-  createInboxIfNotExists,
-  createProject,
-  update: updateProject,
   delete: deleteProjects,
+  canDrop: projectCanDrop,
   handleDrop: projectHandleDrop,
-  createProjectTask,
-  createProjectTaskIfNotExists,
 };
 registerModelSlice(projectsSlice, projectsTable, projectType);
