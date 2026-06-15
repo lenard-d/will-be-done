@@ -37,6 +37,7 @@ export const appByIdOrDefault = selector({
 
 export const appCanDrop = selector({
   name: "appCanDrop",
+  skipTrace: true,
   args: {
     id: v.string(),
     modelType: possibleModelType,

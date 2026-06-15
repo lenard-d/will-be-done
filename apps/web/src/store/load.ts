@@ -128,6 +128,9 @@ export const initDbStore = async (
     const asyncDB = new DB(asyncDriver, {
       traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
       trace: process.env.NODE_ENV === "development",
+      runtimeValidation: process.env.NODE_ENV === "development",
+      freezeArgs: process.env.NODE_ENV === "development",
+      freezeRows: process.env.NODE_ENV === "development",
     });
 
     await execAsync(asyncDB.loadTables(syncConfig.persistDBTables));
