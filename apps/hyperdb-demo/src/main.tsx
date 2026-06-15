@@ -8,10 +8,14 @@ import {
 } from "@will-be-done/hyperdb-lib";
 import { DBProvider } from "@will-be-done/hyperdb-lib/react";
 import App from "./App.tsx";
-import { hyperdbDemoTables, installTaskStatsHooks } from "./db.ts";
+import {
+  hyperdbDemoDbOptions,
+  hyperdbDemoTables,
+  installTaskStatsHooks,
+} from "./db.ts";
 import "./index.css";
 
-const baseDb = new DB(new BptreeInmemDriver());
+const baseDb = new DB(new BptreeInmemDriver(), hyperdbDemoDbOptions);
 execSync(baseDb.loadTables(hyperdbDemoTables));
 const db = new SubscribableDB(baseDb);
 installTaskStatsHooks(db);

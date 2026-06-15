@@ -223,6 +223,7 @@ export const initDbStore = async (
         return yield* selectFrom(table, "byIds");
       });
 
+      // TODO: call with action
       // no need to broadcast to sub db
       execSync(syncDB.insert(table, res));
     }

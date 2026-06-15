@@ -2,6 +2,7 @@ import {
   action,
   defineTable,
   deleteRows,
+  type DBOptions,
   insert,
   selectFrom,
   selector,
@@ -14,6 +15,11 @@ import {
   type DashboardSnapshot,
   type Task,
 } from "./workload";
+
+export const hyperdbDemoDbOptions: DBOptions = {
+  freezeArgs: false,
+  freezeRows: false,
+};
 
 export const projectsTable = defineTable("projects", {
   id: v.string(),
