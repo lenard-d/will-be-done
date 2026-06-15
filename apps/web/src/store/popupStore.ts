@@ -60,8 +60,7 @@ export async function initPopupStore(spaceId: string) {
   const asyncDriver = await initAsyncDriver(dbName);
   const asyncDB = new DB(
     asyncDriver,
-    [],
-    [dbIdTrait("space", spaceId)],
+    { traits: [dbIdTrait("space", spaceId)] },
   );
 
   await execAsync(asyncDB.loadTables(persistDBTables));

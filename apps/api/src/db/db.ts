@@ -91,7 +91,7 @@ const getDB = (dbType: string, dbId: string) => {
     },
   });
 
-  return new DB(sqliteDriver, [], [dbIdTrait(dbType, dbId)]);
+  return new DB(sqliteDriver, { traits: [dbIdTrait(dbType, dbId)] });
 };
 
 let mainDB: DB | undefined = undefined;

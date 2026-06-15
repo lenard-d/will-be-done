@@ -127,16 +127,14 @@ export const initDbStore = async (
     const asyncDriver = await initAsyncDriver(dbName);
     const asyncDB = new DB(
       asyncDriver,
-      [],
-      [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
+      { traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)] },
     );
 
     await execAsync(asyncDB.loadTables(syncConfig.persistDBTables));
 
     const syncDB = new DB(
       new BptreeInmemDriver(),
-      [],
-      [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
+      { traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)] },
     );
 
     execSync(syncDB.loadTables(syncConfig.inmemDBTables));
@@ -151,7 +149,12 @@ export const initDbStore = async (
       for (const op of ops) {
         syncDispatch(
           db,
-          insertChangeFromInsert({ tableDef: op.table, row: op.newValue as PrimitiveRow, clientId: getClientId(dbName), nextClock: nextClock() }),
+          insertChangeFromInsert({
+            tableDef: op.table,
+            row: op.newValue as PrimitiveRow,
+            clientId: getClientId(dbName),
+            nextClock: nextClock(),
+          }),
         );
       }
 
@@ -167,14 +170,25 @@ export const initDbStore = async (
         if (!op.oldValue) {
           syncDispatch(
             db,
-            insertChangeFromInsert({ tableDef: op.table, row: op.newValue as PrimitiveRow, clientId: getClientId(dbName), nextClock: nextClock() }),
+            insertChangeFromInsert({
+              tableDef: op.table,
+              row: op.newValue as PrimitiveRow,
+              clientId: getClientId(dbName),
+              nextClock: nextClock(),
+            }),
           );
           continue;
         }
 
         syncDispatch(
           db,
-          insertChangeFromUpdate({ tableDef: op.table, oldRow: op.oldValue as PrimitiveRow, newRow: op.newValue as PrimitiveRow, clientId: getClientId(dbName), nextClock: nextClock() }),
+          insertChangeFromUpdate({
+            tableDef: op.table,
+            oldRow: op.oldValue as PrimitiveRow,
+            newRow: op.newValue as PrimitiveRow,
+            clientId: getClientId(dbName),
+            nextClock: nextClock(),
+          }),
         );
       }
 
@@ -189,7 +203,12 @@ export const initDbStore = async (
       for (const op of ops) {
         syncDispatch(
           db,
-          insertChangeFromDelete({ tableDef: op.table, row: op.oldValue as PrimitiveRow, clientId: getClientId(dbName), nextClock: nextClock() }),
+          insertChangeFromDelete({
+            tableDef: op.table,
+            row: op.oldValue as PrimitiveRow,
+            clientId: getClientId(dbName),
+            nextClock: nextClock(),
+          }),
         );
       }
 
@@ -219,7 +238,12 @@ export const initDbStore = async (
       (e) => {
         syncDispatch(
           syncSubDb.withTraits({ type: "skip-sync" }),
-          mergeChanges({ input: e.changeset, nextClock: nextClock(), clientId: getClientId(dbName), registeredSyncableTableNameMap: syncConfig.tableNameMap }),
+          mergeChanges({
+            input: e.changeset,
+            nextClock: nextClock(),
+            clientId: getClientId(dbName),
+            registeredSyncableTableNameMap: syncConfig.tableNameMap,
+          }),
         );
       },
     );
@@ -326,14 +350,30 @@ export const initDbStore = async (
                 change = await asyncDispatch(
                   tx,
                   op.oldValue
-                    ? insertChangeFromUpdate({ tableDef: op.table, oldRow: op.oldValue as PrimitiveRow, newRow: op.newValue as PrimitiveRow, clientId: getClientId(dbName), nextClock: nextClock() })
-                    : insertChangeFromInsert({ tableDef: op.table, row: op.newValue as PrimitiveRow, clientId: getClientId(dbName), nextClock: nextClock() }),
+                    ? insertChangeFromUpdate({
+                        tableDef: op.table,
+                        oldRow: op.oldValue as PrimitiveRow,
+                        newRow: op.newValue as PrimitiveRow,
+                        clientId: getClientId(dbName),
+                        nextClock: nextClock(),
+                      })
+                    : insertChangeFromInsert({
+                        tableDef: op.table,
+                        row: op.newValue as PrimitiveRow,
+                        clientId: getClientId(dbName),
+                        nextClock: nextClock(),
+                      }),
                 );
               } else if (op.type === "delete") {
                 await execAsync(tx.delete(op.table, [op.oldValue.id]));
                 change = await asyncDispatch(
                   tx,
-                  insertChangeFromDelete({ tableDef: op.table, row: op.oldValue as PrimitiveRow, clientId: getClientId(dbName), nextClock: nextClock() }),
+                  insertChangeFromDelete({
+                    tableDef: op.table,
+                    row: op.oldValue as PrimitiveRow,
+                    clientId: getClientId(dbName),
+                    nextClock: nextClock(),
+                  }),
                 );
               }
             } catch (error) {
@@ -475,7 +515,12 @@ export const initDbStore = async (
 
       syncDispatch(
         syncSubDb.withTraits({ type: "skip-sync" }),
-        mergeChanges({ input: data.changeset, nextClock: nextClock(), clientId: getClientId(dbName), registeredSyncableTableNameMap: syncConfig.tableNameMap }),
+        mergeChanges({
+          input: data.changeset,
+          nextClock: nextClock(),
+          clientId: getClientId(dbName),
+          registeredSyncableTableNameMap: syncConfig.tableNameMap,
+        }),
       );
     };
 
@@ -508,7 +553,10 @@ const applyServerChangesIfNoClientChanges = action(
     nextClock: () => string,
     clientId: string,
   ) {
-    const { changesets } = yield* getChangesetAfter({ after: syncState.lastSentClock, registeredSyncableTableNameMap: syncConfig.tableNameMap });
+    const { changesets } = yield* getChangesetAfter({
+      after: syncState.lastSentClock,
+      registeredSyncableTableNameMap: syncConfig.tableNameMap,
+    });
     if (changesets.length !== 0) {
       console.log(
         "some new client changes appeared, skipping server changes apply",
@@ -584,7 +632,10 @@ const getChangesToSendToServer = action(function* getChangesToSendToServer(
     currentSyncState.lastSentClock,
   );
 
-  const { changesets, maxClock } = yield* getChangesetAfter({ after: currentSyncState.lastSentClock, registeredSyncableTableNameMap: syncConfig.tableNameMap });
+  const { changesets, maxClock } = yield* getChangesetAfter({
+    after: currentSyncState.lastSentClock,
+    registeredSyncableTableNameMap: syncConfig.tableNameMap,
+  });
 
   console.log("new client changes", changesets, maxClock);
 
