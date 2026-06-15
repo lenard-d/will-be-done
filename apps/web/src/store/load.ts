@@ -125,17 +125,17 @@ export const initDbStore = async (
       return initedDbs[dbName];
     }
     const asyncDriver = await initAsyncDriver(dbName);
-    const asyncDB = new DB(
-      asyncDriver,
-      { traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)] },
-    );
+    const asyncDB = new DB(asyncDriver, {
+      traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
+      trace: process.env.NODE_ENV === "development",
+    });
 
     await execAsync(asyncDB.loadTables(syncConfig.persistDBTables));
 
-    const syncDB = new DB(
-      new BptreeInmemDriver(),
-      { traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)] },
-    );
+    const syncDB = new DB(new BptreeInmemDriver(), {
+      traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
+      trace: process.env.NODE_ENV === "development",
+    });
 
     execSync(syncDB.loadTables(syncConfig.inmemDBTables));
 

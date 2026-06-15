@@ -201,9 +201,12 @@ export const PreloadedTaskComp = ({
         if (!select(taskById({ id: taskId }))) return;
 
         dispatch(
-          updateTask({ id: taskId, task: {
-            title,
-          } }),
+          updateTask({
+            id: taskId,
+            task: {
+              title,
+            },
+          }),
         );
         return;
       }
@@ -212,9 +215,12 @@ export const PreloadedTaskComp = ({
         if (!select(taskTemplateById({ id: taskId }))) return;
 
         dispatch(
-          updateTemplate({ id: taskId, template: {
-            title,
-          } }),
+          updateTemplate({
+            id: taskId,
+            template: {
+              title,
+            },
+          }),
         );
       }
     },
@@ -241,11 +247,19 @@ export const PreloadedTaskComp = ({
     if (!isFocused) return;
 
     const upModel = upKey
-      ? select(appById({ id: parseColumnKey(upKey).id, modelType: parseColumnKey(upKey).type }))
+      ? select(
+          appById({
+            id: parseColumnKey(upKey).id,
+            modelType: parseColumnKey(upKey).type,
+          }),
+        )
       : undefined;
     const downModel = downKey
       ? select(
-          appById({ id: parseColumnKey(downKey).id, modelType: parseColumnKey(downKey).type }),
+          appById({
+            id: parseColumnKey(downKey).id,
+            modelType: parseColumnKey(downKey).type,
+          }),
         )
       : undefined;
 
@@ -269,7 +283,9 @@ export const PreloadedTaskComp = ({
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
     flushEditedTitle();
-    dispatch(appDeleteModel({ id: cardWrapper.id, modelType: cardWrapper.type }));
+    dispatch(
+      appDeleteModel({ id: cardWrapper.id, modelType: cardWrapper.type }),
+    );
 
     if (downKey) {
       useFocusStore.getState().focusByKey(downKey);
@@ -304,7 +320,13 @@ export const PreloadedTaskComp = ({
       const { id, type } = parseColumnKey(dropTarget.targetKey);
 
       dispatch(
-        appHandleDrop({ id: id, modelType: type as AnyModelType, dropId: cardWrapper.id, dropModelType: cardWrapper.type, edge: dropTarget.edge }),
+        appHandleDrop({
+          id: id,
+          modelType: type as AnyModelType,
+          dropId: cardWrapper.id,
+          dropModelType: cardWrapper.type,
+          edge: dropTarget.edge,
+        }),
       );
 
       setTimeout(() => {
@@ -365,7 +387,15 @@ export const PreloadedTaskComp = ({
           ? "top"
           : "bottom";
 
-      dispatch(appHandleDrop({ id: id, modelType: type, dropId: cardWrapper.id, dropModelType: cardWrapper.type, edge: edge }));
+      dispatch(
+        appHandleDrop({
+          id: id,
+          modelType: type,
+          dropId: cardWrapper.id,
+          dropModelType: cardWrapper.type,
+          edge: edge,
+        }),
+      );
 
       setTimeout(() => {
         const el = document.querySelector<HTMLElement>(
@@ -391,10 +421,12 @@ export const PreloadedTaskComp = ({
     useFocusStore.getState().resetEdit();
 
     const item = dispatch(
-      createItem({ item: {
-        parentId: card.id,
-        parentType: card.type,
-      } }),
+      createItem({
+        item: {
+          parentId: card.id,
+          parentType: card.type,
+        },
+      }),
     );
 
     focusChecklistItem(item.id, { root: ref.current });
@@ -406,7 +438,11 @@ export const PreloadedTaskComp = ({
 
       unstable_batchedUpdates(() => {
         const newBox = dispatch(
-          createSiblingCard({ taskBox: cardWrapper, position: position, taskParams: newTaskParams }),
+          createSiblingCard({
+            taskBox: cardWrapper,
+            position: position,
+            taskParams: newTaskParams,
+          }),
         );
         useFocusStore
           .getState()
@@ -435,9 +471,17 @@ export const PreloadedTaskComp = ({
   const handleScheduleToday = useCallback(() => {
     if (!isTask(card)) return;
 
-    const dailyList = dispatch(createDailyListIfNotPresent({ date: getDMY(date) }));
+    const dailyList = dispatch(
+      createDailyListIfNotPresent({ date: getDMY(date) }),
+    );
 
-    dispatch(addToDailyList({ taskId: taskId, dailyListId: dailyList.id, position: "append" }));
+    dispatch(
+      addToDailyList({
+        taskId: taskId,
+        dailyListId: dailyList.id,
+        position: "append",
+      }),
+    );
   }, [card, date, dispatch, taskId]);
 
   const handleResetSchedule = useCallback(() => {
@@ -458,7 +502,13 @@ export const PreloadedTaskComp = ({
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
     dispatch(
-      appHandleDrop({ id: STASH_ID, modelType: stashType, dropId: cardWrapper.id, dropModelType: cardWrapper.type, edge: "top" }),
+      appHandleDrop({
+        id: STASH_ID,
+        modelType: stashType,
+        dropId: cardWrapper.id,
+        dropModelType: cardWrapper.type,
+        edge: "top",
+      }),
     );
 
     if (downKey) {
@@ -486,9 +536,12 @@ export const PreloadedTaskComp = ({
 
       const task = select(taskById({ id: taskId })) ?? card;
       const template = dispatch(
-        createTaskTemplateFromTask({ task: task, data: {
-          repeatRule: ruleString,
-        } }),
+        createTaskTemplateFromTask({
+          task: task,
+          data: {
+            repeatRule: ruleString,
+          },
+        }),
       );
 
       useFocusStore
@@ -594,9 +647,12 @@ export const PreloadedTaskComp = ({
             dispatch(updateTask({ id: taskId, task: { nature: "red" } }));
           } else if (isTaskTemplate(card)) {
             dispatch(
-              updateTemplate({ id: taskId, template: {
-                nature: "red",
-              } }),
+              updateTemplate({
+                id: taskId,
+                template: {
+                  nature: "red",
+                },
+              }),
             );
           }
         });
@@ -606,9 +662,12 @@ export const PreloadedTaskComp = ({
             dispatch(updateTask({ id: taskId, task: { nature: "green" } }));
           } else if (isTaskTemplate(card)) {
             dispatch(
-              updateTemplate({ id: taskId, template: {
-                nature: "green",
-              } }),
+              updateTemplate({
+                id: taskId,
+                template: {
+                  nature: "green",
+                },
+              }),
             );
           }
         });
@@ -618,9 +677,12 @@ export const PreloadedTaskComp = ({
             dispatch(updateTask({ id: taskId, task: { nature: "unknown" } }));
           } else if (isTaskTemplate(card)) {
             dispatch(
-              updateTemplate({ id: taskId, template: {
-                nature: "unknown",
-              } }),
+              updateTemplate({
+                id: taskId,
+                template: {
+                  nature: "unknown",
+                },
+              }),
             );
           }
         });
@@ -792,7 +854,9 @@ export const PreloadedTaskComp = ({
     if (isTask(card)) {
       dispatch(moveTaskToProject({ taskId: taskId, projectId: projectId }));
     } else if (isTaskTemplate(card)) {
-      dispatch(moveTemplateToProject({ templateId: taskId, projectId: projectId }));
+      dispatch(
+        moveTemplateToProject({ templateId: taskId, projectId: projectId }),
+      );
     }
   };
 
@@ -858,7 +922,12 @@ export const PreloadedTaskComp = ({
           if (!isModelDNDData(data)) return false;
 
           return select(
-            appCanDrop({ id: cardWrapper.id, modelType: cardWrapper.type, dropId: data.modelId, dropModelType: data.modelType }),
+            appCanDrop({
+              id: cardWrapper.id,
+              modelType: cardWrapper.type,
+              dropId: data.modelId,
+              dropModelType: data.modelType,
+            }),
           );
         },
         getIsSticky: () => true,
@@ -1319,26 +1388,26 @@ export const TaskComp = ({
   displayLastScheduleTime?: boolean;
   centerScheduleDate?: boolean;
 }) => {
-  const card = useSyncSelector(
-    () => projectCategoryCardByIdOrDefault({ id: taskId }),
-    [taskId],
-  );
-  const category = useSyncSelector(
-    () => projectCategoryByIdOrDefault({ id: card.projectCategoryId }),
-    [card.projectCategoryId],
-  );
-  const cardWrapper = useSyncSelector(
-    () => cardWrapperIdOrDefault({ id: cardWrapperId, modelType: cardWrapperType }),
-    [cardWrapperId, cardWrapperType],
-  );
-  const project = useSyncSelector(
-    () => projectOfCategoryOrDefault({ categoryId: card.projectCategoryId }),
-    [card.projectCategoryId],
-  );
-  const lastScheduleTime = useSyncSelector(
-    () => dailyProjectionDateOfTask({ taskId: taskId }),
-    [taskId],
-  );
+  const card = useSyncSelector({
+    selector: projectCategoryCardByIdOrDefault,
+    args: { id: taskId },
+  });
+  const category = useSyncSelector({
+    selector: projectCategoryByIdOrDefault,
+    args: { id: card.projectCategoryId },
+  });
+  const cardWrapper = useSyncSelector({
+    selector: cardWrapperIdOrDefault,
+    args: { id: cardWrapperId, modelType: cardWrapperType },
+  });
+  const project = useSyncSelector({
+    selector: projectOfCategoryOrDefault,
+    args: { categoryId: card.projectCategoryId },
+  });
+  const lastScheduleTime = useSyncSelector({
+    selector: dailyProjectionDateOfTask,
+    args: { taskId: taskId },
+  });
 
   return (
     <PreloadedTaskComp

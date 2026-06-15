@@ -1,7 +1,12 @@
 import { PreloadedTaskComp } from "../Task/Task.tsx";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import { useMemo, useState } from "react";
-import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb-lib";
+import {
+  selector,
+  useDispatch,
+  useSyncSelector,
+  v,
+} from "@will-be-done/hyperdb-lib";
 import {
   createCategory,
   createProjectCategoryTask,
@@ -22,6 +27,28 @@ import {
   TasksColumn,
   TasksColumnGrid,
 } from "@/components/TasksGrid/TasksGrid.tsx";
+
+const projectItemsExceptTaskIds = selector({
+  name: "projectItemsExceptTaskIds",
+  args: {
+    exceptDailyListIds: v.array(v.string()),
+    exceptStash: v.boolean(),
+  },
+  handler: function* projectItemsExceptTaskIds({
+    exceptDailyListIds,
+    exceptStash,
+  }) {
+    const dailyTaskIds = yield* dailyListAllTaskIds({
+      dailyListIds: exceptDailyListIds,
+    });
+    if (!exceptStash) {
+      return dailyTaskIds;
+    }
+
+    const stashTaskIds = yield* stashProjectionAllTaskIds({});
+    return new Set([...dailyTaskIds, ...stashTaskIds]);
+  },
+});
 
 import {
   AddLeftIcon,
@@ -44,14 +71,14 @@ const ProjectTasksColumn = ({
 }) => {
   const dispatch = useDispatch();
 
-  const cardsForDisplay = useSyncSelector(
-    () => projectCategoryCardsForDisplayChildren({ projectCategoryId: category.id }),
-    [category.id],
-  );
-  const doneCardsForDisplay = useSyncSelector(
-    () => doneProjectCategoryCardsForDisplay({ projectCategoryId: category.id }),
-    [category.id],
-  );
+  const cardsForDisplay = useSyncSelector({
+    selector: projectCategoryCardsForDisplayChildren,
+    args: { projectCategoryId: category.id },
+  });
+  const doneCardsForDisplay = useSyncSelector({
+    selector: doneProjectCategoryCardsForDisplay,
+    args: { projectCategoryId: category.id },
+  });
   const [isHiddenClicked, setIsHiddenClicked] = useState(false);
   const isHidden =
     isHiddenClicked ||
@@ -62,7 +89,10 @@ const ProjectTasksColumn = ({
     }
 
     const task = dispatch(
-      createProjectCategoryTask({ categoryId: category.id, position: "prepend" }),
+      createProjectCategoryTask({
+        categoryId: category.id,
+        position: "prepend",
+      }),
     );
 
     useFocusStore.getState().editByKey(buildFocusKey(task.id, task.type));
@@ -114,10 +144,13 @@ const ProjectTasksColumn = ({
                 );
 
                 dispatch(
-                  createCategory({ categoryDraft: {
+                  createCategory({
+                    categoryDraft: {
                       projectId: category.projectId,
                       title,
-                    }, position: [left ?? null, category] }),
+                    },
+                    position: [left ?? null, category],
+                  }),
                 );
               })();
             }}
@@ -138,10 +171,13 @@ const ProjectTasksColumn = ({
                 );
 
                 dispatch(
-                  createCategory({ categoryDraft: {
+                  createCategory({
+                    categoryDraft: {
                       projectId: category.projectId,
                       title,
-                    }, position: [category, right ?? null] }),
+                    },
+                    position: [category, right ?? null],
+                  }),
                 );
               })();
             }}
@@ -196,9 +232,12 @@ const ProjectTasksColumn = ({
                 if (!newTitle) return;
 
                 dispatch(
-                  updateCategory({ categoryId: category.id, category: {
-                    title: newTitle,
-                  } }),
+                  updateCategory({
+                    categoryId: category.id,
+                    category: {
+                      title: newTitle,
+                    },
+                  }),
                 );
               })();
             }}
@@ -267,22 +306,14 @@ export const ProjectItemsList = ({
   exceptDailyListIds?: string[];
   exceptStash?: boolean;
 }) => {
-  const categories = useSyncSelector(
-    () => projectCategoriesByProjectId({ projectId: project.id }),
-    [project.id],
-  );
-  const exceptTaskIds = useSyncSelector(
-    function* () {
-      const dailyTaskIds = yield* dailyListAllTaskIds({ dailyListIds: exceptDailyListIds ?? [] });
-      if (!exceptStash) {
-        return dailyTaskIds;
-      }
-
-      const stashTaskIds = yield* stashProjectionAllTaskIds({});
-      return new Set([...dailyTaskIds, ...stashTaskIds]);
-    },
-    [exceptDailyListIds, exceptStash],
-  );
+  const categories = useSyncSelector({
+    selector: projectCategoriesByProjectId,
+    args: { projectId: project.id },
+  });
+  const exceptTaskIds = useSyncSelector({
+    selector: projectItemsExceptTaskIds,
+    args: { exceptDailyListIds: exceptDailyListIds ?? [], exceptStash },
+  });
 
   return (
     <>

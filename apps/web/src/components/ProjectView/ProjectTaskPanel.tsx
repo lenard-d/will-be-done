@@ -81,20 +81,20 @@ const CategorySection = ({
   const [isDndOver, setIsDndOver] = useState(false);
   const [isPlaceholderFocused, setIsPlaceholderFocused] = useState(false);
 
-  const category = useSyncSelector(
-    () => projectCategoryByIdOrDefault({ id: categoryId }),
-    [categoryId],
-  );
+  const category = useSyncSelector({
+    selector: projectCategoryByIdOrDefault,
+    args: { id: categoryId },
+  });
 
-  const cardsForDisplay = useSyncSelector(
-    () => projectCategoryCardsForDisplayChildren({ projectCategoryId: category.id }),
-    [category.id],
-  );
+  const cardsForDisplay = useSyncSelector({
+    selector: projectCategoryCardsForDisplayChildren,
+    args: { projectCategoryId: category.id },
+  });
 
-  const doneCardsForDisplay = useSyncSelector(
-    () => doneProjectCategoryCardsForDisplay({ projectCategoryId: categoryId }),
-    [categoryId],
-  );
+  const doneCardsForDisplay = useSyncSelector({
+    selector: doneProjectCategoryCardsForDisplay,
+    args: { projectCategoryId: categoryId },
+  });
 
   const [isShowMore, setIsShowMore] = useState(false);
 
@@ -110,7 +110,12 @@ const CategorySection = ({
         const data = source.data;
         if (!isModelDNDData(data)) return false;
         return select(
-          appCanDrop({ id: categoryId, modelType: category.type, dropId: data.modelId, dropModelType: data.modelType }),
+          appCanDrop({
+            id: categoryId,
+            modelType: category.type,
+            dropId: data.modelId,
+            dropModelType: data.modelType,
+          }),
         );
       },
       getIsSticky: () => true,
@@ -324,20 +329,25 @@ export const ProjectTaskPanel = ({
   embedded?: boolean;
 }) => {
   const dispatch = useDispatch();
-  const project = useSyncSelector(
-    () => projectByIdOrDefault({ id: projectId }),
-    [projectId],
-  );
+  const project = useSyncSelector({
+    selector: projectByIdOrDefault,
+    args: { id: projectId },
+  });
 
-  const categories = useSyncSelector(
-    () => projectCategoriesByProjectId({ projectId: projectId }),
-    [projectId],
-  );
+  const categories = useSyncSelector({
+    selector: projectCategoriesByProjectId,
+    args: { projectId: projectId },
+  });
 
   const handleAddSection = async () => {
     const title = await promptDialog("Section name");
     if (!title) return;
-    dispatch(createCategory({ categoryDraft: { projectId, title }, position: "append" }));
+    dispatch(
+      createCategory({
+        categoryDraft: { projectId, title },
+        position: "append",
+      }),
+    );
   };
 
   if (embedded) {

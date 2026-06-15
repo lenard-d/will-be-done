@@ -16,7 +16,12 @@ import {
   useDispatch,
   useSyncSelector,
 } from "@will-be-done/hyperdb-lib";
-import { listSpaces, createSpace, updateSpace, deleteSpace } from "@will-be-done/slices/user";
+import {
+  listSpaces,
+  createSpace,
+  updateSpace,
+  deleteSpace,
+} from "@will-be-done/slices/user";
 import { userDBConfig } from "@/store/configs";
 
 export const Route = createFileRoute("/spaces/")({
@@ -102,7 +107,10 @@ function Logo({ size = 32 }: { size?: number }) {
 function SpacePageComponent() {
   const navigate = useNavigate();
 
-  const spaces = useSyncSelector(() => listSpaces({}), []);
+  const spaces = useSyncSelector({
+    selector: listSpaces,
+    args: {},
+  });
   const dispatch = useDispatch();
 
   useEffect(() => {

@@ -61,10 +61,10 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
     () => `project-view-scroll-${projectId}`,
     [projectId],
   );
-  const project = useSyncSelector(
-    () => projectByIdOrDefault({ id: projectId }),
-    [projectId],
-  );
+  const project = useSyncSelector({
+    selector: projectByIdOrDefault,
+    args: { id: projectId },
+  });
 
   const handleDeleteClick = () => {
     const shouldDelete = confirm(
@@ -111,7 +111,10 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
                   className="h-[326px] rounded-lg shadow-md"
                   onEmojiSelect={({ emoji }) => {
                     dispatch(
-                      updateProject({ id: project.id, project: { icon: emoji } }),
+                      updateProject({
+                        id: project.id,
+                        project: { icon: emoji },
+                      }),
                     );
                   }}
                 >
@@ -162,10 +165,10 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
 };
 
 export const ProjectDetailView = ({ projectId }: { projectId: string }) => {
-  const inboxProjectId = useSyncSelector(
-    () => getInboxProjectId({}),
-    [],
-  );
+  const inboxProjectId = useSyncSelector({
+    selector: getInboxProjectId,
+    args: {},
+  });
   const stashOffset = useStashDesktopOffset();
   const realProjectId = useMemo(() => {
     return projectId === "inbox" ? inboxProjectId : projectId;

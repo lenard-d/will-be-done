@@ -137,10 +137,10 @@ const InboxNavItem = ({ inboxId }: { inboxId: string }) => {
   const spaceId = Route.useParams().spaceId;
   const closeMobile = useCloseMobileOnNav();
 
-  const notDoneCount = useSyncSelector(
-    () => notDoneTasksCountExceptDailiesCount({ projectId: inboxId, exceptDailyListIds: [] }),
-    [inboxId],
-  );
+  const notDoneCount = useSyncSelector({
+    selector: notDoneTasksCountExceptDailiesCount,
+    args: { projectId: inboxId, exceptDailyListIds: [] },
+  });
 
   const isActive = useRouterState({
     select: (s) =>
@@ -188,11 +188,14 @@ const NavStrip = () => {
 
 export const AppSidebar = () => {
   const dispatch = useDispatch();
-  const inbox = useSyncSelector(() => inboxProject({}), []);
-  const projectIdsWithoutInbox = useSyncSelector(
-    () => projectChildrenIdsWithoutInbox({}),
-    [],
-  );
+  const inbox = useSyncSelector({
+    selector: inboxProject,
+    args: {},
+  });
+  const projectIdsWithoutInbox = useSyncSelector({
+    selector: projectChildrenIdsWithoutInbox,
+    args: {},
+  });
 
   const handleAddProjectClick = async () => {
     const title = await promptDialog("Enter project title");

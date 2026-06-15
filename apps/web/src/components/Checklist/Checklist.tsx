@@ -208,7 +208,12 @@ const ChecklistItemComp = ({
           if (!isModelDNDData(data)) return false;
 
           return select(
-            appCanDrop({ id: item.id, modelType: checklistItemType, dropId: data.modelId, dropModelType: data.modelType }),
+            appCanDrop({
+              id: item.id,
+              modelType: checklistItemType,
+              dropId: data.modelId,
+              dropModelType: data.modelType,
+            }),
           );
         },
         getIsSticky: () => true,
@@ -342,7 +347,9 @@ const ChecklistItemComp = ({
                 e.preventDefault();
                 e.stopPropagation();
 
-                const [before, after] = select(checklistItemSiblings({ itemId: item.id }));
+                const [before, after] = select(
+                  checklistItemSiblings({ itemId: item.id }),
+                );
                 flushContent();
                 dispatch(deleteItems({ ids: [item.id] }));
 
@@ -462,7 +469,12 @@ const ChecklistItemsView = ({
         if (!isModelDNDData(data)) return false;
 
         return select(
-          appCanDrop({ id: parentId, modelType: parentType, dropId: data.modelId, dropModelType: data.modelType }),
+          appCanDrop({
+            id: parentId,
+            modelType: parentType,
+            dropId: data.modelId,
+            dropModelType: data.modelType,
+          }),
         );
       },
       getIsSticky: () => true,
@@ -536,10 +548,10 @@ const ChecklistItemsView = ({
 
 const ChecklistItemsWithSelector = (props: ChecklistItemsBaseProps) => {
   const { parentId, parentType } = props;
-  const items = useSyncSelector(
-    () => checklistItemChildren({ parentId: parentId, parentType: parentType }),
-    [parentId, parentType],
-  );
+  const items = useSyncSelector({
+    selector: checklistItemChildren,
+    args: { parentId: parentId, parentType: parentType },
+  });
 
   return <ChecklistItemsView {...props} items={items} />;
 };

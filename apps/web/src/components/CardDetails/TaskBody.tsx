@@ -55,28 +55,28 @@ export function TaskBody({
   const dispatch = useDispatch();
   const taskId = task.id;
 
-  const project = useSyncSelector(
-    () => projectOfCategoryOrDefault({ categoryId: task.projectCategoryId }),
-    [task.projectCategoryId],
-  );
-  const projectCategories = useSyncSelector(
-    () => projectCategoriesByProjectId({ projectId: project.id }),
-    [project.id],
-  );
-  const scheduleDate = useSyncSelector(
-    () => dailyProjectionDateOfTask({ taskId: taskId }),
-    [taskId],
-  );
+  const project = useSyncSelector({
+    selector: projectOfCategoryOrDefault,
+    args: { categoryId: task.projectCategoryId },
+  });
+  const projectCategories = useSyncSelector({
+    selector: projectCategoriesByProjectId,
+    args: { projectId: project.id },
+  });
+  const scheduleDate = useSyncSelector({
+    selector: dailyProjectionDateOfTask,
+    args: { taskId: taskId },
+  });
 
   const taskTemplateId = task.templateId ?? null;
-  const template = useSyncSelector(
-    () => taskTemplateById({ id: taskTemplateId ?? "" }),
-    [taskTemplateId],
-  );
-  const ruleText = useSyncSelector(
-    () => taskTemplateRuleText({ id: taskTemplateId ?? "" }),
-    [taskTemplateId],
-  );
+  const template = useSyncSelector({
+    selector: taskTemplateById,
+    args: { id: taskTemplateId ?? "" },
+  });
+  const ruleText = useSyncSelector({
+    selector: taskTemplateRuleText,
+    args: { id: taskTemplateId ?? "" },
+  });
 
   const [isMoveProjectModalOpen, setIsMoveProjectModalOpen] = useState(false);
   const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
@@ -91,7 +91,8 @@ export function TaskBody({
     title: task.title,
     setIsEditingTitle,
     onSave: useCallback(
-      (trimmed: string) => dispatch(updateTask({ id: taskId, task: { title: trimmed } })),
+      (trimmed: string) =>
+        dispatch(updateTask({ id: taskId, task: { title: trimmed } })),
       [dispatch, taskId],
     ),
   });
@@ -107,7 +108,8 @@ export function TaskBody({
     isEditingDescription,
     setIsEditingDescription,
     onSave: useCallback(
-      (content: string) => dispatch(updateTask({ id: taskId, task: { content } })),
+      (content: string) =>
+        dispatch(updateTask({ id: taskId, task: { content } })),
       [dispatch, taskId],
     ),
   });
@@ -128,15 +130,21 @@ export function TaskBody({
       setIsRepeatModalOpen(false);
       if (task.templateId) {
         dispatch(
-          updateTemplate({ id: task.templateId, template: {
-            repeatRule: ruleString,
-          } }),
+          updateTemplate({
+            id: task.templateId,
+            template: {
+              repeatRule: ruleString,
+            },
+          }),
         );
       } else {
         const template = dispatch(
-          createTaskTemplateFromTask({ task: task, data: {
-            repeatRule: ruleString,
-          } }),
+          createTaskTemplateFromTask({
+            task: task,
+            data: {
+              repeatRule: ruleString,
+            },
+          }),
         );
 
         useFocusStore
@@ -182,9 +190,12 @@ export function TaskBody({
           projectCategories={projectCategories}
           onChange={(categoryId) =>
             dispatch(
-              updateTask({ id: taskId, task: {
-                projectCategoryId: categoryId,
-              } }),
+              updateTask({
+                id: taskId,
+                task: {
+                  projectCategoryId: categoryId,
+                },
+              }),
             )
           }
         />
@@ -284,7 +295,9 @@ export function TaskBody({
         <MoveModal
           setIsOpen={setIsMoveProjectModalOpen}
           handleMove={(projectId) => {
-            dispatch(moveTaskToProject({ taskId: taskId, projectId: projectId }));
+            dispatch(
+              moveTaskToProject({ taskId: taskId, projectId: projectId }),
+            );
             setIsMoveProjectModalOpen(false);
           }}
           exceptProjectId={project.id}
