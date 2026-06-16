@@ -283,8 +283,8 @@ const getNewModels = action({
         lastToggledAt: taskBackup.lastToggledAt,
         createdAt: taskBackup.createdAt,
         nature: taskBackup.nature || "unknown",
-        templateId: taskBackup.templateId || null,
-        templateDate: taskBackup.templateDate || null,
+        templateId: taskBackup.templateId ?? null,
+        templateDate: taskBackup.templateDate ?? null,
       };
 
       models.push(task);

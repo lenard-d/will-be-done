@@ -39,12 +39,12 @@ export const hasChecklistItems = selector({
   name: "hasChecklistItem",
   args: {
     parentType: checklistParentType,
-    paretId: v.string(),
+    parentId: v.string(),
   },
-  handler: function* hasChecklistItem({ parentType, paretId }) {
+  handler: function* hasChecklistItem({ parentType, parentId }) {
     return (
       (yield* selectFrom(checklistItemsTable, "byParentOrder")
-        .where((q) => q.eq("parentId", paretId).eq("parentType", parentType))
+        .where((q) => q.eq("parentId", parentId).eq("parentType", parentType))
         .first()) !== undefined
     );
   },

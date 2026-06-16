@@ -28,7 +28,6 @@ import {
   taskIdsOfTemplateId,
   updateTask,
 } from "./cardsTasks";
-import { registerSpaceSyncableTable } from "./syncMap";
 import { registerModelSlice } from "./maps";
 import { genUUIDV5 } from "../traits/";
 import { generateKeyPositionedBetween, getDMY } from "./utils";
@@ -56,8 +55,6 @@ export const defaultTaskTemplate: TaskTemplate = {
   lastGeneratedAt: 0,
   projectCategoryId: "abeee7aa-8bf4-4a5f-9167-ce42ad6187b6",
 };
-
-registerSpaceSyncableTable(taskTemplatesTable, taskTemplateType);
 
 // Template utility functions
 const genTaskId = selector({
@@ -462,8 +459,9 @@ export const updateTemplate = action({
     const templateInState = yield* taskTemplateById({ id });
     if (!templateInState) throw new Error("Template not found");
 
-    yield* upsert(taskTemplatesTable, [{ ...templateInState, ...template }]);
-    return templateInState;
+    const updatedTemplate = { ...templateInState, ...template };
+    yield* upsert(taskTemplatesTable, [updatedTemplate]);
+    return updatedTemplate;
   },
 });
 

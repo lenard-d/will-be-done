@@ -213,7 +213,7 @@ export const projectCategoryCardsForDisplay = selector({
     for (const c of cards) {
       const has = yield* hasChecklistItems({
         parentType: c.type,
-        paretId: c.id,
+        parentId: c.id,
       });
       hasChecklistMap.set(`${c.id}:${c.type}`, has);
     }
@@ -407,7 +407,7 @@ export const createSiblingTask = action({
     taskParams: v.optional(v.partial(tasksTable.v())),
   },
   handler: function* createSiblingTask({ cardId, position, taskParams }) {
-    const card = yield* projectCategoryCardByIdOrDefault({ id: cardId });
+    const card = yield* projectCategoryCardById({ id: cardId });
     if (!card) throw new Error("Card not found");
 
     return yield* createTask({
@@ -431,7 +431,7 @@ export const createTaskCardAfter = action({
     taskParams: v.optional(v.partial(tasksTable.v())),
   },
   handler: function* createTaskCardAfter({ cardId, taskParams }) {
-    const card = yield* projectCategoryCardByIdOrDefault({ id: cardId });
+    const card = yield* projectCategoryCardById({ id: cardId });
     if (!card) throw new Error("Card not found");
 
     const [, after] = yield* projectCategoryCardSiblings({ cardId });

@@ -21,6 +21,7 @@ import {
   deleteCategories,
   firstProjectCategoryChild,
   inboxCategoryId,
+  projectCategoryById,
   projectCategoriesByProjectId,
   projectCategoriesByProjectIds,
   createProjectCategoryTask,
@@ -574,7 +575,12 @@ export const createProjectTask = action({
     if (!project) throw new Error("Project not found");
 
     let projectCategoryId = taskAttrs?.projectCategoryId;
-    if (!projectCategoryId) {
+    if (projectCategoryId) {
+      const category = yield* projectCategoryById({ id: projectCategoryId });
+      if (!category || category.projectId !== projectId) {
+        throw new Error("Project category does not belong to project");
+      }
+    } else {
       const firstCategory = yield* firstProjectCategoryChild({ projectId });
       if (!firstCategory) throw new Error("No categories found");
       projectCategoryId = firstCategory.id;

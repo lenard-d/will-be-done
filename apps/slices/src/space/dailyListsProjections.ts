@@ -13,6 +13,7 @@ import {
   dailyDateFormat,
   generateKeyPositionedBetween,
   normalizeOrderPosition,
+  type OrderableItem,
   orderPositionArg,
 } from "./utils";
 import { registerModelSlice } from "./maps";
@@ -592,8 +593,8 @@ export const addToDailyList = action({
       orderToken = generateJitteredKeyBetween(null, firstToken);
     } else {
       const siblings = normalizeOrderPosition(position) as [
-        TaskProjection | undefined,
-        TaskProjection | undefined,
+        OrderableItem | undefined,
+        OrderableItem | undefined,
       ];
       orderToken = generateJitteredKeyBetween(
         siblings[0]?.orderToken || null,

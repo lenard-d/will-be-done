@@ -55,6 +55,7 @@ export const taskTemplatesTable = defineTable("task_templates", {
 })
   .index("byIds", ["id"])
   .index("byCategoryIdOrderStates", ["projectCategoryId", "orderToken"]);
+registerSpaceSyncableTable(taskTemplatesTable, taskTemplateType);
 export type TaskTemplate = ExtractSchema<typeof taskTemplatesTable>;
 export const isTaskTemplate = isObjectType<TaskTemplate>(taskTemplateType);
 

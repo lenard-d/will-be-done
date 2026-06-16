@@ -72,10 +72,14 @@ export function TaskBody({
   const template = useSyncSelector({
     selector: taskTemplateById,
     args: { id: taskTemplateId ?? "" },
+    enabled: !!taskTemplateId,
+    defaultValue: undefined,
   });
   const ruleText = useSyncSelector({
     selector: taskTemplateRuleText,
     args: { id: taskTemplateId ?? "" },
+    enabled: !!taskTemplateId,
+    defaultValue: "",
   });
 
   const [isMoveProjectModalOpen, setIsMoveProjectModalOpen] = useState(false);

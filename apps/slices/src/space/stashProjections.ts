@@ -601,7 +601,7 @@ const stashColumnHandleDrop = action({
     });
 
     if (shouldDeleteProjection) {
-      yield* deleteStashProjections({ ids: [taskId] });
+      yield* deleteDailyProjections({ ids: [taskId] });
     }
   },
 });
