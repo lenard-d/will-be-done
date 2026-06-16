@@ -2,11 +2,11 @@ import { PreloadedTaskComp } from "../Task/Task.tsx";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import { useMemo, useState } from "react";
 import {
-  selector,
   useDispatch,
   useSyncSelector,
   v,
 } from "@will-be-done/hyperdb-lib";
+import { selector } from "@/store/builders.ts";
 import {
   createCategory,
   createProjectCategoryTask,

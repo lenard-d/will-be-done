@@ -1,4 +1,5 @@
-import { selectFrom, selector, v } from "@will-be-done/hyperdb-lib";
+import { selectFrom, v } from "@will-be-done/hyperdb-lib";
+import { selector } from "../builders";
 import { inboxProjectId, projectById } from "./projects";
 import { defaultProject } from "./projects";
 import { Project, projectsTable } from "./tables";

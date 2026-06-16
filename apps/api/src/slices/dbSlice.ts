@@ -1,10 +1,9 @@
 import {
-  action,
   insert,
   selectFrom,
-  selector,
   v,
 } from "@will-be-done/hyperdb-lib";
+import { action, selector } from "../builders";
 import { dbsTable, type Db } from "./tables";
 
 export { dbsTable, type Db } from "./tables";

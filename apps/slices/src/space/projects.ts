@@ -1,13 +1,12 @@
 import { shouldNeverHappen } from "../utils";
 import {
-  action,
   deleteRows,
   insert,
   selectFrom,
-  selector,
   upsert,
   v,
 } from "@will-be-done/hyperdb-lib";
+import { action, selector } from "../builders";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { uuidv7 } from "uuidv7";
 import {

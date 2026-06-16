@@ -1,6 +1,5 @@
 import { nanoid } from "nanoid";
 import {
-  action,
   asyncDispatch,
   BptreeInmemDriver,
   DB,
@@ -17,6 +16,7 @@ import {
   TableDefinition,
   upsert,
 } from "@will-be-done/hyperdb-lib";
+import { action } from "./builders";
 import AwaitLock from "await-lock";
 import {
   insertChangeFromInsert,
@@ -127,7 +127,7 @@ export const initDbStore = async (
     const asyncDriver = await initAsyncDriver(dbName);
     const asyncDB = new DB(asyncDriver, {
       traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
-      trace: process.env.NODE_ENV === "development",
+      tracer: process.env.NODE_ENV === "development" ? undefined : null,
       runtimeValidation: process.env.NODE_ENV === "development",
       freezeArgs: process.env.NODE_ENV === "development",
       freezeRows: process.env.NODE_ENV === "development",
@@ -137,7 +137,7 @@ export const initDbStore = async (
 
     const syncDB = new DB(new BptreeInmemDriver(), {
       traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
-      trace: process.env.NODE_ENV === "development",
+      tracer: process.env.NODE_ENV === "development" ? undefined : null,
     });
 
     execSync(syncDB.loadTables(syncConfig.inmemDBTables));
