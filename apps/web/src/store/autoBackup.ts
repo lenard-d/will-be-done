@@ -158,7 +158,7 @@ export class AutoBackuper {
         return;
       }
 
-      const backup = syncDispatch(this.syncSubDb, getSpaceBackup());
+      const backup = syncDispatch(this.syncSubDb, getSpaceBackup({}));
       await saveBackup(this.dbName, backup);
       await cleanOldBackups(this.dbName, 7);
 

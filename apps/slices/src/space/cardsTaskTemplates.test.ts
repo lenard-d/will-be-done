@@ -9,21 +9,23 @@ import {
   selectFrom,
   BptreeInmemDriver,
 } from "@will-be-done/hyperdb-lib";
-import { tasksTable, type Task } from "./cardsTasks";
 import {
-  taskTemplatesTable,
-  type TaskTemplate,
   taskTemplateNewTasksInRange,
   newTasksToGenForTaskTemplate,
   createTaskTemplateFromTask,
 } from "./cardsTaskTemplates";
 import { dbIdTrait } from "@/traits";
-import { checklistItemsTable } from "./checklistItems";
-import { dailyListsTable, type DailyList } from "./dailyLists";
 import {
+  checklistItemsTable,
+  DailyList,
+  dailyListsTable,
+  Task,
+  TaskProjection,
   taskProjectionsTable,
-  type TaskProjection,
-} from "./dailyListsProjections";
+  tasksTable,
+  TaskTemplate,
+  taskTemplatesTable,
+} from "./tables";
 
 function createDB(timezoneOffsetMinutes: number) {
   // Mock timezone before creating DB/running selectors
@@ -49,9 +51,13 @@ function createDB(timezoneOffsetMinutes: number) {
 function insertTemplate(db: DB, template: TaskTemplate) {
   syncDispatch(
     db,
-    action(function* () {
-      yield* insert(taskTemplatesTable, [template]);
-    })(),
+    action({
+      name: "anonymousAction",
+      args: {},
+      handler: function* anonymousAction() {
+        yield* insert(taskTemplatesTable, [template]);
+      },
+    })({}),
   );
 }
 
@@ -59,7 +65,10 @@ function getNewTasks(db: DB, templateId: string, toDate: Date): Task[] {
   return runSelector<Task[]>(
     db,
     function* () {
-      return yield* newTasksToGenForTaskTemplate(templateId, toDate);
+      return yield* newTasksToGenForTaskTemplate({
+        templateId,
+        toDate: toDate.getTime(),
+      });
     },
     [],
   );
@@ -69,7 +78,10 @@ function getNewTasksInRange(db: DB, fromDate: Date, toDate: Date): Task[] {
   return runSelector<Task[]>(
     db,
     function* () {
-      return yield* taskTemplateNewTasksInRange(fromDate, toDate);
+      return yield* taskTemplateNewTasksInRange({
+        fromDate: fromDate.getTime(),
+        toDate: toDate.getTime(),
+      });
     },
     [],
   );
@@ -458,10 +470,14 @@ describe("cardsTaskTemplates timezone consistency", () => {
     const db = createDB(0);
     const template = syncDispatch(
       db,
-      action(function* () {
-        yield* insert(tasksTable, [task]);
-        return yield* createTaskTemplateFromTask(task, {});
-      })(),
+      action({
+        name: "anonymousAction",
+        args: {},
+        handler: function* anonymousAction() {
+          yield* insert(tasksTable, [task]);
+          return yield* createTaskTemplateFromTask({ task, data: {} });
+        },
+      })({}),
     ) as TaskTemplate;
 
     const tasks = runSelector<Task[]>(

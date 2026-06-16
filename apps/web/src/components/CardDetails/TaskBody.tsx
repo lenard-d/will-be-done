@@ -55,28 +55,32 @@ export function TaskBody({
   const dispatch = useDispatch();
   const taskId = task.id;
 
-  const project = useSyncSelector(
-    () => projectOfCategoryOrDefault(task.projectCategoryId),
-    [task.projectCategoryId],
-  );
-  const projectCategories = useSyncSelector(
-    () => projectCategoriesByProjectId(project.id),
-    [project.id],
-  );
-  const scheduleDate = useSyncSelector(
-    () => dailyProjectionDateOfTask(taskId),
-    [taskId],
-  );
+  const project = useSyncSelector({
+    selector: projectOfCategoryOrDefault,
+    args: { categoryId: task.projectCategoryId },
+  });
+  const projectCategories = useSyncSelector({
+    selector: projectCategoriesByProjectId,
+    args: { projectId: project.id },
+  });
+  const scheduleDate = useSyncSelector({
+    selector: dailyProjectionDateOfTask,
+    args: { taskId: taskId },
+  });
 
   const taskTemplateId = task.templateId ?? null;
-  const template = useSyncSelector(
-    () => taskTemplateById(taskTemplateId ?? ""),
-    [taskTemplateId],
-  );
-  const ruleText = useSyncSelector(
-    () => taskTemplateRuleText(taskTemplateId ?? ""),
-    [taskTemplateId],
-  );
+  const template = useSyncSelector({
+    selector: taskTemplateById,
+    args: { id: taskTemplateId ?? "" },
+    enabled: !!taskTemplateId,
+    defaultValue: undefined,
+  });
+  const ruleText = useSyncSelector({
+    selector: taskTemplateRuleText,
+    args: { id: taskTemplateId ?? "" },
+    enabled: !!taskTemplateId,
+    defaultValue: "",
+  });
 
   const [isMoveProjectModalOpen, setIsMoveProjectModalOpen] = useState(false);
   const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
@@ -91,7 +95,8 @@ export function TaskBody({
     title: task.title,
     setIsEditingTitle,
     onSave: useCallback(
-      (trimmed: string) => dispatch(updateTask(taskId, { title: trimmed })),
+      (trimmed: string) =>
+        dispatch(updateTask({ id: taskId, task: { title: trimmed } })),
       [dispatch, taskId],
     ),
   });
@@ -107,7 +112,8 @@ export function TaskBody({
     isEditingDescription,
     setIsEditingDescription,
     onSave: useCallback(
-      (content: string) => dispatch(updateTask(taskId, { content })),
+      (content: string) =>
+        dispatch(updateTask({ id: taskId, task: { content } })),
       [dispatch, taskId],
     ),
   });
@@ -119,7 +125,7 @@ export function TaskBody({
         "Remove repeat template? This will unlink all generated tasks.",
       )
     ) {
-      dispatch(deleteTemplates([task.templateId]));
+      dispatch(deleteTemplates({ taskTemplateIds: [task.templateId] }));
     }
   }, [task.templateId, dispatch]);
 
@@ -128,14 +134,20 @@ export function TaskBody({
       setIsRepeatModalOpen(false);
       if (task.templateId) {
         dispatch(
-          updateTemplate(task.templateId, {
-            repeatRule: ruleString,
+          updateTemplate({
+            id: task.templateId,
+            template: {
+              repeatRule: ruleString,
+            },
           }),
         );
       } else {
         const template = dispatch(
-          createTaskTemplateFromTask(task, {
-            repeatRule: ruleString,
+          createTaskTemplateFromTask({
+            task: task,
+            data: {
+              repeatRule: ruleString,
+            },
           }),
         );
 
@@ -154,7 +166,7 @@ export function TaskBody({
         icon={
           <CheckboxComp
             checked={task.state === "done"}
-            onChange={() => dispatch(toggleTaskState(taskId))}
+            onChange={() => dispatch(toggleTaskState({ taskId: taskId }))}
           />
         }
         isEditing={isEditingTitle}
@@ -182,8 +194,11 @@ export function TaskBody({
           projectCategories={projectCategories}
           onChange={(categoryId) =>
             dispatch(
-              updateTask(taskId, {
-                projectCategoryId: categoryId,
+              updateTask({
+                id: taskId,
+                task: {
+                  projectCategoryId: categoryId,
+                },
               }),
             )
           }
@@ -284,7 +299,9 @@ export function TaskBody({
         <MoveModal
           setIsOpen={setIsMoveProjectModalOpen}
           handleMove={(projectId) => {
-            dispatch(moveTaskToProject(taskId, projectId));
+            dispatch(
+              moveTaskToProject({ taskId: taskId, projectId: projectId }),
+            );
             setIsMoveProjectModalOpen(false);
           }}
           exceptProjectId={project.id}

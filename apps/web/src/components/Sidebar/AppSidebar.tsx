@@ -137,10 +137,10 @@ const InboxNavItem = ({ inboxId }: { inboxId: string }) => {
   const spaceId = Route.useParams().spaceId;
   const closeMobile = useCloseMobileOnNav();
 
-  const notDoneCount = useSyncSelector(
-    () => notDoneTasksCountExceptDailiesCount(inboxId, []),
-    [inboxId],
-  );
+  const notDoneCount = useSyncSelector({
+    selector: notDoneTasksCountExceptDailiesCount,
+    args: { projectId: inboxId, exceptDailyListIds: [] },
+  });
 
   const isActive = useRouterState({
     select: (s) =>
@@ -188,16 +188,19 @@ const NavStrip = () => {
 
 export const AppSidebar = () => {
   const dispatch = useDispatch();
-  const inbox = useSyncSelector(() => inboxProject(), []);
-  const projectIdsWithoutInbox = useSyncSelector(
-    () => projectChildrenIdsWithoutInbox(),
-    [],
-  );
+  const inbox = useSyncSelector({
+    selector: inboxProject,
+    args: {},
+  });
+  const projectIdsWithoutInbox = useSyncSelector({
+    selector: projectChildrenIdsWithoutInbox,
+    args: {},
+  });
 
   const handleAddProjectClick = async () => {
     const title = await promptDialog("Enter project title");
     if (title) {
-      dispatch(createProject({ title }, "append"));
+      dispatch(createProject({ project: { title }, position: "append" }));
     }
   };
 
@@ -263,7 +266,7 @@ const GenerateTestDataButton = () => {
     const l = parseInt(todo, 10) || 0;
 
     const backup = generateTestBackup(n, m, k, l);
-    dispatch(loadSpaceBackup(backup));
+    dispatch(loadSpaceBackup({ backup: backup }));
     setOpen(false);
   };
 

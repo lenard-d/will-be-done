@@ -198,22 +198,28 @@ export const PreloadedTaskComp = ({
   const persistTaskTitle = useCallback(
     (title: string) => {
       if (isTask(card)) {
-        if (!select(taskById(taskId))) return;
+        if (!select(taskById({ id: taskId }))) return;
 
         dispatch(
-          updateTask(taskId, {
-            title,
+          updateTask({
+            id: taskId,
+            task: {
+              title,
+            },
           }),
         );
         return;
       }
 
       if (isTaskTemplate(card)) {
-        if (!select(taskTemplateById(taskId))) return;
+        if (!select(taskTemplateById({ id: taskId }))) return;
 
         dispatch(
-          updateTemplate(taskId, {
-            title,
+          updateTemplate({
+            id: taskId,
+            template: {
+              title,
+            },
           }),
         );
       }
@@ -236,21 +242,35 @@ export const PreloadedTaskComp = ({
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
     const taskState = card.state;
-    dispatch(toggleTaskState(taskId));
+    dispatch(toggleTaskState({ taskId: taskId }));
 
     if (!isFocused) return;
 
     const upModel = upKey
-      ? select(appById(parseColumnKey(upKey).id, parseColumnKey(upKey).type))
+      ? select(
+          appById({
+            id: parseColumnKey(upKey).id,
+            modelType: parseColumnKey(upKey).type,
+          }),
+        )
       : undefined;
     const downModel = downKey
       ? select(
-          appById(parseColumnKey(downKey).id, parseColumnKey(downKey).type),
+          appById({
+            id: parseColumnKey(downKey).id,
+            modelType: parseColumnKey(downKey).type,
+          }),
         )
       : undefined;
 
-    const upTask = upModel && select(taskOfModel(upModel));
-    const downTask = downModel && select(taskOfModel(downModel));
+    const upTask =
+      upModel?.type !== projectCategoryType && upModel
+        ? select(taskOfModel({ model: upModel }))
+        : undefined;
+    const downTask =
+      downModel?.type !== projectCategoryType && downModel
+        ? select(taskOfModel({ model: downModel }))
+        : undefined;
 
     if (downTask && downTask.state === taskState) {
       useFocusStore.getState().focusByKey(downKey!);
@@ -263,7 +283,9 @@ export const PreloadedTaskComp = ({
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
     flushEditedTitle();
-    dispatch(appDeleteModel(cardWrapper.id, cardWrapper.type));
+    dispatch(
+      appDeleteModel({ id: cardWrapper.id, modelType: cardWrapper.type }),
+    );
 
     if (downKey) {
       useFocusStore.getState().focusByKey(downKey);
@@ -298,13 +320,13 @@ export const PreloadedTaskComp = ({
       const { id, type } = parseColumnKey(dropTarget.targetKey);
 
       dispatch(
-        appHandleDrop(
-          id,
-          type as AnyModelType,
-          cardWrapper.id,
-          cardWrapper.type,
-          dropTarget.edge,
-        ),
+        appHandleDrop({
+          id: id,
+          modelType: type as AnyModelType,
+          dropId: cardWrapper.id,
+          dropModelType: cardWrapper.type,
+          edge: dropTarget.edge,
+        }),
       );
 
       setTimeout(() => {
@@ -365,7 +387,15 @@ export const PreloadedTaskComp = ({
           ? "top"
           : "bottom";
 
-      dispatch(appHandleDrop(id, type, cardWrapper.id, cardWrapper.type, edge));
+      dispatch(
+        appHandleDrop({
+          id: id,
+          modelType: type,
+          dropId: cardWrapper.id,
+          dropModelType: cardWrapper.type,
+          edge: edge,
+        }),
+      );
 
       setTimeout(() => {
         const el = document.querySelector<HTMLElement>(
@@ -392,8 +422,10 @@ export const PreloadedTaskComp = ({
 
     const item = dispatch(
       createItem({
-        parentId: card.id,
-        parentType: card.type,
+        item: {
+          parentId: card.id,
+          parentType: card.type,
+        },
       }),
     );
 
@@ -406,7 +438,11 @@ export const PreloadedTaskComp = ({
 
       unstable_batchedUpdates(() => {
         const newBox = dispatch(
-          createSiblingCard(cardWrapper, position, newTaskParams),
+          createSiblingCard({
+            taskBox: cardWrapper,
+            position: position,
+            taskParams: newTaskParams,
+          }),
         );
         useFocusStore
           .getState()
@@ -435,15 +471,23 @@ export const PreloadedTaskComp = ({
   const handleScheduleToday = useCallback(() => {
     if (!isTask(card)) return;
 
-    const dailyList = dispatch(createDailyListIfNotPresent(getDMY(date)));
+    const dailyList = dispatch(
+      createDailyListIfNotPresent({ date: getDMY(date) }),
+    );
 
-    dispatch(addToDailyList(taskId, dailyList.id, "append"));
+    dispatch(
+      addToDailyList({
+        taskId: taskId,
+        dailyListId: dailyList.id,
+        position: "append",
+      }),
+    );
   }, [card, date, dispatch, taskId]);
 
   const handleResetSchedule = useCallback(() => {
     if (!isTask(card)) return;
 
-    dispatch(removeFromDailyList(taskId));
+    dispatch(removeFromDailyList({ taskId: taskId }));
   }, [card, dispatch, taskId]);
 
   const handleStashTask = useCallback(() => {
@@ -458,13 +502,13 @@ export const PreloadedTaskComp = ({
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
     dispatch(
-      appHandleDrop(
-        STASH_ID,
-        stashType,
-        cardWrapper.id,
-        cardWrapper.type,
-        "top",
-      ),
+      appHandleDrop({
+        id: STASH_ID,
+        modelType: stashType,
+        dropId: cardWrapper.id,
+        dropModelType: cardWrapper.type,
+        edge: "top",
+      }),
     );
 
     if (downKey) {
@@ -490,10 +534,13 @@ export const PreloadedTaskComp = ({
       setIsRepeatModalOpen(false);
       flushEditedTitle();
 
-      const task = select(taskById(taskId)) ?? card;
+      const task = select(taskById({ id: taskId })) ?? card;
       const template = dispatch(
-        createTaskTemplateFromTask(task, {
-          repeatRule: ruleString,
+        createTaskTemplateFromTask({
+          task: task,
+          data: {
+            repeatRule: ruleString,
+          },
         }),
       );
 
@@ -597,11 +644,14 @@ export const PreloadedTaskComp = ({
       if (e.code === "Digit1" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(card)) {
-            dispatch(updateTask(taskId, { nature: "red" }));
+            dispatch(updateTask({ id: taskId, task: { nature: "red" } }));
           } else if (isTaskTemplate(card)) {
             dispatch(
-              updateTemplate(taskId, {
-                nature: "red",
+              updateTemplate({
+                id: taskId,
+                template: {
+                  nature: "red",
+                },
               }),
             );
           }
@@ -609,11 +659,14 @@ export const PreloadedTaskComp = ({
       } else if (e.code === "Digit2" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(card)) {
-            dispatch(updateTask(taskId, { nature: "green" }));
+            dispatch(updateTask({ id: taskId, task: { nature: "green" } }));
           } else if (isTaskTemplate(card)) {
             dispatch(
-              updateTemplate(taskId, {
-                nature: "green",
+              updateTemplate({
+                id: taskId,
+                template: {
+                  nature: "green",
+                },
               }),
             );
           }
@@ -621,11 +674,14 @@ export const PreloadedTaskComp = ({
       } else if (e.code === "Digit3" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(card)) {
-            dispatch(updateTask(taskId, { nature: "unknown" }));
+            dispatch(updateTask({ id: taskId, task: { nature: "unknown" } }));
           } else if (isTaskTemplate(card)) {
             dispatch(
-              updateTemplate(taskId, {
-                nature: "unknown",
+              updateTemplate({
+                id: taskId,
+                template: {
+                  nature: "unknown",
+                },
               }),
             );
           }
@@ -634,7 +690,7 @@ export const PreloadedTaskComp = ({
         return runShortcutAction(() => {
           const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
-          dispatch(deleteTasks([taskId]));
+          dispatch(deleteTasks({ ids: [taskId] }));
 
           if (downKey) {
             useFocusStore.getState().focusByKey(downKey);
@@ -796,9 +852,11 @@ export const PreloadedTaskComp = ({
     setIsMoveModalOpen(false);
 
     if (isTask(card)) {
-      dispatch(moveTaskToProject(taskId, projectId));
+      dispatch(moveTaskToProject({ taskId: taskId, projectId: projectId }));
     } else if (isTaskTemplate(card)) {
-      dispatch(moveTemplateToProject(taskId, projectId));
+      dispatch(
+        moveTemplateToProject({ templateId: taskId, projectId: projectId }),
+      );
     }
   };
 
@@ -864,12 +922,12 @@ export const PreloadedTaskComp = ({
           if (!isModelDNDData(data)) return false;
 
           return select(
-            appCanDrop(
-              cardWrapper.id,
-              cardWrapper.type,
-              data.modelId,
-              data.modelType,
-            ),
+            appCanDrop({
+              id: cardWrapper.id,
+              modelType: cardWrapper.type,
+              dropId: data.modelId,
+              dropModelType: data.modelType,
+            }),
           );
         },
         getIsSticky: () => true,
@@ -1330,26 +1388,26 @@ export const TaskComp = ({
   displayLastScheduleTime?: boolean;
   centerScheduleDate?: boolean;
 }) => {
-  const card = useSyncSelector(
-    () => projectCategoryCardByIdOrDefault(taskId),
-    [taskId],
-  );
-  const category = useSyncSelector(
-    () => projectCategoryByIdOrDefault(card.projectCategoryId),
-    [card.projectCategoryId],
-  );
-  const cardWrapper = useSyncSelector(
-    () => cardWrapperIdOrDefault(cardWrapperId, cardWrapperType),
-    [cardWrapperId, cardWrapperType],
-  );
-  const project = useSyncSelector(
-    () => projectOfCategoryOrDefault(card.projectCategoryId),
-    [card.projectCategoryId],
-  );
-  const lastScheduleTime = useSyncSelector(
-    () => dailyProjectionDateOfTask(taskId),
-    [taskId],
-  );
+  const card = useSyncSelector({
+    selector: projectCategoryCardByIdOrDefault,
+    args: { id: taskId },
+  });
+  const category = useSyncSelector({
+    selector: projectCategoryByIdOrDefault,
+    args: { id: card.projectCategoryId },
+  });
+  const cardWrapper = useSyncSelector({
+    selector: cardWrapperIdOrDefault,
+    args: { id: cardWrapperId, modelType: cardWrapperType },
+  });
+  const project = useSyncSelector({
+    selector: projectOfCategoryOrDefault,
+    args: { categoryId: card.projectCategoryId },
+  });
+  const lastScheduleTime = useSyncSelector({
+    selector: dailyProjectionDateOfTask,
+    args: { taskId: taskId },
+  });
 
   return (
     <PreloadedTaskComp

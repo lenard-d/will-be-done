@@ -5,7 +5,7 @@ import {
   execAsync,
 } from "@will-be-done/hyperdb-lib";
 import {
-  changesSlice,
+  insertChangeFromInsert,
   changesTable,
   syncStateTable,
   ChangesetArrayType,
@@ -60,14 +60,13 @@ export async function initPopupStore(spaceId: string) {
   const asyncDriver = await initAsyncDriver(dbName);
   const asyncDB = new DB(
     asyncDriver,
-    [],
-    [dbIdTrait("space", spaceId)],
+    { traits: [dbIdTrait("space", spaceId)] },
   );
 
   await execAsync(asyncDB.loadTables(persistDBTables));
 
   // Ensure inbox exists
-  await asyncDispatch(asyncDB, createInboxIfNotExists());
+  await asyncDispatch(asyncDB, createInboxIfNotExists({}));
 
   return {
     async createInboxTask(title: string) {
@@ -75,30 +74,19 @@ export async function initPopupStore(spaceId: string) {
         asyncDB,
         (function* () {
           // Get inbox project
-          const inbox = yield* createInboxIfNotExists();
+          const inbox = yield* createInboxIfNotExists({});
 
           // Get first category of inbox
-          const inboxCategory = yield* firstProjectCategoryChild(
-            inbox.id,
-          );
+          const inboxCategory = yield* firstProjectCategoryChild({ projectId: inbox.id });
           if (!inboxCategory) {
             throw new Error("Inbox category not found");
           }
 
           // Create task at the top (prepend)
-          const task = yield* createProjectCategoryTask(
-            inboxCategory.id,
-            "prepend",
-            { title },
-          );
+          const task = yield* createProjectCategoryTask({ categoryId: inboxCategory.id, position: "prepend", taskAttrs: { title } });
 
           // Create change record
-          const change = yield* changesSlice.insertChangeFromInsert(
-            tasksTable,
-            task,
-            clientId,
-            nextClock,
-          );
+          const change = yield* insertChangeFromInsert({ tableDef: tasksTable, row: task, clientId: clientId, nextClock: nextClock() });
 
           return { task, change };
         })(),

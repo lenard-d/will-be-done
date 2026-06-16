@@ -5,9 +5,7 @@ import { parse } from "date-fns";
 import { GlobalLayout } from "@/components/Layout/GlobalLayout.tsx";
 import { Board } from "@/components/DaysBoard/DaysBoard.tsx";
 import { useSyncSelector } from "@will-be-done/hyperdb-lib";
-import {
-  inboxProjectId as getInboxProjectId,
-} from "@will-be-done/slices/space";
+import { inboxProjectId as getInboxProjectId } from "@will-be-done/slices/space";
 
 const filterParams = z.object({
   projectId: z.string().default("inbox"),
@@ -23,10 +21,10 @@ function RouteComponent() {
   const { projectId } = Route.useSearch();
   const date = parse(params.date, "yyyy-MM-dd", new Date());
 
-  const inboxProjectId = useSyncSelector(
-    () => getInboxProjectId(),
-    [],
-  );
+  const inboxProjectId = useSyncSelector({
+    selector: getInboxProjectId,
+    args: {},
+  });
 
   return (
     <GlobalLayout>

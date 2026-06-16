@@ -99,12 +99,7 @@ export const TasksColumn = ({
           if (!isModelDNDData(data)) return false;
 
           return select(
-            appCanDrop(
-              columnModelId,
-              columnModelType,
-              data.modelId,
-              data.modelType,
-            ),
+            appCanDrop({ id: columnModelId, modelType: columnModelType, dropId: data.modelId, dropModelType: data.modelType }),
           );
         },
         getIsSticky: () => true,

@@ -43,18 +43,18 @@ export function TemplateBody({
   const dispatch = useDispatch();
   const templateId = template.id;
 
-  const project = useSyncSelector(
-    () => projectOfCategoryOrDefault(template.projectCategoryId),
-    [template.projectCategoryId],
-  );
-  const projectCategories = useSyncSelector(
-    () => projectCategoriesByProjectId(project.id),
-    [project.id],
-  );
-  const ruleText = useSyncSelector(
-    () => taskTemplateRuleText(templateId),
-    [templateId],
-  );
+  const project = useSyncSelector({
+    selector: projectOfCategoryOrDefault,
+    args: { categoryId: template.projectCategoryId },
+  });
+  const projectCategories = useSyncSelector({
+    selector: projectCategoriesByProjectId,
+    args: { projectId: project.id },
+  });
+  const ruleText = useSyncSelector({
+    selector: taskTemplateRuleText,
+    args: { id: templateId },
+  });
 
   const [isMoveProjectModalOpen, setIsMoveProjectModalOpen] = useState(false);
   const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
@@ -71,8 +71,11 @@ export function TemplateBody({
     onSave: useCallback(
       (trimmed: string) =>
         dispatch(
-          updateTemplate(templateId, {
-            title: trimmed,
+          updateTemplate({
+            id: templateId,
+            template: {
+              title: trimmed,
+            },
           }),
         ),
       [dispatch, templateId],
@@ -90,13 +93,14 @@ export function TemplateBody({
     isEditingDescription,
     setIsEditingDescription,
     onSave: useCallback(
-      (content: string) => dispatch(updateTemplate(templateId, { content })),
+      (content: string) =>
+        dispatch(updateTemplate({ id: templateId, template: { content } })),
       [dispatch, templateId],
     ),
   });
 
   const handleConvertToTask = useCallback(() => {
-    const task = dispatch(createTaskFromTemplate(template));
+    const task = dispatch(createTaskFromTemplate({ taskTemplate: template }));
     useFocusStore.getState().focusByKey(buildFocusKey(task.id, task.type));
     onCardIdChange?.(task.id);
   }, [template, dispatch, onCardIdChange]);
@@ -105,8 +109,11 @@ export function TemplateBody({
     (ruleString: string) => {
       setIsRepeatModalOpen(false);
       dispatch(
-        updateTemplate(templateId, {
-          repeatRule: ruleString,
+        updateTemplate({
+          id: templateId,
+          template: {
+            repeatRule: ruleString,
+          },
         }),
       );
     },
@@ -142,8 +149,11 @@ export function TemplateBody({
           projectCategories={projectCategories}
           onChange={(categoryId) =>
             dispatch(
-              updateTemplate(templateId, {
-                projectCategoryId: categoryId,
+              updateTemplate({
+                id: templateId,
+                template: {
+                  projectCategoryId: categoryId,
+                },
               }),
             )
           }
@@ -201,7 +211,12 @@ export function TemplateBody({
         <MoveModal
           setIsOpen={setIsMoveProjectModalOpen}
           handleMove={(projectId) => {
-            dispatch(moveTemplateToProject(templateId, projectId));
+            dispatch(
+              moveTemplateToProject({
+                templateId: templateId,
+                projectId: projectId,
+              }),
+            );
             setIsMoveProjectModalOpen(false);
           }}
           exceptProjectId={project.id}

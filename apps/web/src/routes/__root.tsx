@@ -17,7 +17,11 @@ function RouteComponent() {
         <Outlet />
         <PromptDialogHost />
         {process.env.NODE_ENV === "development" && (
-          <HyperDBDevtools position="bottom" buttonPosition="bottom-right" />
+          <HyperDBDevtools
+            position="bottom"
+            buttonPosition="bottom-right"
+            maxTraces={2000}
+          />
         )}
 
         {/* <TanStackRouterDevtools position="bottom-right" /> */}

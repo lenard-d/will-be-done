@@ -1,79 +1,124 @@
-import { action, selector } from "@will-be-done/hyperdb-lib";
+import { action, selector, v } from "@will-be-done/hyperdb-lib";
 import { defaultTask } from "./cardsTasks";
-import { AnyModel, AnyModelType, appTypeSlicesMap } from "./maps";
+import { appTypeSlicesMap } from "./maps";
+import { AnyModel, possibleModelType } from "./tables";
 
-// Selectors and actions
-export const appById = selector(function* appById(id: string, modelType: AnyModelType) {
-  const slice = appTypeSlicesMap[modelType];
-  if (!slice) throw new Error(`Unknown model type: ${modelType}`);
-  return (yield* slice.byId(id)) as AnyModel | undefined;
+export const appById = selector({
+  name: "appById",
+  args: {
+    id: v.string(),
+    modelType: possibleModelType,
+  },
+  handler: function* appById({ id, modelType }) {
+    const slice = appTypeSlicesMap[modelType];
+    if (!slice) throw new Error(`Unknown model type: ${modelType}`);
+    return (yield* slice.byId(id)) as AnyModel | undefined;
+  },
 });
 
-export const appByIdOrDefault = selector(function* appByIdOrDefault(
-  id: string,
-  modelType: AnyModelType,
-) {
-  const entity = yield* appById(id, modelType);
-  if (!entity) {
-    return defaultTask as AnyModel;
-  }
+export const appByIdOrDefault = selector({
+  name: "appByIdOrDefault",
+  args: {
+    id: v.string(),
+    modelType: possibleModelType,
+  },
+  handler: function* appByIdOrDefault({ id, modelType }) {
+    const entity = yield* appById({
+      id,
+      modelType,
+    });
+    if (!entity) {
+      return defaultTask as AnyModel;
+    }
 
-  return entity;
+    return entity;
+  },
 });
 
-export const appCanDrop = selector(function* appCanDrop(
-  id: string,
-  modelType: AnyModelType,
-  dropId: string,
-  dropModelType: AnyModelType,
-) {
-  const slice = appTypeSlicesMap[modelType];
-  if (!slice) throw new Error(`Unknown model type: ${modelType}`);
+export const appCanDrop = selector({
+  name: "appCanDrop",
+  skipTrace: true,
+  args: {
+    id: v.string(),
+    modelType: possibleModelType,
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+  },
+  handler: function* appCanDrop({ id, modelType, dropId, dropModelType }) {
+    const slice = appTypeSlicesMap[modelType];
+    if (!slice) throw new Error(`Unknown model type: ${modelType}`);
 
-  const model = yield* appById(id, modelType);
-  if (!model) {
-    // For virtual models (e.g. stash) that have no DB row, use modelType directly
-    return yield* slice.canDrop(id, dropId, dropModelType);
-  }
+    const model = yield* appById({
+      id,
+      modelType,
+    });
+    if (!model) {
+      // For virtual models (e.g. stash) that have no DB row, use modelType directly
+      return yield* slice.canDrop(id, dropId, dropModelType);
+    }
 
-  const modelSlice = appTypeSlicesMap[model.type];
-  if (!modelSlice) throw new Error(`Unknown model type: ${model.type}`);
+    const modelSlice = appTypeSlicesMap[model.type];
+    if (!modelSlice) throw new Error(`Unknown model type: ${model.type}`);
 
-  return yield* modelSlice.canDrop(id, dropId, dropModelType);
+    return yield* modelSlice.canDrop(id, dropId, dropModelType);
+  },
 });
 
-export const appHandleDrop = action(function* appHandleDrop(
-  id: string,
-  modelType: AnyModelType,
-  dropId: string,
-  dropModelType: AnyModelType,
-  edge: "top" | "bottom",
-): Generator<unknown, void, unknown> {
-  const slice = appTypeSlicesMap[modelType];
-  if (!slice) throw new Error(`Unknown model type: ${modelType}`);
+export const appHandleDrop = action({
+  name: "appHandleDrop",
+  args: {
+    id: v.string(),
+    modelType: possibleModelType,
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* appHandleDrop({
+    id,
+    modelType,
+    dropId,
+    dropModelType,
+    edge,
+  }): Generator<unknown, void, unknown> {
+    const slice = appTypeSlicesMap[modelType];
+    if (!slice) throw new Error(`Unknown model type: ${modelType}`);
 
-  const model = yield* appById(id, modelType);
-  if (!model) {
-    // For virtual models (e.g. stash) that have no DB row, use modelType directly
-    yield* slice.handleDrop(id, dropId, dropModelType, edge);
-    return;
-  }
+    const model = yield* appById({
+      id,
+      modelType,
+    });
+    if (!model) {
+      // For virtual models (e.g. stash) that have no DB row, use modelType directly
+      yield* slice.handleDrop(id, dropId, dropModelType, edge);
+      return;
+    }
 
-  const modelSlice = appTypeSlicesMap[model.type];
-  if (!modelSlice) throw new Error(`Unknown model type: ${model.type}`);
+    const modelSlice = appTypeSlicesMap[model.type];
+    if (!modelSlice) throw new Error(`Unknown model type: ${model.type}`);
 
-  yield* modelSlice.handleDrop(id, dropId, dropModelType, edge);
+    yield* modelSlice.handleDrop(id, dropId, dropModelType, edge);
+  },
 });
 
-export const appDeleteModel = action(function* appDeleteModel(
-  id: string,
-  modelType: AnyModelType,
-): Generator<unknown, void, unknown> {
-  const model = yield* appById(id, modelType);
-  if (!model) return;
+export const appDeleteModel = action({
+  name: "appDeleteModel",
+  args: {
+    id: v.string(),
+    modelType: possibleModelType,
+  },
+  handler: function* appDeleteModel({
+    id,
+    modelType,
+  }): Generator<unknown, void, unknown> {
+    const model = yield* appById({
+      id,
+      modelType,
+    });
+    if (!model) return;
 
-  const slice = appTypeSlicesMap[model.type];
-  if (!slice) throw new Error(`Unknown model type: ${model.type}`);
+    const slice = appTypeSlicesMap[model.type];
+    if (!slice) throw new Error(`Unknown model type: ${model.type}`);
 
-  yield* slice.delete([id]);
+    yield* slice.delete([id]);
+  },
 });

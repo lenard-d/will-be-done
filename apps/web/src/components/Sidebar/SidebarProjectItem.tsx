@@ -70,33 +70,31 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
   const db = useDB();
   const { isMobile, setOpenMobile } = useSidebar();
 
-  const project = useSyncSelector(
-    () => projectByIdOrDefault(projectId),
-    [projectId],
-  );
+  const project = useSyncSelector({
+    selector: projectByIdOrDefault,
+    args: { id: projectId },
+  });
 
   const currentDate = useCurrentDate();
 
-  const notDoneCount = useSyncSelector(
-    () => notDoneTasksCountExceptDailiesCount(projectId, []),
-    [projectId],
-  );
+  const notDoneCount = useSyncSelector({
+    selector: notDoneTasksCountExceptDailiesCount,
+    args: { projectId: projectId, exceptDailyListIds: [] },
+  });
 
-  const overdueCount = useSyncSelector(
-    () =>
-      overdueTasksCountExceptDailiesCount(
-        projectId,
-        [],
-        currentDate,
-      ),
-    [projectId, currentDate],
-  );
+  const overdueCount = useSyncSelector({
+    selector: overdueTasksCountExceptDailiesCount,
+    args: {
+      projectId: projectId,
+      exceptDailyListIds: [],
+      currentDate: currentDate.getTime(),
+    },
+  });
 
   const isActive = useRouterState({
     select: (s) =>
       s.matches.some(
-        (m) =>
-          (m.params as Record<string, string>).projectId === projectId,
+        (m) => (m.params as Record<string, string>).projectId === projectId,
       ),
   });
 
@@ -140,7 +138,11 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
           if (!isModelDNDData(data)) return false;
           return select(
             db,
-            projectCanDrop(project.id, data.modelId, data.modelType),
+            projectCanDrop({
+              projectId: project.id,
+              dropItemId: data.modelId,
+              dropModelType: data.modelType,
+            }),
           );
         },
         getIsSticky: () => true,

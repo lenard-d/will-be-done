@@ -46,7 +46,6 @@ function HyperdbBenchmark() {
       projectLimit: benchmarkState.projectLimit,
       selectedProjectId: benchmarkState.selectedProjectId,
     },
-    debugKey: "getDashboardSnapshot",
   });
 
   return (

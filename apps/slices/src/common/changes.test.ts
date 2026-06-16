@@ -13,9 +13,9 @@ import {
   BptreeInmemDriver,
   v,
 } from "@will-be-done/hyperdb-lib";
-
 import {
-  changesSlice,
+  mergeChanges,
+  getChangesetAfter,
   changesTable,
   type Change,
   type ChangesetArrayType,
@@ -67,27 +67,31 @@ function localCreate(
 ) {
   syncDispatch(
     db,
-    action(function* () {
-      yield* insert(testTable, [row]);
-      yield* insert(changesTable, [
-        {
-          id: `testItems:${row.id}`,
-          entityId: row.id,
-          tableName: "testItems",
-          createdAt: createdAtClock,
-          updatedAt: createdAtClock,
-          deletedAt: null,
-          clientId: "local",
-          changes: {
-            type: createdAtClock,
-            id: createdAtClock,
-            title: createdAtClock,
-            orderToken: createdAtClock,
+    action({
+      name: "anonymousAction",
+      args: {},
+      handler: function* anonymousAction() {
+        yield* insert(testTable, [row]);
+        yield* insert(changesTable, [
+          {
+            id: `testItems:${row.id}`,
+            entityId: row.id,
+            tableName: "testItems",
             createdAt: createdAtClock,
-          },
-        } satisfies Change,
-      ]);
-    })(),
+            updatedAt: createdAtClock,
+            deletedAt: null,
+            clientId: "local",
+            changes: {
+              type: createdAtClock,
+              id: createdAtClock,
+              title: createdAtClock,
+              orderToken: createdAtClock,
+              createdAt: createdAtClock,
+            },
+          } satisfies Change,
+        ]);
+      },
+    })({}),
   );
 }
 
@@ -134,25 +138,33 @@ function makeIncomingCreate(
   ];
 }
 
-const getRowSelector = selector(function* getRowSelector(id: string) {
-  const rows = yield* selectFrom(testTable, "byId")
+const getRowSelector = selector({
+  name: "getRowSelector",
+  args: { id: v.string() },
+  handler: function* getRowSelector({ id }: { id: string }) {
+    const rows = yield* selectFrom(testTable, "byId")
       .where((q) => q.eq("id", id))
       .limit(1);
-  return rows[0] as Row | undefined;
+    return rows[0] as Row | undefined;
+  },
 });
 
-const getChangeSelector = selector(function* getChangeSelector(entityId: string) {
-  const changes = yield* selectFrom(changesTable, "byEntityIdAndTableName")
+const getChangeSelector = selector({
+  name: "getChangeSelector",
+  args: { entityId: v.string() },
+  handler: function* getChangeSelector({ entityId }: { entityId: string }) {
+    const changes = yield* selectFrom(changesTable, "byEntityIdAndTableName")
       .where((q) => q.eq("entityId", entityId).eq("tableName", "testItems"))
       .limit(1);
-  return changes[0] as Change | undefined;
+    return changes[0] as Change | undefined;
+  },
 });
 
 function getRow(db: DB, id: string) {
   return runSelector<Row | undefined>(
     db,
     function* () {
-      return yield* getRowSelector(id);
+      return yield* getRowSelector({ id });
     },
     [],
   );
@@ -162,7 +174,7 @@ function getChange(db: DB, entityId: string) {
   return runSelector<Change | undefined>(
     db,
     function* () {
-      return yield* getChangeSelector(entityId);
+      return yield* getChangeSelector({ entityId });
     },
     [],
   );
@@ -197,12 +209,12 @@ describe("first-creator-wins merge", () => {
     // Merge client2's creation into client1's DB
     syncDispatch(
       db,
-      changesSlice.mergeChanges(
-        incoming,
-        makeClockFn("0000000030"),
-        "local",
-        registeredTables,
-      ),
+      mergeChanges({
+        input: incoming,
+        nextClock: makeClockFn("0000000030")(),
+        clientId: "local",
+        registeredSyncableTableNameMap: registeredTables,
+      }),
     );
 
     const row = getRow(db, entityId);
@@ -237,12 +249,12 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges(
-        incoming,
-        makeClockFn("0000000030"),
-        "local",
-        registeredTables,
-      ),
+      mergeChanges({
+        input: incoming,
+        nextClock: makeClockFn("0000000030")(),
+        clientId: "local",
+        registeredSyncableTableNameMap: registeredTables,
+      }),
     );
 
     const row = getRow(db, entityId);
@@ -304,12 +316,12 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges(
-        incoming,
-        makeClockFn("0000000040"),
-        "local",
-        registeredTables,
-      ),
+      mergeChanges({
+        input: incoming,
+        nextClock: makeClockFn("0000000040")(),
+        clientId: "local",
+        registeredSyncableTableNameMap: registeredTables,
+      }),
     );
 
     const row = getRow(db, entityId);
@@ -365,12 +377,12 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges(
-        incoming,
-        makeClockFn("0000000030"),
-        "local",
-        registeredTables,
-      ),
+      mergeChanges({
+        input: incoming,
+        nextClock: makeClockFn("0000000030")(),
+        clientId: "local",
+        registeredSyncableTableNameMap: registeredTables,
+      }),
     );
 
     const row = getRow(db, entityId);
@@ -395,12 +407,12 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges(
-        incoming,
-        makeClockFn("0000000020"),
-        "local",
-        registeredTables,
-      ),
+      mergeChanges({
+        input: incoming,
+        nextClock: makeClockFn("0000000020")(),
+        clientId: "local",
+        registeredSyncableTableNameMap: registeredTables,
+      }),
     );
 
     const row = getRow(db, entityId);
@@ -463,12 +475,12 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges(
-        incoming,
-        makeClockFn("0000000030"),
-        "local",
-        registeredTables,
-      ),
+      mergeChanges({
+        input: incoming,
+        nextClock: makeClockFn("0000000030")(),
+        clientId: "local",
+        registeredSyncableTableNameMap: registeredTables,
+      }),
     );
 
     const row = getRow(db, entityId);
@@ -520,12 +532,12 @@ describe("first-creator-wins merge", () => {
 
     syncDispatch(
       db,
-      changesSlice.mergeChanges(
-        incoming,
-        makeClockFn("0000000020"),
-        "local",
-        registeredTables,
-      ),
+      mergeChanges({
+        input: incoming,
+        nextClock: makeClockFn("0000000020")(),
+        clientId: "local",
+        registeredSyncableTableNameMap: registeredTables,
+      }),
     );
 
     const row = getRow(db, "large-1204");
@@ -535,7 +547,10 @@ describe("first-creator-wins merge", () => {
     const { changesets } = runSelector(
       db,
       function* () {
-        return yield* changesSlice.getChangesetAfter("", registeredTables);
+        return yield* getChangesetAfter({
+          after: "",
+          registeredSyncableTableNameMap: registeredTables,
+        });
       },
       [],
     );

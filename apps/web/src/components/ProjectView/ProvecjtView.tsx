@@ -22,9 +22,11 @@ import ReactDOM from "react-dom";
 import { isInputElement } from "@/utils/isInputElement.ts";
 import {
   select,
+  selector,
   useDB,
   useDispatch,
   useSyncSelector,
+  v,
 } from "@will-be-done/hyperdb-lib";
 import {
   createProject,
@@ -54,6 +56,18 @@ import { create } from "zustand";
 
 const MIN_PROJECTS_LIST_WIDTH = 240;
 const MAX_PROJECTS_LIST_WIDTH = 520;
+
+const selectedProject = selector({
+  name: "selectedProject",
+  args: { selectedProjectId: v.string() },
+  handler: function* selectedProject({ selectedProjectId }) {
+    if (selectedProjectId === "inbox") {
+      return yield* inboxProject({});
+    }
+
+    return yield* projectByIdOrDefault({ id: selectedProjectId });
+  },
+});
 
 type ProjectsListSize = {
   width: number;
@@ -148,10 +162,10 @@ const ProjectItem = function ProjectItemComp({
   >;
 }) {
   const db = useDB();
-  const project = useSyncSelector(
-    () => projectByIdOrDefault(projectId),
-    [projectId],
-  );
+  const project = useSyncSelector({
+    selector: projectByIdOrDefault,
+    args: { id: projectId },
+  });
   const focusItemKey = buildFocusKey(project.id, project.type, "ProjectItem");
   const [closestEdge, setClosestEdge] = useState<Edge | "whole" | null>(null);
   const [dndState, setDndState] = useState<State>(idleState);
@@ -198,7 +212,7 @@ const ProjectItem = function ProjectItemComp({
 
       const [upKey, downKey] = getDOMSiblings(focusItemKey);
 
-      dispatch(deleteProjects([project.id]));
+      dispatch(deleteProjects({ ids: [project.id] }));
 
       if (downKey) {
         useFocusStore.getState().focusByKey(downKey);
@@ -268,7 +282,11 @@ const ProjectItem = function ProjectItemComp({
 
           return select(
             db,
-            projectCanDrop(project.id, data.modelId, data.modelType),
+            projectCanDrop({
+              projectId: project.id,
+              dropItemId: data.modelId,
+              dropModelType: data.modelType,
+            }),
           );
         },
         getIsSticky: () => true,
@@ -318,30 +336,25 @@ const ProjectItem = function ProjectItemComp({
 
   const currentDate = useCurrentDate();
 
-  const overdueTasksCount = useSyncSelector(
-    () =>
-      overdueTasksCountExceptDailiesAndStashCount(
-        project.id,
-        exceptDailyListIds,
-        currentDate,
-      ),
-    [project.id, exceptDailyListIds, currentDate],
-  );
-  const notDoneTasksCount = useSyncSelector(
-    () =>
-      notDoneTasksCountExceptDailiesAndStashCount(
-        project.id,
-        exceptDailyListIds,
-      ),
-    [project.id, exceptDailyListIds],
-  );
+  const overdueTasksCount = useSyncSelector({
+    selector: overdueTasksCountExceptDailiesAndStashCount,
+    args: {
+      projectId: project.id,
+      exceptDailyListIds: exceptDailyListIds,
+      currentDate: currentDate.getTime(),
+    },
+  });
+  const notDoneTasksCount = useSyncSelector({
+    selector: notDoneTasksCountExceptDailiesAndStashCount,
+    args: { projectId: project.id, exceptDailyListIds: exceptDailyListIds },
+  });
   //
   // const overdueTasksCount = useSyncSelector(
   //   () =>
   //     projectItemsSlice2.overdueTaskCountExceptDailiesCount(
   //       project.id,
   //       exceptDailyListIds,
-  //       currentDate,
+  //       currentDate: currentDate.getTime(),
   //     ),
   //   [project.id, exceptDailyListIds, currentDate],
   // );
@@ -357,8 +370,11 @@ const ProjectItem = function ProjectItemComp({
     }
 
     dispatch(
-      updateProject(project.id, {
-        title: newTitle,
+      updateProject({
+        id: project.id,
+        project: {
+          title: newTitle,
+        },
       }),
     );
   };
@@ -368,14 +384,14 @@ const ProjectItem = function ProjectItemComp({
       "Are you sure you want to delete this project?",
     );
     if (shouldDelete) {
-      dispatch(deleteProjects([project.id]));
+      dispatch(deleteProjects({ ids: [project.id] }));
     }
   };
 
-  const inboxProjectId = useSyncSelector(
-    () => getInboxProjectId(),
-    [],
-  );
+  const inboxProjectId = useSyncSelector({
+    selector: getInboxProjectId,
+    args: {},
+  });
 
   return (
     <div className="relative">
@@ -411,8 +427,11 @@ const ProjectItem = function ProjectItemComp({
               className="h-[326px] rounded-lg shadow-md"
               onEmojiSelect={({ emoji }) => {
                 dispatch(
-                  updateProject(project.id, {
-                    icon: emoji,
+                  updateProject({
+                    id: project.id,
+                    project: {
+                      icon: emoji,
+                    },
                   }),
                 );
               }}
@@ -543,16 +562,10 @@ export const ProjectView = ({
   const dispatch = useDispatch();
   const projectsListWidth = useProjectsListSize((s) => s.width);
   const setProjectsListWidth = useProjectsListSize((s) => s.setWidth);
-  const project = useSyncSelector(
-    function* () {
-      if (selectedProjectId == "inbox") {
-        return yield* inboxProject();
-      }
-
-      return yield* projectByIdOrDefault(selectedProjectId);
-    },
-    [selectedProjectId],
-  );
+  const project = useSyncSelector({
+    selector: selectedProject,
+    args: { selectedProjectId },
+  });
 
   // const taskIds = useSyncSelector(
   //   () =>
@@ -564,17 +577,20 @@ export const ProjectView = ({
   //   [exceptDailyListIds, project.id],
   // );
 
-  const inboxProjectId = useSyncSelector(() => inboxProject(), []);
-  const projectIdsWithoutInbox = useSyncSelector(
-    () => projectChildrenIdsWithoutInbox(),
-    [],
-  );
+  const inboxProjectId = useSyncSelector({
+    selector: inboxProject,
+    args: {},
+  });
+  const projectIdsWithoutInbox = useSyncSelector({
+    selector: projectChildrenIdsWithoutInbox,
+    args: {},
+  });
 
   const handleAddProjectClick = async () => {
     const title = await promptDialog("Enter project title");
 
     if (title) {
-      dispatch(createProject({ title }, "append"));
+      dispatch(createProject({ project: { title }, position: "append" }));
     }
   };
 

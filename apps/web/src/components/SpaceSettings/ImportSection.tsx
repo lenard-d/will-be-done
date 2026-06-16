@@ -39,7 +39,7 @@ export function ImportSection() {
       try {
         const text = await file.text();
         const backup = parseTickTickCSV(text);
-        dispatch(loadSpaceBackup(backup));
+        dispatch(loadSpaceBackup({ backup: backup }));
         setTickTickSuccess(true);
       } catch {
         setTickTickError(
@@ -69,7 +69,7 @@ export function ImportSection() {
         const backup = await trpcClient.importTodoist.mutate({
           apiToken: todoistToken.trim(),
         });
-        dispatch(loadSpaceBackup(backup));
+        dispatch(loadSpaceBackup({ backup: backup }));
         setTodoistSuccess(true);
         setTodoistToken("");
       } catch {

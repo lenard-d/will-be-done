@@ -32,13 +32,12 @@ export function CardDetails() {
     parsed?.type === "projection" ||
     parsed?.type === "template";
   const cardId = isCardFocused ? parsed.id : null;
-  const isVisible = useSyncSelector(
-    function*() {
-      if (!cardId) return false;
-      return yield* cardExists(cardId);
-    },
-    [cardId],
-  );
+  const isVisible = useSyncSelector({
+    selector: cardExists,
+    args: { id: cardId ?? "" },
+    enabled: !!cardId,
+    defaultValue: false,
+  });
 
   const width = useCardDetailsSize((s) => s.width);
   const setWidth = useCardDetailsSize((s) => s.setWidth);
@@ -204,12 +203,10 @@ export function CardDetailsPage({
   onBack: () => void;
   onCardIdChange?: (cardId: string) => void;
 }) {
-  const isVisible = useSyncSelector(
-    function*() {
-      return yield* cardExists(cardId);
-    },
-    [cardId],
-  );
+  const isVisible = useSyncSelector({
+    selector: cardExists,
+    args: { id: cardId },
+  });
   const {
     isEditingTitle,
     setIsEditingTitle,
@@ -320,10 +317,10 @@ function CardDetailsBody({
   setIsEditingDescription: (v: boolean) => void;
   onCardIdChange?: (cardId: string) => void;
 }) {
-  const card = useSyncSelector(
-    () => projectCategoryCardById(cardId),
-    [cardId],
-  );
+  const card = useSyncSelector({
+    selector: projectCategoryCardById,
+    args: { id: cardId },
+  });
 
   if (isTask(card)) {
     return (

@@ -1,8 +1,6 @@
 import {
   action,
   deleteRows,
-  defineTable,
-  type ExtractSchema,
   insert,
   selectFrom,
   selector,
@@ -11,81 +9,87 @@ import {
 } from "@will-be-done/hyperdb-lib";
 import { uuidv7 } from "uuidv7";
 import { registerUserSyncableTable } from "./syncMap";
+import { spacesTable, spacesTableType, type Space } from "./tables";
 
-export const spacesTableType = "space";
+export { spacesTable, spacesTableType, type Space } from "./tables";
 
-export const spacesTable = defineTable("spaces", {
-  id: v.string(),
-  type: v.literal(spacesTableType),
-  name: v.string(),
-  createdAt: v.string(),
-  updatedAt: v.string(),
-})
-  .index("byIds", ["id"]);
-export type Space = ExtractSchema<typeof spacesTable>;
-
-const getSpaceById = selector(function* getSpaceById(id: string) {
-  const spaces = yield* selectFrom(spacesTable, "byId")
+export const getSpaceById = selector({
+  name: "getSpaceById",
+  args: { id: v.string() },
+  handler: function* getSpaceById({ id }) {
+    const spaces = yield* selectFrom(spacesTable, "byId")
       .where((q) => q.eq("id", id))
       .limit(1);
-  return spaces[0] as Space | undefined;
+    return spaces[0] as Space | undefined;
+  },
 });
 
-const listSpaces = selector(function* listSpaces() {
-  const spaces = yield* selectFrom(spacesTable, "byIds");
-  return spaces as Space[];
+export const listSpaces = selector({
+  name: "listSpaces",
+  args: {},
+  handler: function* listSpaces() {
+    const spaces = yield* selectFrom(spacesTable, "byIds");
+    return spaces as Space[];
+  },
 });
 
-const createSpace = action(function* createSpace(name: string) {
-  const spaceId = uuidv7();
-  const now = new Date().toISOString();
-  const space: Space = {
-    id: spaceId,
-    type: spacesTableType,
-    name,
-    createdAt: now,
-    updatedAt: now,
-  };
+export const createSpace = action({
+  name: "createSpace",
+  args: { name: v.string() },
+  handler: function* createSpace({ name }) {
+    const spaceId = uuidv7();
+    const now = new Date().toISOString();
+    const space: Space = {
+      id: spaceId,
+      type: spacesTableType,
+      name,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-  yield* insert(spacesTable, [space]);
+    yield* insert(spacesTable, [space]);
 
-  return space;
+    return space;
+  },
 });
 
-const updateSpace = action(function* updateSpace(id: string, name: string) {
-  const space = yield* getSpaceById(id);
-  if (!space) {
-    return null as Space | null;
-  }
+export const updateSpace = action({
+  name: "updateSpace",
+  args: {
+    id: v.string(),
+    name: v.string(),
+  },
+  handler: function* updateSpace({ id, name }) {
+    const space = yield* getSpaceById({ id });
+    if (!space) {
+      return null as Space | null;
+    }
 
-  const updatedSpace: Space = {
-    ...space,
-    name,
-    updatedAt: new Date().toISOString(),
-  };
+    const updatedSpace: Space = {
+      ...space,
+      name,
+      updatedAt: new Date().toISOString(),
+    };
 
-  yield* upsert(spacesTable, [updatedSpace]);
+    yield* upsert(spacesTable, [updatedSpace]);
 
-  return updatedSpace as Space | null;
+    return updatedSpace as Space | null;
+  },
 });
 
-const deleteSpace = action(function* deleteSpace(id: string) {
-  const space = yield* getSpaceById(id);
-  if (!space) {
-    return false;
-  }
+export const deleteSpace = action({
+  name: "deleteSpace",
+  args: { id: v.string() },
+  handler: function* deleteSpace({ id }) {
+    const space = yield* getSpaceById({ id });
+    if (!space) {
+      return false;
+    }
 
-  yield* deleteRows(spacesTable, [id]);
+    yield* deleteRows(spacesTable, [id]);
 
-  return true;
+    return true;
+  },
 });
-
-export const spaceSlice = {
-  getSpaceById,
-  listSpaces,
-  createSpace,
-  updateSpace,
-  deleteSpace,
-};
 
 registerUserSyncableTable(spacesTable, spacesTableType);
