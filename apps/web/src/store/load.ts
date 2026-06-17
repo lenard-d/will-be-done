@@ -131,6 +131,7 @@ export const initDbStore = async (
       runtimeValidation: process.env.NODE_ENV === "development",
       freezeArgs: process.env.NODE_ENV === "development",
       freezeRows: process.env.NODE_ENV === "development",
+      dbName: "persistent",
     });
 
     await execAsync(asyncDB.loadTables(syncConfig.persistDBTables));
@@ -138,6 +139,7 @@ export const initDbStore = async (
     const syncDB = new DB(new BptreeInmemDriver(), {
       traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
       tracer: process.env.NODE_ENV === "development" ? undefined : null,
+      dbName: "in-mem",
     });
 
     execSync(syncDB.loadTables(syncConfig.inmemDBTables));
