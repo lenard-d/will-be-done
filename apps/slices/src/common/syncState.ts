@@ -1,10 +1,9 @@
 import {
-  selector,
   selectFrom,
-  action,
   upsert,
   v,
 } from "@will-be-done/hyperdb-lib";
+import { action, selector } from "../builders";
 import { syncStateTable, syncStateId, type SyncState } from "./tables";
 
 export { syncStateTable, type SyncState } from "./tables";

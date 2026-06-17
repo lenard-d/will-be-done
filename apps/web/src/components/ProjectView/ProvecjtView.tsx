@@ -22,12 +22,12 @@ import ReactDOM from "react-dom";
 import { isInputElement } from "@/utils/isInputElement.ts";
 import {
   select,
-  selector,
   useDB,
   useDispatch,
   useSyncSelector,
   v,
 } from "@will-be-done/hyperdb-lib";
+import { selector } from "@/store/builders.ts";
 import {
   createProject,
   deleteProjects,

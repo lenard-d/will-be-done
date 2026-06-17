@@ -1,15 +1,14 @@
 import {
-  action,
   deleteRows,
   insert,
   Row,
   selectFrom,
-  selector,
   TableDefinition,
   upsert,
   type Validator,
   v,
 } from "@will-be-done/hyperdb-lib";
+import { action, selector } from "../builders";
 import { isEqual } from "es-toolkit";
 import { uniq } from "es-toolkit/array";
 import { z } from "zod";
