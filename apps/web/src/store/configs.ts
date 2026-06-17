@@ -13,7 +13,7 @@ import {
   registeredUserSyncableTableNameMap,
   registeredUserSyncableTables,
 } from "@will-be-done/slices/user";
-import { SyncConfig } from "./load";
+import type { SyncConfig } from "./syncTypes";
 import { generateDemoBackup } from "@/lib/demoData";
 
 const demoDbId = "e89b6c8f-1d6c-4bf4-9d27-478339773fc9";

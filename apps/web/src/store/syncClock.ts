@@ -1,0 +1,37 @@
+import { nanoid } from "nanoid";
+import type { SyncConfig } from "./syncTypes";
+
+export const getDbName = (syncConfig: Pick<SyncConfig, "dbType" | "dbId">) => {
+  return syncConfig.dbType + "-" + syncConfig.dbId;
+};
+
+export const initClock = (clientId: string) => {
+  let now = Date.now();
+  let n = 0;
+
+  return () => {
+    const newNow = Date.now();
+
+    if (newNow === now) {
+      n++;
+    } else if (newNow > now) {
+      now = newNow;
+      n = 0;
+    }
+
+    return `${now}-${n.toString().padStart(4, "0")}-${clientId}`;
+  };
+};
+
+export const getClientId = (dbName: string) => {
+  const key = "clientId-" + dbName;
+
+  const id = localStorage.getItem(key);
+
+  if (id) return id;
+
+  const newId = nanoid();
+  localStorage.setItem(key, newId);
+
+  return newId;
+};
