@@ -12,10 +12,16 @@ import { Pencil, Plus, Trash2, LogOut } from "lucide-react";
 import { initDbStore } from "@/store/load";
 import {
   DBProvider,
+  type SubscribableDB,
   useDispatch,
   useSyncSelector,
-} from "@will-be-done/hyperdb";
-import { spaceSlice } from "@will-be-done/slices/user";
+} from "@will-be-done/hyperdb-lib";
+import {
+  listSpaces,
+  createSpace,
+  updateSpace,
+  deleteSpace,
+} from "@will-be-done/slices/user";
 import { userDBConfig } from "@/store/configs";
 
 export const Route = createFileRoute("/spaces/")({
@@ -101,7 +107,10 @@ function Logo({ size = 32 }: { size?: number }) {
 function SpacePageComponent() {
   const navigate = useNavigate();
 
-  const spaces = useSyncSelector(() => spaceSlice.listSpaces(), []);
+  const spaces = useSyncSelector({
+    selector: listSpaces,
+    args: {},
+  });
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -119,7 +128,7 @@ function SpacePageComponent() {
     const name = await promptDialog("Enter space name:");
     if (!name?.trim()) return;
 
-    const space = dispatch(spaceSlice.createSpace(name));
+    const space = dispatch(createSpace({ name: name }));
     authUtils.setSpaceNames([{ spaceId: space.id, name: space.name }]);
   };
 
@@ -133,7 +142,7 @@ function SpacePageComponent() {
 
     const name = await promptDialog("Enter new space name:", currentName);
     if (name?.trim() && name !== currentName) {
-      dispatch(spaceSlice.updateSpace(spaceId, name));
+      dispatch(updateSpace({ id: spaceId, name: name }));
       authUtils.setSpaceNames([{ spaceId, name }]);
     }
   };
@@ -152,7 +161,7 @@ function SpacePageComponent() {
 
     if (!ok) return;
 
-    dispatch(spaceSlice.deleteSpace(spaceId));
+    dispatch(deleteSpace({ id: spaceId }));
   };
 
   return (
@@ -306,7 +315,7 @@ function SpacePage() {
   const newStore = Route.useLoaderData();
 
   return (
-    <DBProvider value={newStore}>
+    <DBProvider value={newStore as SubscribableDB}>
       <SpacePageComponent />
     </DBProvider>
   );

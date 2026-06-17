@@ -1,11 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDispatch, useSelect, useSyncSelector } from "@will-be-done/hyperdb";
+import {
+  useDispatch,
+  useSelect,
+  useSyncSelector,
+} from "@will-be-done/hyperdb-lib";
 import { flushSync } from "react-dom";
 import {
-  appSlice,
-  projectsSlice,
-  projectCategoriesSlice,
-  projectCategoryCardsSlice,
+  appCanDrop,
+  createCategory,
+  createProjectCategoryTask,
+  deleteCategories,
+  doneProjectCategoryCardsForDisplay,
+  moveLeft,
+  moveRight,
+  projectByIdOrDefault,
+  projectCategoriesByProjectId,
+  projectCategoryByIdOrDefault,
+  projectCategoryCardsForDisplayChildren,
+  updateCategory,
 } from "@will-be-done/slices/space";
 import { PreloadedTaskComp } from "@/components/Task/Task.tsx";
 import {
@@ -69,20 +81,20 @@ const CategorySection = ({
   const [isDndOver, setIsDndOver] = useState(false);
   const [isPlaceholderFocused, setIsPlaceholderFocused] = useState(false);
 
-  const category = useSyncSelector(
-    () => projectCategoriesSlice.byIdOrDefault(categoryId),
-    [categoryId],
-  );
+  const category = useSyncSelector({
+    selector: projectCategoryByIdOrDefault,
+    args: { id: categoryId },
+  });
 
-  const cardsForDisplay = useSyncSelector(
-    () => projectCategoryCardsSlice.childrenForDisplay(category.id),
-    [category.id],
-  );
+  const cardsForDisplay = useSyncSelector({
+    selector: projectCategoryCardsForDisplayChildren,
+    args: { projectCategoryId: category.id },
+  });
 
-  const doneCardsForDisplay = useSyncSelector(
-    () => projectCategoryCardsSlice.doneChildrenForDisplay(categoryId),
-    [categoryId],
-  );
+  const doneCardsForDisplay = useSyncSelector({
+    selector: doneProjectCategoryCardsForDisplay,
+    args: { projectCategoryId: categoryId },
+  });
 
   const [isShowMore, setIsShowMore] = useState(false);
 
@@ -98,12 +110,12 @@ const CategorySection = ({
         const data = source.data;
         if (!isModelDNDData(data)) return false;
         return select(
-          appSlice.canDrop(
-            categoryId,
-            category.type,
-            data.modelId,
-            data.modelType,
-          ),
+          appCanDrop({
+            id: categoryId,
+            modelType: category.type,
+            dropId: data.modelId,
+            dropModelType: data.modelType,
+          }),
         );
       },
       getIsSticky: () => true,
@@ -122,9 +134,7 @@ const CategorySection = ({
   const handleTitleClick = async () => {
     const newTitle = await promptDialog("Section name", category.title);
     if (newTitle == null || newTitle === "") return;
-    dispatch(
-      projectCategoriesSlice.updateCategory(categoryId, { title: newTitle }),
-    );
+    dispatch(updateCategory({ categoryId, category: { title: newTitle } }));
   };
 
   const handleAddTask = () => {
@@ -135,7 +145,7 @@ const CategorySection = ({
     // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
     flushSync(() => {
       const task = dispatch(
-        projectCategoriesSlice.createTask(categoryId, "prepend"),
+        createProjectCategoryTask({ categoryId, position: "prepend" }),
       );
       focusKey = buildFocusKey(task.id, "task");
       useFocusStore.getState().editByKey(focusKey);
@@ -153,7 +163,7 @@ const CategorySection = ({
 
   const handleDelete = () => {
     if (confirm(`Delete category "${category.title}"?`)) {
-      dispatch(projectCategoriesSlice.deleteCategories([categoryId]));
+      dispatch(deleteCategories({ ids: [categoryId] }));
     }
   };
 
@@ -179,9 +189,7 @@ const CategorySection = ({
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
             type="button"
-            onClick={() =>
-              dispatch(projectCategoriesSlice.moveLeft(categoryId))
-            }
+            onClick={() => dispatch(moveLeft({ categoryId: categoryId }))}
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move up"
           >
@@ -189,9 +197,7 @@ const CategorySection = ({
           </button>
           <button
             type="button"
-            onClick={() =>
-              dispatch(projectCategoriesSlice.moveRight(categoryId))
-            }
+            onClick={() => dispatch(moveRight({ categoryId: categoryId }))}
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move down"
           >
@@ -244,6 +250,7 @@ const CategorySection = ({
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={projectId}
+              hasCheclistItems={displayData.hasChecklist}
               displayLastScheduleTime
             />
           ))}
@@ -256,6 +263,7 @@ const CategorySection = ({
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={projectId}
+              hasCheclistItems={displayData.hasChecklist}
               displayLastScheduleTime
             />
           ))}
@@ -321,21 +329,24 @@ export const ProjectTaskPanel = ({
   embedded?: boolean;
 }) => {
   const dispatch = useDispatch();
-  const project = useSyncSelector(
-    () => projectsSlice.byIdOrDefault(projectId),
-    [projectId],
-  );
+  const project = useSyncSelector({
+    selector: projectByIdOrDefault,
+    args: { id: projectId },
+  });
 
-  const categories = useSyncSelector(
-    () => projectCategoriesSlice.byProjectId(projectId),
-    [projectId],
-  );
+  const categories = useSyncSelector({
+    selector: projectCategoriesByProjectId,
+    args: { projectId: projectId },
+  });
 
   const handleAddSection = async () => {
     const title = await promptDialog("Section name");
     if (!title) return;
     dispatch(
-      projectCategoriesSlice.createCategory({ projectId, title }, "append"),
+      createCategory({
+        categoryDraft: { projectId, title },
+        position: "append",
+      }),
     );
   };
 

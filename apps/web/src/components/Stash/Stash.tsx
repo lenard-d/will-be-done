@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
-import { useDispatch, useSelect, useSyncSelector } from "@will-be-done/hyperdb";
+import {
+  useDispatch,
+  useSelect,
+  useSyncSelector,
+} from "@will-be-done/hyperdb-lib";
 import { flushSync } from "react-dom";
 import {
-  appSlice,
-  projectsSlice,
-  stashProjectionsSlice,
+  appCanDrop,
+  createTaskInStash,
+  doneStashProjectionChildrenIds,
+  inboxProjectId,
   STASH_ID,
+  stashProjectionChildrenIds,
   stashType,
 } from "@will-be-done/slices/space";
 import { TaskComp } from "@/components/Task/Task.tsx";
@@ -30,15 +36,15 @@ import {
 } from "../DaysBoard/StashStore.ts";
 
 const StashColumnView = ({ onTaskAdd }: { onTaskAdd: () => void }) => {
-  const taskIds = useSyncSelector(
-    () => stashProjectionsSlice.childrenIds(),
-    [],
-  );
+  const taskIds = useSyncSelector({
+    selector: stashProjectionChildrenIds,
+    args: {},
+  });
 
-  const doneTaskIds = useSyncSelector(
-    () => stashProjectionsSlice.doneChildrenIds(),
-    [],
-  );
+  const doneTaskIds = useSyncSelector({
+    selector: doneStashProjectionChildrenIds,
+    args: {},
+  });
 
   return (
     <TasksColumn
@@ -101,11 +107,14 @@ export const Stash = () => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dispatch = useDispatch();
   const select = useSelect();
-  const inboxId = useSyncSelector(() => projectsSlice.inboxProjectId(), []);
-  const stashTaskIds = useSyncSelector(
-    () => stashProjectionsSlice.childrenIds(),
-    [],
-  );
+  const inboxId = useSyncSelector({
+    selector: inboxProjectId,
+    args: {},
+  });
+  const stashTaskIds = useSyncSelector({
+    selector: stashProjectionChildrenIds,
+    args: {},
+  });
   const stashTaskCount = stashTaskIds.length;
   const { isOpen, toggle } = useStashOpen();
   const width = useStashSize((s) => s.width);
@@ -127,7 +136,8 @@ export const Stash = () => {
       return;
     }
 
-    const target = e.target instanceof Element ? e.target : document.activeElement;
+    const target =
+      e.target instanceof Element ? e.target : document.activeElement;
     if (target && isInputElement(target)) return;
 
     e.preventDefault();
@@ -150,7 +160,12 @@ export const Stash = () => {
           if (!isModelDNDData(data)) return false;
 
           return select(
-            appSlice.canDrop(STASH_ID, stashType, data.modelId, data.modelType),
+            appCanDrop({
+              id: STASH_ID,
+              modelType: stashType,
+              dropId: data.modelId,
+              dropModelType: data.modelType,
+            }),
           );
         },
         getIsSticky: () => true,
@@ -170,7 +185,11 @@ export const Stash = () => {
     // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
     flushSync(() => {
       const task = dispatch(
-        stashProjectionsSlice.createTaskInStash(inboxId, "prepend", "prepend"),
+        createTaskInStash({
+          projectId: inboxId,
+          position: "prepend",
+          categoryPosition: "prepend",
+        }),
       );
 
       focusKey = buildFocusKey(task.id, "stashProjection");

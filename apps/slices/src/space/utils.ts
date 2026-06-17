@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
+import { v } from "@will-be-done/hyperdb-lib";
 
 // Utility types
 export type OrderableItem = {
@@ -76,3 +77,38 @@ export function generateKeyPositionedBetween(
 export function assertUnreachable(x: never): never {
   throw new Error("Unreachable code reached: " + x);
 }
+
+const orderPositionPairArg = v.array(
+  v.union(v.object({ orderToken: v.string() }), v.null()),
+);
+
+export const orderPositionArg = v.union(
+  v.literal("append"),
+  v.literal("prepend"),
+  {
+    ...orderPositionPairArg,
+    normalize(value, path = []) {
+      const result = orderPositionPairArg.normalize(value, path);
+      if (result.ok && !result.omitted && result.value.length !== 2) {
+        return {
+          ok: false,
+          message: "expected array of length 2",
+          path,
+        };
+      }
+      return result;
+    },
+  },
+);
+
+export type OrderPositionArg = "append" | "prepend" | (OrderableItem | null)[];
+
+export const normalizeOrderPosition = <T extends OrderableItem>(
+  position: OrderPositionArg,
+): "append" | "prepend" | [T | undefined, T | undefined] => {
+  if (position === "append" || position === "prepend") return position;
+  return [position[0] ?? undefined, position[1] ?? undefined] as [
+    T | undefined,
+    T | undefined,
+  ];
+};

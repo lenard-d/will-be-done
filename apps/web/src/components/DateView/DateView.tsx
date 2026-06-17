@@ -1,13 +1,21 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { addDays, format, startOfDay, subDays } from "date-fns";
-import { useDispatch, useSyncSelector, useSelect } from "@will-be-done/hyperdb";
+import {
+  useDispatch,
+  useSyncSelector,
+  useSelect,
+} from "@will-be-done/hyperdb-lib";
 import { flushSync } from "react-dom";
 import {
-  dailyListsSlice,
-  dailyListsProjectionsSlice,
-  projectsSlice,
-  appSlice,
+  appCanDrop,
+  createManyDailyListsIfNotPresent,
+  createTaskInList,
   type DailyList,
+  dailyListByIdOrDefault,
+  dailyListIdsByDates,
+  dailyProjectionChildrenForDisplay,
+  doneDailyProjectionChildrenForDisplay,
+  inboxProjectId,
 } from "@will-be-done/slices/space";
 
 import { cn } from "@/lib/utils.ts";
@@ -85,24 +93,24 @@ const SingleDayColumn = ({
   const spaceId = Route.useParams().spaceId;
   const navigate = useNavigate();
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const dailyList = useSyncSelector(
-    () => dailyListsSlice.byIdOrDefault(dailyListId),
-    [dailyListId],
-  );
+  const dailyList = useSyncSelector({
+    selector: dailyListByIdOrDefault,
+    args: { id: dailyListId },
+  });
   const currentDate = useCurrentDMY();
   const isToday = useMemo(() => {
     return currentDate === dailyList.date;
   }, [currentDate, dailyList.date]);
 
-  const cardsForDisplay = useSyncSelector(
-    () => dailyListsProjectionsSlice.childrenForDisplay(dailyListId),
-    [dailyListId],
-  );
+  const cardsForDisplay = useSyncSelector({
+    selector: dailyProjectionChildrenForDisplay,
+    args: { dailyListId: dailyListId },
+  });
 
-  const doneCardsForDisplay = useSyncSelector(
-    () => dailyListsProjectionsSlice.doneChildrenForDisplay(dailyListId),
-    [dailyListId],
-  );
+  const doneCardsForDisplay = useSyncSelector({
+    selector: doneDailyProjectionChildrenForDisplay,
+    args: { dailyListId: dailyListId },
+  });
 
   const select = useSelect();
   const columnRef = useRef<HTMLDivElement>(null);
@@ -124,12 +132,12 @@ const SingleDayColumn = ({
           if (!isModelDNDData(data)) return false;
 
           return select(
-            appSlice.canDrop(
-              dailyList.id,
-              dailyList.type,
-              data.modelId,
-              data.modelType,
-            ),
+            appCanDrop({
+              id: dailyList.id,
+              modelType: dailyList.type,
+              dropId: data.modelId,
+              dropModelType: data.modelType,
+            }),
           );
         },
         getIsSticky: () => true,
@@ -252,6 +260,7 @@ const SingleDayColumn = ({
             cardWrapper={displayData.cardWrapper}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
+            hasCheclistItems={displayData.hasChecklist}
             alwaysShowProject
             displayLastScheduleTime
             centerScheduleDate
@@ -266,6 +275,7 @@ const SingleDayColumn = ({
             cardWrapper={displayData.cardWrapper}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
+            hasCheclistItems={displayData.hasChecklist}
             alwaysShowProject
             displayLastScheduleTime
             centerScheduleDate
@@ -291,16 +301,21 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
     [startingDate],
   );
 
-  const dailyListsIds = useSyncSelector(
-    () => dailyListsSlice.idsByDates([startingDate]),
-    [startingDate],
-  );
+  const dailyListsIds = useSyncSelector({
+    selector: dailyListIdsByDates,
+    args: { dates: [startingDate.getTime()] },
+  });
   const dispatch = useDispatch();
-  const inboxId = useSyncSelector(() => projectsSlice.inboxProjectId(), []);
+  const inboxId = useSyncSelector({
+    selector: inboxProjectId,
+    args: {},
+  });
   const stashOffset = useStashDesktopOffset();
 
   useEffect(() => {
-    dispatch(dailyListsSlice.createManyIfNotPresent([startingDate]));
+    dispatch(
+      createManyDailyListsIfNotPresent({ dates: [startingDate.getTime()] }),
+    );
   }, [dispatch, startingDate]);
 
   const handleAddTask = useCallback(
@@ -312,12 +327,12 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
       // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
       flushSync(() => {
         const task = dispatch(
-          dailyListsSlice.createTaskInList(
-            dailyList.id,
-            inboxId,
-            "prepend",
-            "prepend",
-          ),
+          createTaskInList({
+            dailyListId: dailyList.id,
+            projectId: inboxId,
+            listPosition: "prepend",
+            categoryPosition: "prepend",
+          }),
         );
 
         focusKey = buildFocusKey(task.id, "projection");

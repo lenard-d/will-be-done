@@ -1,47 +1,32 @@
-import { isObjectType, shouldNeverHappen } from "../utils";
+import { shouldNeverHappen } from "../utils";
 import {
-  action,
   deleteRows,
   insert,
-  runQuery,
   selectFrom,
-  selector,
-  table,
-  update,
-} from "@will-be-done/hyperdb";
+  upsert,
+  v,
+} from "@will-be-done/hyperdb-lib";
+import { action, selector } from "../builders";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { uuidv7 } from "uuidv7";
-import { appSlice } from ".";
-import { AnyModelType, registerModelSlice } from "./maps";
-import { registerSpaceSyncableTable } from "./syncMap";
-
-export const checklistItemType = "checklistItem";
-const taskParentType = "task";
-const taskTemplateParentType = "template";
-export type ChecklistParentType =
-  | typeof taskParentType
-  | typeof taskTemplateParentType;
-export type ChecklistItemState = "todo" | "done";
-
-export type ChecklistItem = {
-  type: typeof checklistItemType;
-  id: string;
-  parentId: string;
-  parentType: ChecklistParentType;
-  orderToken: string;
-  state: ChecklistItemState;
-  content: string;
-  createdAt: number;
-  checkedAt: number | null;
-};
-
-export const isChecklistItem = isObjectType<ChecklistItem>(checklistItemType);
+import { appById } from "./app";
+import { registerModelSlice } from "./maps";
+import {
+  ChecklistItem,
+  checklistItemType,
+  checklistItemsTable,
+  checklistParentType,
+  isChecklistItem,
+  isChecklistParentType,
+  possibleModelType,
+  taskType,
+} from "./tables";
 
 export const defaultChecklistItem: ChecklistItem = {
   type: checklistItemType,
   id: "default-checklist-item-id",
   parentId: "default-parent-id",
-  parentType: taskParentType,
+  parentType: taskType,
   orderToken: "",
   state: "todo",
   content: "",
@@ -49,354 +34,488 @@ export const defaultChecklistItem: ChecklistItem = {
   checkedAt: null,
 };
 
-export const checklistItemsTable = table<ChecklistItem>(
-  "checklist_items",
-).withIndexes({
-  byId: { cols: ["id"], type: "hash" },
-  byIds: { cols: ["id"], type: "btree" },
-  byParentOrder: {
-    cols: ["parentType", "parentId", "orderToken"],
-    type: "btree",
+export const hasChecklistItems = selector({
+  name: "hasChecklistItem",
+  args: {
+    parentType: checklistParentType,
+    parentId: v.string(),
+  },
+  handler: function* hasChecklistItem({ parentType, parentId }) {
+    return (
+      (yield* selectFrom(checklistItemsTable, "byParentOrder")
+        .where((q) => q.eq("parentId", parentId).eq("parentType", parentType))
+        .first()) !== undefined
+    );
   },
 });
-registerSpaceSyncableTable(checklistItemsTable, checklistItemType);
 
-function isChecklistParentType(
-  modelType: AnyModelType,
-): modelType is ChecklistParentType {
-  return modelType === taskParentType || modelType === taskTemplateParentType;
-}
-
-export const byId = selector(function* (id: string) {
-  const items = yield* runQuery(
-    selectFrom(checklistItemsTable, "byId")
+export const checklistItemById = selector({
+  name: "checklistItemById",
+  args: { id: v.string() },
+  handler: function* checklistItemById({ id }) {
+    const items = yield* selectFrom(checklistItemsTable, "byId")
       .where((q) => q.eq("id", id))
-      .limit(1),
-  );
+      .limit(1);
 
-  return items[0] as ChecklistItem | undefined;
-});
-
-export const byIdOrDefault = selector(function* (id: string) {
-  return (yield* byId(id)) || defaultChecklistItem;
-});
-
-export const children = selector(function* (
-  parentId: string,
-  parentType: ChecklistParentType,
-) {
-  return yield* runQuery(
-    selectFrom(checklistItemsTable, "byParentOrder").where((q) =>
-      q.eq("parentType", parentType).eq("parentId", parentId),
-    ),
-  );
-});
-
-export const childrenIds = selector(function* (
-  parentId: string,
-  parentType: ChecklistParentType,
-) {
-  return (yield* children(parentId, parentType)).map((item) => item.id);
-});
-
-export const all = selector(function* () {
-  return yield* runQuery(selectFrom(checklistItemsTable, "byIds"));
-});
-
-export const siblings = selector(function* (
-  itemId: string,
-): Generator<
-  unknown,
-  [ChecklistItem | undefined, ChecklistItem | undefined],
-  unknown
-> {
-  const item = yield* byId(itemId);
-  if (!item) return [undefined, undefined];
-
-  const items = yield* children(item.parentId, item.parentType);
-  const index = items.findIndex((child) => child.id === itemId);
-
-  return [
-    index > 0 ? items[index - 1] : undefined,
-    index >= 0 && index < items.length - 1 ? items[index + 1] : undefined,
-  ];
-});
-
-export const canDrop = selector(function* (
-  itemId: string,
-  dropId: string,
-  dropModelType: AnyModelType,
-) {
-  if (dropModelType !== checklistItemType) return false;
-  if (itemId === dropId) return false;
-
-  const target = yield* byId(itemId);
-  if (!target) return false;
-
-  const dropped = yield* appSlice.byId(dropId, dropModelType);
-  return !!dropped && isChecklistItem(dropped);
-});
-
-export const createItem = action(function* (
-  item: Partial<ChecklistItem> & {
-    parentId: string;
-    parentType: ChecklistParentType;
+    return items[0] as ChecklistItem | undefined;
   },
-) {
-  const id = item.id || uuidv7();
-  const now = Date.now();
+});
 
-  let orderToken = item.orderToken;
-  if (!orderToken) {
-    const currentItems = yield* children(item.parentId, item.parentType);
-    orderToken = generateJitteredKeyBetween(
-      currentItems[currentItems.length - 1]?.orderToken || null,
-      null,
+export const checklistItemByIdOrDefault = selector({
+  name: "checklistItemByIdOrDefault",
+  args: { id: v.string() },
+  handler: function* checklistItemByIdOrDefault({ id }) {
+    return (yield* checklistItemById({ id })) || defaultChecklistItem;
+  },
+});
+
+export const checklistItemChildren = selector({
+  name: "checklistItemChildren",
+  args: {
+    parentId: v.string(),
+    parentType: checklistParentType,
+  },
+  handler: function* checklistItemChildren({ parentId, parentType }) {
+    return yield* selectFrom(checklistItemsTable, "byParentOrder").where((q) =>
+      q.eq("parentType", parentType).eq("parentId", parentId),
     );
-  }
-
-  const newItem: ChecklistItem = {
-    type: checklistItemType,
-    id,
-    state: "todo",
-    content: "",
-    createdAt: now,
-    checkedAt: null,
-    ...item,
-    parentId: item.parentId,
-    parentType: item.parentType,
-    orderToken,
-  };
-
-  yield* insert(checklistItemsTable, [newItem]);
-  return newItem;
+  },
 });
 
-export const createItemAfter = action(function* (
-  itemId: string,
-  item?: Partial<ChecklistItem>,
-) {
-  const currentItem = yield* byId(itemId);
-  if (!currentItem) throw new Error("Checklist item not found");
-
-  const [, after] = yield* siblings(itemId);
-
-  return yield* createItem({
-    ...item,
-    parentId: currentItem.parentId,
-    parentType: currentItem.parentType,
-    orderToken: generateJitteredKeyBetween(
-      currentItem.orderToken,
-      after?.orderToken || null,
-    ),
-  });
+export const checklistItemChildrenIds = selector({
+  name: "checklistItemChildrenIds",
+  args: {
+    parentId: v.string(),
+    parentType: checklistParentType,
+  },
+  handler: function* checklistItemChildrenIds({ parentId, parentType }) {
+    return (yield* checklistItemChildren({
+      parentId,
+      parentType,
+    })).map((item) => item.id);
+  },
 });
 
-export const updateItem = action(function* (
-  id: string,
-  item: Partial<ChecklistItem>,
-) {
-  const itemInState = yield* byId(id);
-  if (!itemInState) throw new Error("Checklist item not found");
-
-  yield* update(checklistItemsTable, [{ ...itemInState, ...item }]);
+export const allChecklistItems = selector({
+  name: "allChecklistItems",
+  args: {},
+  handler: function* allChecklistItems() {
+    return yield* selectFrom(checklistItemsTable, "byIds");
+  },
 });
 
-export const updateContent = action(function* (id: string, content: string) {
-  yield* updateItem(id, { content });
+export const checklistItemSiblings = selector({
+  name: "checklistItemSiblings",
+  args: { itemId: v.string() },
+  handler: function* checklistItemSiblings({
+    itemId,
+  }): Generator<
+    unknown,
+    [ChecklistItem | undefined, ChecklistItem | undefined],
+    unknown
+  > {
+    const item = yield* checklistItemById({ id: itemId });
+    if (!item) return [undefined, undefined];
+
+    const items = yield* checklistItemChildren({
+      parentId: item.parentId,
+      parentType: item.parentType,
+    });
+    const index = items.findIndex((child) => child.id === itemId);
+
+    return [
+      index > 0 ? items[index - 1] : undefined,
+      index >= 0 && index < items.length - 1 ? items[index + 1] : undefined,
+    ];
+  },
 });
 
-export const toggleState = action(function* (id: string) {
-  const item = yield* byId(id);
-  if (!item) throw new Error("Checklist item not found");
+export const checklistItemCanDrop = selector({
+  name: "checklistItemCanDrop",
+  args: {
+    itemId: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+  },
+  handler: function* checklistItemCanDrop({ itemId, dropId, dropModelType }) {
+    if (dropModelType !== checklistItemType) return false;
+    if (itemId === dropId) return false;
 
-  const state = item.state === "todo" ? "done" : "todo";
-  let orderToken = item.orderToken;
+    const target = yield* checklistItemById({ id: itemId });
+    if (!target) return false;
 
-  if (state === "done") {
-    const items = (yield* children(item.parentId, item.parentType)).filter(
-      (child) => child.id !== id,
-    );
-    const firstDoneIndex = items.findIndex((child) => child.state === "done");
+    const dropped = yield* appById({
+      id: dropId,
+      modelType: dropModelType,
+    });
+    return !!dropped && isChecklistItem(dropped);
+  },
+});
 
-    if (firstDoneIndex === -1) {
+export const createItem = action({
+  name: "createItem",
+  args: {
+    item: v.required(v.partial(checklistItemsTable.v()), [
+      "parentId",
+      "parentType",
+    ]),
+  },
+  handler: function* createItem({ item }) {
+    const id = item.id || uuidv7();
+    const now = Date.now();
+
+    let orderToken = item.orderToken;
+    if (!orderToken) {
+      const currentItems = yield* checklistItemChildren({
+        parentId: item.parentId,
+        parentType: item.parentType,
+      });
       orderToken = generateJitteredKeyBetween(
-        items[items.length - 1]?.orderToken || null,
+        currentItems[currentItems.length - 1]?.orderToken || null,
         null,
       );
-    } else {
-      orderToken = generateJitteredKeyBetween(
-        items[firstDoneIndex - 1]?.orderToken || null,
-        items[firstDoneIndex].orderToken,
-      );
     }
-  }
 
-  yield* update(checklistItemsTable, [
-    {
+    const newItem: ChecklistItem = {
+      type: checklistItemType,
+      id,
+      state: "todo",
+      content: "",
+      createdAt: now,
+      checkedAt: null,
       ...item,
-      state,
-      checkedAt: state === "done" ? Date.now() : null,
+      parentId: item.parentId,
+      parentType: item.parentType,
       orderToken,
-    },
-  ]);
+    };
+
+    yield* insert(checklistItemsTable, [newItem]);
+    return newItem;
+  },
 });
 
-export const deleteItems = action(function* (ids: string[]) {
-  yield* deleteRows(checklistItemsTable, ids);
+export const createItemAfter = action({
+  name: "createItemAfter",
+  args: {
+    itemId: v.string(),
+    item: v.optional(v.partial(checklistItemsTable.v())),
+  },
+  handler: function* createItemAfter({ itemId, item }) {
+    const currentItem = yield* checklistItemById({ id: itemId });
+    if (!currentItem) throw new Error("Checklist item not found");
+
+    const [, after] = yield* checklistItemSiblings({ itemId });
+
+    return yield* createItem({
+      item: {
+        ...item,
+        parentId: currentItem.parentId,
+        parentType: currentItem.parentType,
+        orderToken: generateJitteredKeyBetween(
+          currentItem.orderToken,
+          after?.orderToken || null,
+        ),
+      },
+    });
+  },
 });
 
-export const deleteForParents = action(function* (
-  parentIds: string[],
-  parentType: ChecklistParentType,
-) {
-  const ids: string[] = [];
-  for (const parentId of parentIds) {
-    ids.push(...(yield* childrenIds(parentId, parentType)));
-  }
+export const updateItem = action({
+  name: "updateItem",
+  args: {
+    id: v.string(),
+    item: v.partial(checklistItemsTable.v()),
+  },
+  handler: function* updateItem({ id, item }) {
+    const itemInState = yield* checklistItemById({ id });
+    if (!itemInState) throw new Error("Checklist item not found");
 
-  if (ids.length) {
-    yield* deleteItems(ids);
-  }
+    yield* upsert(checklistItemsTable, [{ ...itemInState, ...item }]);
+  },
 });
 
-export const copyItems = action(function* (
-  fromParentId: string,
-  fromParentType: ChecklistParentType,
-  toParentId: string,
-  toParentType: ChecklistParentType,
-) {
-  const sourceItems = yield* children(fromParentId, fromParentType);
-  const now = Date.now();
-  const copiedItems = sourceItems.map((item) => ({
-    ...item,
-    id: uuidv7(),
-    parentId: toParentId,
-    parentType: toParentType,
-    state: "todo" as const,
-    createdAt: now,
-    checkedAt: null,
-  }));
-
-  if (copiedItems.length) {
-    yield* insert(checklistItemsTable, copiedItems);
-  }
-
-  return copiedItems;
+export const updateChecklistItemContent = action({
+  name: "updateChecklistItemContent",
+  args: {
+    id: v.string(),
+    content: v.string(),
+  },
+  handler: function* updateChecklistItemContent({ id, content }) {
+    yield* updateItem({
+      id,
+      item: { content },
+    });
+  },
 });
 
-export const moveToParent = action(function* (
-  itemId: string,
-  parentId: string,
-  parentType: ChecklistParentType,
-  position: "append" | "prepend" = "append",
-) {
-  const item = yield* byId(itemId);
-  if (!item) return;
+export const toggleChecklistItemState = action({
+  name: "toggleChecklistItemState",
+  args: { id: v.string() },
+  handler: function* toggleChecklistItemState({ id }) {
+    const item = yield* checklistItemById({ id });
+    if (!item) throw new Error("Checklist item not found");
 
-  const items = (yield* children(parentId, parentType)).filter(
-    (child) => child.id !== itemId,
-  );
-  const orderToken =
-    position === "prepend"
-      ? generateJitteredKeyBetween(null, items[0]?.orderToken || null)
-      : generateJitteredKeyBetween(
+    const state = item.state === "todo" ? "done" : "todo";
+    let orderToken = item.orderToken;
+
+    if (state === "done") {
+      const items = (yield* checklistItemChildren({
+        parentId: item.parentId,
+        parentType: item.parentType,
+      })).filter((child) => child.id !== id);
+      const firstDoneIndex = items.findIndex((child) => child.state === "done");
+
+      if (firstDoneIndex === -1) {
+        orderToken = generateJitteredKeyBetween(
           items[items.length - 1]?.orderToken || null,
           null,
         );
-
-  yield* updateItem(itemId, { parentId, parentType, orderToken });
-});
-
-export const handleDrop = action(function* (
-  itemId: string,
-  dropId: string,
-  dropModelType: AnyModelType,
-  edge: "top" | "bottom",
-) {
-  if (!(yield* canDrop(itemId, dropId, dropModelType))) return;
-
-  const target = yield* byId(itemId);
-  if (!target) return shouldNeverHappen("checklist target not found");
-
-  const dropped = yield* appSlice.byId(dropId, dropModelType);
-  if (!dropped || !isChecklistItem(dropped)) {
-    return shouldNeverHappen("checklist drop item not found");
-  }
-
-  const [before, after] = yield* siblings(itemId);
-  const orderToken =
-    edge === "top"
-      ? generateJitteredKeyBetween(
-          before?.orderToken || null,
-          target.orderToken,
-        )
-      : generateJitteredKeyBetween(
-          target.orderToken,
-          after?.orderToken || null,
+      } else {
+        orderToken = generateJitteredKeyBetween(
+          items[firstDoneIndex - 1]?.orderToken || null,
+          items[firstDoneIndex].orderToken,
         );
+      }
+    }
 
-  yield* updateItem(dropped.id, {
-    parentId: target.parentId,
-    parentType: target.parentType,
-    orderToken,
-  });
+    yield* upsert(checklistItemsTable, [
+      {
+        ...item,
+        state,
+        checkedAt: state === "done" ? Date.now() : null,
+        orderToken,
+      },
+    ]);
+  },
 });
 
-export const canDropOnParent = selector(function* (
-  parentId: string,
-  parentType: AnyModelType,
-  dropId: string,
-  dropModelType: AnyModelType,
-) {
-  if (!isChecklistParentType(parentType)) return false;
-  if (dropModelType !== checklistItemType) return false;
-
-  const parent = yield* appSlice.byId(parentId, parentType);
-  const dropped = yield* appSlice.byId(dropId, dropModelType);
-
-  return !!parent && isChecklistItem(dropped);
+export const deleteItems = action({
+  name: "deleteItems",
+  args: { ids: v.array(v.string()) },
+  handler: function* deleteItems({ ids }) {
+    yield* deleteRows(checklistItemsTable, ids);
+  },
 });
 
-export const handleDropOnParent = action(function* (
-  parentId: string,
-  parentType: ChecklistParentType,
-  dropId: string,
-  dropModelType: AnyModelType,
-  edge: "top" | "bottom",
-) {
-  if (!(yield* canDropOnParent(parentId, parentType, dropId, dropModelType))) {
-    return;
-  }
+export const deleteForParents = action({
+  name: "deleteForParents",
+  args: {
+    parentIds: v.array(v.string()),
+    parentType: checklistParentType,
+  },
+  handler: function* deleteForParents({ parentIds, parentType }) {
+    const ids: string[] = [];
+    for (const parentId of parentIds) {
+      ids.push(
+        ...(yield* checklistItemChildrenIds({
+          parentId,
+          parentType,
+        })),
+      );
+    }
 
-  yield* moveToParent(
+    if (ids.length) {
+      yield* deleteItems({ ids });
+    }
+  },
+});
+
+export const copyItems = action({
+  name: "copyItems",
+  args: {
+    fromParentId: v.string(),
+    fromParentType: checklistParentType,
+    toParentId: v.string(),
+    toParentType: checklistParentType,
+  },
+  handler: function* copyItems({
+    fromParentId,
+    fromParentType,
+    toParentId,
+    toParentType,
+  }) {
+    const sourceItems = yield* checklistItemChildren({
+      parentId: fromParentId,
+      parentType: fromParentType,
+    });
+    const now = Date.now();
+    const copiedItems = sourceItems.map((item) => ({
+      ...item,
+      id: uuidv7(),
+      parentId: toParentId,
+      parentType: toParentType,
+      state: "todo" as const,
+      createdAt: now,
+      checkedAt: null,
+    }));
+
+    if (copiedItems.length) {
+      yield* insert(checklistItemsTable, copiedItems);
+    }
+
+    return copiedItems;
+  },
+});
+
+export const moveToParent = action({
+  name: "moveToParent",
+  args: {
+    itemId: v.string(),
+    parentId: v.string(),
+    parentType: checklistParentType,
+    position: v.union(v.literal("append"), v.literal("prepend")),
+  },
+  handler: function* moveToParent({ itemId, parentId, parentType, position }) {
+    const item = yield* checklistItemById({ id: itemId });
+    if (!item) return;
+
+    const items = (yield* checklistItemChildren({
+      parentId,
+      parentType,
+    })).filter((child) => child.id !== itemId);
+    const orderToken =
+      position === "prepend"
+        ? generateJitteredKeyBetween(null, items[0]?.orderToken || null)
+        : generateJitteredKeyBetween(
+            items[items.length - 1]?.orderToken || null,
+            null,
+          );
+
+    yield* updateItem({
+      id: itemId,
+      item: { parentId, parentType, orderToken },
+    });
+  },
+});
+
+export const checklistItemHandleDrop = action({
+  name: "checklistItemHandleDrop",
+  args: {
+    itemId: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* checklistItemHandleDrop({
+    itemId,
     dropId,
+    dropModelType,
+    edge,
+  }) {
+    if (
+      !(yield* checklistItemCanDrop({
+        itemId,
+        dropId,
+        dropModelType,
+      }))
+    )
+      return;
+
+    const target = yield* checklistItemById({ id: itemId });
+    if (!target) return shouldNeverHappen("checklist target not found");
+
+    const dropped = yield* appById({
+      id: dropId,
+      modelType: dropModelType,
+    });
+    if (!dropped || !isChecklistItem(dropped)) {
+      return shouldNeverHappen("checklist drop item not found");
+    }
+
+    const [before, after] = yield* checklistItemSiblings({ itemId });
+    const orderToken =
+      edge === "top"
+        ? generateJitteredKeyBetween(
+            before?.orderToken || null,
+            target.orderToken,
+          )
+        : generateJitteredKeyBetween(
+            target.orderToken,
+            after?.orderToken || null,
+          );
+
+    yield* updateItem({
+      id: dropped.id,
+      item: {
+        parentId: target.parentId,
+        parentType: target.parentType,
+        orderToken,
+      },
+    });
+  },
+});
+
+export const checklistItemCanDropOnParent = selector({
+  name: "checklistItemCanDropOnParent",
+  args: {
+    parentId: v.string(),
+    parentType: checklistParentType,
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+  },
+  handler: function* checklistItemCanDropOnParent({
     parentId,
     parentType,
-    edge === "top" ? "prepend" : "append",
-  );
+    dropId,
+    dropModelType,
+  }) {
+    if (!isChecklistParentType(parentType)) return false;
+    if (dropModelType !== checklistItemType) return false;
+
+    const parent = yield* appById({
+      id: parentId,
+      modelType: parentType,
+    });
+    const dropped = yield* appById({
+      id: dropId,
+      modelType: dropModelType,
+    });
+
+    return !!parent && isChecklistItem(dropped);
+  },
+});
+
+export const checklistItemHandleDropOnParent = action({
+  name: "checklistItemHandleDropOnParent",
+  args: {
+    parentId: v.string(),
+    parentType: checklistParentType,
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* checklistItemHandleDropOnParent({
+    parentId,
+    parentType,
+    dropId,
+    dropModelType,
+    edge,
+  }) {
+    if (
+      !(yield* checklistItemCanDropOnParent({
+        parentId,
+        parentType,
+        dropId,
+        dropModelType,
+      }))
+    ) {
+      return;
+    }
+
+    yield* moveToParent({
+      itemId: dropId,
+      parentId,
+      parentType,
+      position: edge === "top" ? "prepend" : "append",
+    });
+  },
 });
 
 const checklistItemsSlice = {
-  byId,
-  byIdOrDefault,
-  children,
-  childrenIds,
-  all,
-  siblings,
-  canDrop,
-  createItem,
-  createItemAfter,
-  update: updateItem,
-  toggleState,
+  byId: checklistItemById,
   delete: deleteItems,
-  deleteItems,
-  deleteForParents,
-  copyItems,
-  moveToParent,
-  handleDrop,
-  canDropOnParent,
-  handleDropOnParent,
+  canDrop: checklistItemCanDrop,
+  handleDrop: checklistItemHandleDrop,
 };
 
 registerModelSlice(checklistItemsSlice, checklistItemsTable, checklistItemType);

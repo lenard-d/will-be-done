@@ -1,13 +1,16 @@
 import { useState, useCallback } from "react";
 import { CalendarDays, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
-import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb";
+import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb-lib";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
-  projectCategoriesSlice,
-  cardsTasksSlice,
-  cardsTaskTemplatesSlice,
+  createTaskFromTemplate,
+  moveTemplateToProject,
+  projectCategoriesByProjectId,
+  projectOfCategoryOrDefault,
   type TaskTemplate,
+  taskTemplateRuleText,
+  updateTemplate,
 } from "@will-be-done/slices/space";
 import { MoveModal } from "@/components/MoveTaskModel/MoveModel.tsx";
 import { RepeatModal } from "@/components/RepeatModal/RepeatModal.tsx";
@@ -40,21 +43,18 @@ export function TemplateBody({
   const dispatch = useDispatch();
   const templateId = template.id;
 
-  const project = useSyncSelector(
-    () =>
-      projectCategoriesSlice.projectOfCategoryOrDefault(
-        template.projectCategoryId,
-      ),
-    [template.projectCategoryId],
-  );
-  const projectCategories = useSyncSelector(
-    () => projectCategoriesSlice.byProjectId(project.id),
-    [project.id],
-  );
-  const ruleText = useSyncSelector(
-    () => cardsTaskTemplatesSlice.ruleText(templateId),
-    [templateId],
-  );
+  const project = useSyncSelector({
+    selector: projectOfCategoryOrDefault,
+    args: { categoryId: template.projectCategoryId },
+  });
+  const projectCategories = useSyncSelector({
+    selector: projectCategoriesByProjectId,
+    args: { projectId: project.id },
+  });
+  const ruleText = useSyncSelector({
+    selector: taskTemplateRuleText,
+    args: { id: templateId },
+  });
 
   const [isMoveProjectModalOpen, setIsMoveProjectModalOpen] = useState(false);
   const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
@@ -71,8 +71,11 @@ export function TemplateBody({
     onSave: useCallback(
       (trimmed: string) =>
         dispatch(
-          cardsTaskTemplatesSlice.updateTemplate(templateId, {
-            title: trimmed,
+          updateTemplate({
+            id: templateId,
+            template: {
+              title: trimmed,
+            },
           }),
         ),
       [dispatch, templateId],
@@ -91,15 +94,13 @@ export function TemplateBody({
     setIsEditingDescription,
     onSave: useCallback(
       (content: string) =>
-        dispatch(
-          cardsTaskTemplatesSlice.updateTemplate(templateId, { content }),
-        ),
+        dispatch(updateTemplate({ id: templateId, template: { content } })),
       [dispatch, templateId],
     ),
   });
 
   const handleConvertToTask = useCallback(() => {
-    const task = dispatch(cardsTasksSlice.createFromTemplate(template));
+    const task = dispatch(createTaskFromTemplate({ taskTemplate: template }));
     useFocusStore.getState().focusByKey(buildFocusKey(task.id, task.type));
     onCardIdChange?.(task.id);
   }, [template, dispatch, onCardIdChange]);
@@ -108,8 +109,11 @@ export function TemplateBody({
     (ruleString: string) => {
       setIsRepeatModalOpen(false);
       dispatch(
-        cardsTaskTemplatesSlice.updateTemplate(templateId, {
-          repeatRule: ruleString,
+        updateTemplate({
+          id: templateId,
+          template: {
+            repeatRule: ruleString,
+          },
         }),
       );
     },
@@ -145,8 +149,11 @@ export function TemplateBody({
           projectCategories={projectCategories}
           onChange={(categoryId) =>
             dispatch(
-              cardsTaskTemplatesSlice.updateTemplate(templateId, {
-                projectCategoryId: categoryId,
+              updateTemplate({
+                id: templateId,
+                template: {
+                  projectCategoryId: categoryId,
+                },
               }),
             )
           }
@@ -172,6 +179,7 @@ export function TemplateBody({
         </DetailRow>
 
         <ChecklistItems
+          hasChecklistItems={undefined}
           parentId={templateId}
           parentType={template.type}
           editTrigger="always"
@@ -204,10 +212,10 @@ export function TemplateBody({
           setIsOpen={setIsMoveProjectModalOpen}
           handleMove={(projectId) => {
             dispatch(
-              cardsTaskTemplatesSlice.moveTemplateToProject(
-                templateId,
-                projectId,
-              ),
+              moveTemplateToProject({
+                templateId: templateId,
+                projectId: projectId,
+              }),
             );
             setIsMoveProjectModalOpen(false);
           }}

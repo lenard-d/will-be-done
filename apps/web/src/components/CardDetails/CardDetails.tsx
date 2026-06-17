@@ -1,13 +1,13 @@
 import { useRef, useState, useCallback } from "react";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSyncSelector } from "@will-be-done/hyperdb";
+import { useSyncSelector } from "@will-be-done/hyperdb-lib";
 import { useFocusStore, parseColumnKey } from "@/store/focusSlice.ts";
 import {
-  projectCategoryCardsSlice,
-  cardsSlice,
+  cardExists,
   isTask,
   isTaskTemplate,
+  projectCategoryCardById,
 } from "@will-be-done/slices/space";
 import { useGlobalListener } from "@/components/GlobalListener/hooks.tsx";
 import { TaskBody } from "./TaskBody.tsx";
@@ -32,13 +32,12 @@ export function CardDetails() {
     parsed?.type === "projection" ||
     parsed?.type === "template";
   const cardId = isCardFocused ? parsed.id : null;
-  const isVisible = useSyncSelector(
-    function*() {
-      if (!cardId) return false;
-      return yield* cardsSlice.exists(cardId);
-    },
-    [cardId],
-  );
+  const isVisible = useSyncSelector({
+    selector: cardExists,
+    args: { id: cardId ?? "" },
+    enabled: !!cardId,
+    defaultValue: false,
+  });
 
   const width = useCardDetailsSize((s) => s.width);
   const setWidth = useCardDetailsSize((s) => s.setWidth);
@@ -204,12 +203,10 @@ export function CardDetailsPage({
   onBack: () => void;
   onCardIdChange?: (cardId: string) => void;
 }) {
-  const isVisible = useSyncSelector(
-    function*() {
-      return yield* cardsSlice.exists(cardId);
-    },
-    [cardId],
-  );
+  const isVisible = useSyncSelector({
+    selector: cardExists,
+    args: { id: cardId },
+  });
   const {
     isEditingTitle,
     setIsEditingTitle,
@@ -320,10 +317,10 @@ function CardDetailsBody({
   setIsEditingDescription: (v: boolean) => void;
   onCardIdChange?: (cardId: string) => void;
 }) {
-  const card = useSyncSelector(
-    () => projectCategoryCardsSlice.byId(cardId),
-    [cardId],
-  );
+  const card = useSyncSelector({
+    selector: projectCategoryCardById,
+    args: { id: cardId },
+  });
 
   if (isTask(card)) {
     return (

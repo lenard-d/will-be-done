@@ -1,4 +1,4 @@
-import { Space, spacesTable } from "./spaces";
+import { Space, spacesTable } from "./tables";
 
 export type AnyTable = typeof spacesTable;
 export type AnyModel = Space;

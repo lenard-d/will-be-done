@@ -1,408 +1,74 @@
-import { nanoid } from "nanoid";
-import {
-  asyncDispatch,
-  BptreeInmemDriver,
-  DB,
-  deleteRows,
-  execAsync,
-  execSync,
-  HyperDB,
-  insert,
-  runQuery,
-  runSelectorAsync,
-  selectFrom,
-  type Op,
-  SubscribableDB,
-  syncDispatch,
-  TableDefinition,
-} from "@will-be-done/hyperdb";
 import AwaitLock from "await-lock";
-import {
-  changesSlice,
-  changesTable,
-  Change,
-  ChangesetArrayType,
-  syncSlice,
-} from "@will-be-done/slices/common";
-import { dbIdTrait } from "@will-be-done/slices/traits";
-import { initAsyncDriver } from "./asyncDriver";
-import {
-  BroadcastChannel,
-  createLeaderElection,
-  LeaderElector,
-} from "broadcast-channel";
-import { noop } from "@will-be-done/hyperdb/src/hyperdb/generators.ts";
-import { trpcClient } from "@/lib/trpc.ts";
-import { State } from "@/utils/State.ts";
+import { type SubscribableDB } from "@will-be-done/hyperdb-lib";
 import { AutoBackuper } from "./autoBackup.ts";
-import { flushPendingDrafts } from "./pendingDraftFlushes.ts";
+import { createCrossTabChanges } from "./crossTabChanges";
+import { createLocalPersistQueue } from "./localPersistQueue";
+import { getClientId, getDbName, initClock } from "./syncClock";
+import { registerSyncChangeHooks } from "./syncChangeHooks";
+import { hydrateSyncDb } from "./syncHydration";
+import { Syncer } from "./syncer";
+import { createStoreDbs } from "./storeDbs";
+import type { SyncConfig } from "./syncTypes";
 
-export interface SyncConfig {
-  dbId: string;
-  dbType: "user" | "space";
-  persistDBTables: TableDefinition[];
-  inmemDBTables: TableDefinition[];
-  syncableDBTables: TableDefinition[];
-  tableNameMap: Record<string, TableDefinition>;
-  afterInit: (db: HyperDB) => void | Promise<void>;
-  disableSync?: boolean;
-}
-
-const initClock = (clientId: string) => {
-  let now = Date.now();
-  let n = 0;
-
-  return () => {
-    const newNow = Date.now();
-
-    if (newNow === now) {
-      n++;
-    } else if (newNow > now) {
-      now = newNow;
-      n = 0;
-    }
-
-    return `${now}-${n.toString().padStart(4, "0")}-${clientId}`;
-  };
-};
-
-const getClientId = (dbName: string) => {
-  const key = "clientId-" + dbName;
-
-  const id = localStorage.getItem(key);
-
-  if (id) return id;
-
-  const newId = nanoid();
-  localStorage.setItem(key, newId);
-
-  return newId;
-};
+export type { SyncConfig } from "./syncTypes";
 
 const lock = new AwaitLock();
 const initedDbs: Record<string, SubscribableDB> = {};
-const SYNC_POLL_INTERVAL_MS = 5000;
-const SYNC_REQUEST_TIMEOUT_MS = 30_000;
-
-class SyncRequestTimeoutError extends Error {
-  constructor(label: string) {
-    super(`${label} timed out after ${SYNC_REQUEST_TIMEOUT_MS}ms`);
-    this.name = "SyncRequestTimeoutError";
-  }
-}
-
-const withSyncRequestTimeout = async <T>(
-  label: string,
-  run: (signal: AbortSignal) => Promise<T>,
-): Promise<T> => {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => {
-    controller.abort(new SyncRequestTimeoutError(label));
-  }, SYNC_REQUEST_TIMEOUT_MS);
-
-  try {
-    return await run(controller.signal);
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-};
 
 export const initDbStore = async (
   syncConfig: SyncConfig,
 ): Promise<SubscribableDB> => {
-  const dbName = syncConfig.dbType + "-" + syncConfig.dbId;
+  const dbName = getDbName(syncConfig);
 
   await lock.acquireAsync();
   try {
     if (initedDbs[dbName]) {
       return initedDbs[dbName];
     }
-    const asyncDriver = await initAsyncDriver(dbName);
-    const asyncDB = new DB(
-      asyncDriver,
-      [],
-      [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
-    );
-
-    await execAsync(asyncDB.loadTables(syncConfig.persistDBTables));
-
-    const syncDB = new DB(
-      new BptreeInmemDriver(),
-      [],
-      [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
-    );
-
-    execSync(syncDB.loadTables(syncConfig.inmemDBTables));
-
-    const syncSubDb = new SubscribableDB(syncDB);
-    syncSubDb.afterInsert(function* (db, table, traits, ops) {
-      if (table === changesTable) return;
-      if (traits.some((t) => t.type === "skip-sync")) {
-        return;
-      }
-
-      for (const op of ops) {
-        syncDispatch(
-          db,
-          changesSlice.insertChangeFromInsert(
-            op.table,
-            op.newValue,
-            getClientId(dbName),
-            nextClock,
-          ),
-        );
-      }
-
-      yield* noop();
-    });
-    syncSubDb.afterUpdate(function* (db, table, traits, ops) {
-      if (table === changesTable) return;
-      if (traits.some((t) => t.type === "skip-sync")) {
-        return;
-      }
-
-      for (const op of ops) {
-        syncDispatch(
-          db,
-          changesSlice.insertChangeFromUpdate(
-            op.table,
-            op.oldValue,
-            op.newValue,
-            getClientId(dbName),
-            nextClock,
-          ),
-        );
-      }
-
-      yield* noop();
-    });
-    syncSubDb.afterDelete(function* (db, table, traits, ops) {
-      if (table === changesTable) return;
-      if (traits.some((t) => t.type === "skip-sync")) {
-        return;
-      }
-
-      for (const op of ops) {
-        syncDispatch(
-          db,
-          changesSlice.insertChangeFromDelete(
-            op.table,
-            op.oldValue,
-            getClientId(dbName),
-            nextClock,
-          ),
-        );
-      }
-
-      yield* noop();
-    });
 
     const clientId = getClientId(dbName);
     const nextClock = initClock(clientId);
+    const { persistentDB, syncDB, syncSubDb } = await createStoreDbs(
+      dbName,
+      syncConfig,
+    );
 
-    for (const table of syncConfig.syncableDBTables) {
-      const res = await runSelectorAsync(asyncDB, function* () {
-        return yield* runQuery(selectFrom(table, "byIds"));
-      });
+    registerSyncChangeHooks({
+      syncSubDb,
+      clientId,
+      nextClock,
+    });
 
-      // no need to broadcast to sub db
-      execSync(syncDB.insert(table, res));
-    }
+    await hydrateSyncDb({
+      persistentDB,
+      syncDB,
+      syncableDBTables: syncConfig.syncableDBTables,
+    });
 
-    const bc = new BroadcastChannel(`changes-${getClientId(dbName)}`);
-
-    // Create syncer early so we can reference it in the subscribe callback
-    const syncer = new Syncer(
-      asyncDB,
-      getClientId(dbName),
+    const crossTabChanges = createCrossTabChanges({
+      clientId,
+      syncSubDb,
       syncConfig,
       nextClock,
-      (e) => {
-        syncDispatch(
-          syncSubDb.withTraits({ type: "skip-sync" }),
-          changesSlice.mergeChanges(
-            e.changeset,
-            nextClock,
-            getClientId(dbName),
-            syncConfig.tableNameMap,
-          ),
-        );
-      },
+    });
+
+    const syncer = new Syncer(
+      persistentDB,
+      clientId,
+      syncConfig,
+      nextClock,
+      crossTabChanges.applyChanges,
     );
 
-    const pendingPersistBatches = new State<Op[][]>([]);
-
-    const persistBatch = async (ops: Op[]) => {
-      type RowType = Record<string, string | number | boolean | null> & {
-        id: string;
-      };
-      const changesByTable = new Map<
-        string,
-        Array<{ row?: RowType; change: Change }>
-      >();
-
-      const tx = await execAsync(asyncDB.beginTx());
-      let committed = false;
-      try {
-        for (const op of ops) {
-          if (op.table == changesTable) continue;
-
-          let change: Change | undefined;
-
-          if (op.type === "insert") {
-            await execAsync(tx.insert(op.table, [op.newValue]));
-            change = await asyncDispatch(
-              tx,
-              changesSlice.insertChangeFromInsert(
-                op.table,
-                op.newValue,
-                getClientId(dbName),
-                nextClock,
-              ),
-            );
-          } else if (op.type === "update") {
-            await execAsync(tx.update(op.table, [op.newValue]));
-            change = await asyncDispatch(
-              tx,
-              changesSlice.insertChangeFromUpdate(
-                op.table,
-                op.oldValue,
-                op.newValue,
-                getClientId(dbName),
-                nextClock,
-              ),
-            );
-          } else if (op.type === "delete") {
-            await execAsync(tx.delete(op.table, [op.oldValue.id]));
-            change = await asyncDispatch(
-              tx,
-              changesSlice.insertChangeFromDelete(
-                op.table,
-                op.oldValue,
-                getClientId(dbName),
-                nextClock,
-              ),
-            );
-          }
-
-          if (change) {
-            const tableName = op.table.tableName;
-            if (!changesByTable.has(tableName)) {
-              changesByTable.set(tableName, []);
-            }
-
-            const row = op.type === "delete" ? undefined : op.newValue;
-            changesByTable.get(tableName)!.push({ row, change });
-          }
-        }
-
-        await execAsync(tx.commit());
-        committed = true;
-      } finally {
-        if (!committed) {
-          await execAsync(tx.rollback());
-        }
-      }
-
-      const changeset: ChangesetArrayType = [];
-      for (const [tableName, data] of changesByTable) {
-        changeset.push({ tableName, data });
-      }
-
-      if (changeset.length > 0) {
-        void bc.postMessage({ changeset } satisfies ChangePersistedEvent);
-      }
-
-      syncer.forceSync();
-    };
-
-    const persistQueueLock = new AwaitLock();
-    const drainPendingPersistBatches = async () => {
-      await persistQueueLock.acquireAsync();
-      try {
-        const queuedBatches = pendingPersistBatches.get();
-        if (queuedBatches.length === 0) return;
-
-        pendingPersistBatches.set([]);
-
-        while (queuedBatches.length > 0) {
-          for (const ops of queuedBatches) {
-            try {
-              await persistBatch(ops);
-            } catch (error) {
-              console.error("Failed to persist local changes", error);
-            }
-          }
-
-          queuedBatches.splice(0, queuedBatches.length);
-          queuedBatches.push(...pendingPersistBatches.get());
-          pendingPersistBatches.set([]);
-        }
-      } finally {
-        persistQueueLock.release();
-      }
-    };
-
-    const flushDraftsAndPersist = async () => {
-      flushPendingDrafts();
-      await drainPendingPersistBatches();
-    };
-
-    void (async () => {
-      while (true) {
-        await drainPendingPersistBatches();
-        await pendingPersistBatches.when((queue) => queue.length > 0);
-      }
-    })();
-
-    const flushDraftsAndPersistBestEffort = () => {
-      void flushDraftsAndPersist();
-    };
-    const flushDraftsAndPersistWhenHidden = () => {
-      if (document.visibilityState === "hidden") {
-        flushDraftsAndPersistBestEffort();
-      }
-    };
-
-    window.addEventListener("beforeunload", flushDraftsAndPersistBestEffort, {
-      capture: true,
+    const localPersistQueue = createLocalPersistQueue({
+      clientId,
+      persistentDB,
+      syncSubDb,
+      nextClock,
+      postChanges: crossTabChanges.postChanges,
+      onPersisted: () => syncer.forceSync(),
     });
-    window.addEventListener("pagehide", flushDraftsAndPersistBestEffort, {
-      capture: true,
-    });
-    document.addEventListener(
-      "visibilitychange",
-      flushDraftsAndPersistWhenHidden,
-      { capture: true },
-    );
-
-    syncSubDb.subscribe((ops, traits) => {
-      ops = ops.filter((op) => op.table !== changesTable);
-      if (ops.length === 0) return;
-
-      if (traits.some((t) => t.type === "skip-sync")) {
-        return;
-      }
-
-      pendingPersistBatches.modify((queue) => {
-        queue.push([...ops]);
-        return queue;
-      });
-    });
-
-    bc.onmessage = async (ev) => {
-      const data = ev as ChangePersistedEvent;
-
-      syncDispatch(
-        syncSubDb.withTraits({ type: "skip-sync" }),
-        changesSlice.mergeChanges(
-          data.changeset,
-          nextClock,
-          getClientId(dbName),
-          syncConfig.tableNameMap,
-        ),
-      );
-    };
+    localPersistQueue.start();
 
     if (!syncConfig.disableSync) {
       syncer.startLoop();
@@ -420,311 +86,3 @@ export const initDbStore = async (
     lock.release();
   }
 };
-
-type ChangePersistedEvent = {
-  changeset: ChangesetArrayType;
-};
-
-class Syncer {
-  private electionChannel: BroadcastChannel;
-  private elector: LeaderElector;
-  private runId = 0;
-  private clientId: string;
-  private syncConfig: SyncConfig;
-  private wsUnsubscribe: (() => void) | null = null;
-
-  // State-based sync triggers - emit to wake up the sync loop
-  private wsNotification = new State<number>(0);
-  private forceSyncNotification = new State<number>(0);
-  private wakeSyncLoop = () => {
-    this.forceSync();
-  };
-
-  constructor(
-    private persistentDB: HyperDB,
-    clientId: string,
-    syncConfig: SyncConfig,
-    private nextClock: () => string,
-    private afterChangesPersisted: (e: ChangePersistedEvent) => void,
-  ) {
-    this.clientId = clientId;
-    this.syncConfig = syncConfig;
-    this.electionChannel = new BroadcastChannel("election-" + clientId);
-    this.elector = createLeaderElection(this.electionChannel);
-
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") {
-        this.wakeSyncLoop();
-      }
-    });
-    window.addEventListener("online", this.wakeSyncLoop);
-    window.addEventListener("focus", this.wakeSyncLoop);
-  }
-
-  startLoop() {
-    this.elector.onduplicate = () => {
-      console.log("onduplicate");
-
-      this.runId++;
-      this.cleanupWebSocket();
-      void this.run();
-    };
-
-    void this.run();
-  }
-
-  /**
-   * Called when local changes are persisted to trigger immediate sync
-   */
-  forceSync() {
-    this.forceSyncNotification.modify((version) => version + 1);
-  }
-
-  private cleanupWebSocket() {
-    if (this.wsUnsubscribe) {
-      this.wsUnsubscribe();
-      this.wsUnsubscribe = null;
-    }
-  }
-
-  private setupWebSocketSubscription() {
-    // Subscribe to change notifications via tRPC subscription
-    const subscription = trpcClient.onChangesAvailable.subscribe(
-      {
-        dbId: this.syncConfig.dbId,
-        dbType: this.syncConfig.dbType,
-      },
-      {
-        onData: () => {
-          console.log("WebSocket notification received");
-          this.wsNotification.modify((version) => version + 1);
-        },
-        onError: (err) => {
-          console.error("WebSocket subscription error:", err);
-          // On error, emit to allow sync loop to continue
-          this.wsNotification.modify((version) => version + 1);
-        },
-      },
-    );
-
-    this.wsUnsubscribe = () => subscription.unsubscribe();
-  }
-
-  async run() {
-    const myRunId = ++this.runId;
-
-    await this.elector.awaitLeadership();
-
-    // Setup WebSocket subscription once we become leader
-    this.setupWebSocketSubscription();
-
-    while (true) {
-      if (this.runId !== myRunId) {
-        console.log("runId !== myRunId, stopping syncer loop");
-        this.cleanupWebSocket();
-        return;
-      }
-      try {
-        console.log("sending changes to server");
-        await this.sendChangesToServer();
-        console.log("applying changes from server");
-        await this.getAndApplyChanges();
-      } catch (e) {
-        console.error(e);
-      }
-
-      await this.waitForNextSyncTrigger();
-    }
-  }
-
-  private async waitForNextSyncTrigger() {
-    const wsVersion = this.wsNotification.get();
-    const forceSyncVersion = this.forceSyncNotification.get();
-
-    return new Promise<"timeout" | "ws" | "local">((resolve) => {
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      let unsubscribeWs = () => {};
-      let unsubscribeForceSync = () => {};
-      let settled = false;
-
-      const finish = (reason: "timeout" | "ws" | "local") => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        if (timeoutId !== null) {
-          clearTimeout(timeoutId);
-        }
-        unsubscribeWs();
-        unsubscribeForceSync();
-        resolve(reason);
-      };
-
-      unsubscribeWs = this.wsNotification.subscribe((version) => {
-        if (version > wsVersion) {
-          finish("ws");
-        }
-      });
-      unsubscribeForceSync = this.forceSyncNotification.subscribe((version) => {
-        if (version > forceSyncVersion) {
-          finish("local");
-        }
-      });
-
-      // I disabled it for dev mode to reduce noise
-      if (process.env.NODE_ENV !== "development") {
-        timeoutId = setTimeout(() => finish("timeout"), SYNC_POLL_INTERVAL_MS);
-      }
-    });
-  }
-
-  private async getAndApplyChanges() {
-    const syncState = await asyncDispatch(
-      this.persistentDB,
-      syncSlice.getOrDefault(),
-    );
-    const serverChanges = await withSyncRequestTimeout(
-      "getChangesAfter",
-      (signal) =>
-        trpcClient.getChangesAfter.query(
-          {
-            lastServerUpdatedAt: syncState.lastServerAppliedClock,
-            dbId: this.syncConfig.dbId,
-            dbType: this.syncConfig.dbType,
-          },
-          { signal },
-        ),
-    );
-    // TODO: make server to not return changes of current client, otherwise
-    // it will ruin real time editing experience.
-
-    if (serverChanges.changesets.length === 0) {
-      console.log("no changes from server");
-
-      return;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const that = this;
-    await asyncDispatch(
-      this.persistentDB,
-      (function* () {
-        const { changesets } = yield* changesSlice.getChangesetAfter(
-          syncState.lastSentClock,
-          that.syncConfig.tableNameMap,
-        );
-        if (changesets.length !== 0) {
-          console.log(
-            "some new client changes appeared, skipping server changes apply",
-          );
-
-          return;
-        }
-
-        const allChanges: Change[] = [];
-
-        let maxNewClientClock = "";
-
-        for (const changeset of serverChanges.changesets) {
-          const toDeleteRows: string[] = [];
-          // const toUpdateRows: AppSyncableModel[] = [];
-          const toInsertRows: { id: string; [key: string]: unknown }[] = [];
-
-          const table = that.syncConfig.tableNameMap[changeset.tableName];
-          if (!table) {
-            throw new Error("Unknown table: " + changeset.tableName);
-          }
-
-          for (const { change, row } of changeset.data) {
-            if (change.deletedAt != null) {
-              toDeleteRows.push(change.entityId);
-            } else if (row) {
-              toInsertRows.push(row);
-            }
-
-            const currentClock = that.nextClock();
-
-            if (currentClock > maxNewClientClock) {
-              maxNewClientClock = currentClock;
-            }
-
-            allChanges.push({
-              id: change.id,
-              entityId: change.entityId,
-              tableName: table.tableName,
-              // TODO: use local createdAt value. Or maybe not?
-              createdAt: change?.createdAt,
-              updatedAt: currentClock,
-              deletedAt: change?.deletedAt,
-              clientId: that.clientId,
-              changes: change.changes,
-            });
-          }
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          yield* insert(table, toInsertRows as any);
-          yield* deleteRows(table, toDeleteRows);
-        }
-
-        yield* insert(changesTable, allChanges);
-        console.log("set clock", serverChanges.maxClock, maxNewClientClock);
-
-        yield* syncSlice.update({
-          lastServerAppliedClock: serverChanges.maxClock,
-          lastSentClock: maxNewClientClock,
-        });
-      })(),
-    );
-
-    try {
-      this.afterChangesPersisted({ changeset: serverChanges.changesets });
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  private async sendChangesToServer() {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const that = this;
-    const { changesets, maxClock } = await asyncDispatch(
-      this.persistentDB,
-      (function* () {
-        const currentSyncState = yield* syncSlice.getOrDefault();
-
-        console.log(
-          "get clock",
-          currentSyncState.lastServerAppliedClock,
-          currentSyncState.lastSentClock,
-        );
-
-        const { changesets, maxClock } = yield* changesSlice.getChangesetAfter(
-          currentSyncState.lastSentClock,
-          that.syncConfig.tableNameMap,
-        );
-
-        console.log("new client changes", changesets, maxClock);
-
-        return { changesets, maxClock };
-      })(),
-    );
-
-    if (changesets.length === 0) {
-      return;
-    }
-
-    await withSyncRequestTimeout("handleChanges", (signal) =>
-      trpcClient.handleChanges.mutate(
-        {
-          dbId: this.syncConfig.dbId,
-          dbType: this.syncConfig.dbType,
-          changeset: changesets,
-        },
-        { signal },
-      ),
-    );
-    await asyncDispatch(
-      this.persistentDB,
-      syncSlice.update({ lastSentClock: maxClock }),
-    );
-  }
-}

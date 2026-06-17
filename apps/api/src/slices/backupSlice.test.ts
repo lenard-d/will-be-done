@@ -6,15 +6,27 @@ import {
   syncDispatch,
   execSync,
   select,
-} from "@will-be-done/hyperdb";
+} from "@will-be-done/hyperdb-lib";
 import {
-  backupSlice,
   backupStateTable,
   backupTierStateTable,
   backupFileTable,
+  getBackupById,
+  getBackupsByTier,
+  getCompletedBackupsByTier,
+  getTierState,
+  createBackup,
+  startBackup,
+  completeBackup,
+  failBackup,
+  updateTierState,
+  createBackupFile,
+  getBackupFiles,
+  getBackupFilesByTierAndTime,
+  deleteBackupWithFiles,
 } from "./backupSlice";
 
-describe("backupSlice", () => {
+describe("backup", () => {
   let db: DB;
 
   beforeEach(() => {
@@ -65,10 +77,10 @@ describe("backupSlice", () => {
 
       const backupId = syncDispatch(
         db,
-        backupSlice.createBackup("hourly", scheduledAt)
+        createBackup({ tier: "hourly", scheduledAt })
       );
 
-      const backup = select(db, backupSlice.getBackupById(backupId));
+      const backup = select(db, getBackupById({ id: backupId }));
 
       expect(backup).toBeDefined();
       expect(backup?.id).toBe(backupId);
@@ -88,12 +100,12 @@ describe("backupSlice", () => {
       const scheduledAt = "2026-02-03T12:00:00.000Z";
       const backupId = syncDispatch(
         db,
-        backupSlice.createBackup("hourly", scheduledAt)
+        createBackup({ tier: "hourly", scheduledAt })
       );
 
-      syncDispatch(db, backupSlice.startBackup(backupId));
+      syncDispatch(db, startBackup({ id: backupId }));
 
-      const backup = select(db, backupSlice.getBackupById(backupId));
+      const backup = select(db, getBackupById({ id: backupId }));
       expect(backup?.status).toBe("running");
       expect(backup?.startedAt).toBeDefined();
       expect(backup?.startedAt).not.toBeNull();
@@ -101,7 +113,7 @@ describe("backupSlice", () => {
 
     test("throws error if backup not found", () => {
       expect(() => {
-        syncDispatch(db, backupSlice.startBackup("nonexistent-id"));
+        syncDispatch(db, startBackup({ id: "nonexistent-id" }));
       }).toThrow("Backup nonexistent-id not found");
     });
   });
@@ -111,13 +123,13 @@ describe("backupSlice", () => {
       const scheduledAt = "2026-02-03T12:00:00.000Z";
       const backupId = syncDispatch(
         db,
-        backupSlice.createBackup("hourly", scheduledAt)
+        createBackup({ tier: "hourly", scheduledAt })
       );
-      syncDispatch(db, backupSlice.startBackup(backupId));
+      syncDispatch(db, startBackup({ id: backupId }));
 
-      syncDispatch(db, backupSlice.completeBackup(backupId, 1024000, 5000));
+      syncDispatch(db, completeBackup({ id: backupId, totalSizeBytes: 1024000, durationMs: 5000 }));
 
-      const backup = select(db, backupSlice.getBackupById(backupId));
+      const backup = select(db, getBackupById({ id: backupId }));
       expect(backup?.status).toBe("completed");
       expect(backup?.completedAt).toBeDefined();
       expect(backup?.totalSizeBytes).toBe(1024000);
@@ -126,7 +138,7 @@ describe("backupSlice", () => {
 
     test("throws error if backup not found", () => {
       expect(() => {
-        syncDispatch(db, backupSlice.completeBackup("nonexistent-id", 0, 0));
+        syncDispatch(db, completeBackup({ id: "nonexistent-id", totalSizeBytes: 0, durationMs: 0 }));
       }).toThrow("Backup nonexistent-id not found");
     });
   });
@@ -136,16 +148,16 @@ describe("backupSlice", () => {
       const scheduledAt = "2026-02-03T12:00:00.000Z";
       const backupId = syncDispatch(
         db,
-        backupSlice.createBackup("hourly", scheduledAt)
+        createBackup({ tier: "hourly", scheduledAt })
       );
-      syncDispatch(db, backupSlice.startBackup(backupId));
+      syncDispatch(db, startBackup({ id: backupId }));
 
       syncDispatch(
         db,
-        backupSlice.failBackup(backupId, "Connection timeout")
+        failBackup({ id: backupId, error: "Connection timeout" })
       );
 
-      const backup = select(db, backupSlice.getBackupById(backupId));
+      const backup = select(db, getBackupById({ id: backupId }));
       expect(backup?.status).toBe("failed");
       expect(backup?.completedAt).toBeDefined();
       expect(backup?.error).toBe("Connection timeout");
@@ -153,7 +165,7 @@ describe("backupSlice", () => {
 
     test("throws error if backup not found", () => {
       expect(() => {
-        syncDispatch(db, backupSlice.failBackup("nonexistent-id", "error"));
+        syncDispatch(db, failBackup({ id: "nonexistent-id", error: "error" }));
       }).toThrow("Backup nonexistent-id not found");
     });
   });
@@ -162,18 +174,18 @@ describe("backupSlice", () => {
     test("returns backups for specified tier in descending order", () => {
       syncDispatch(
         db,
-        backupSlice.createBackup("hourly", "2026-02-03T08:00:00.000Z")
+        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T08:00:00.000Z" })
       );
       syncDispatch(
         db,
-        backupSlice.createBackup("hourly", "2026-02-03T12:00:00.000Z")
+        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
       );
       syncDispatch(
         db,
-        backupSlice.createBackup("daily", "2026-02-03T00:00:00.000Z")
+        createBackup({ tier: "daily", scheduledAt: "2026-02-03T00:00:00.000Z" })
       );
 
-      const hourlyBackups = select(db, backupSlice.getBackupsByTier("hourly"));
+      const hourlyBackups = select(db, getBackupsByTier({ tier: "hourly" }));
 
       expect(hourlyBackups).toHaveLength(2);
       // Should be in descending order (newest first)
@@ -182,7 +194,7 @@ describe("backupSlice", () => {
     });
 
     test("returns empty array when no backups exist for tier", () => {
-      const backups = select(db, backupSlice.getBackupsByTier("weekly"));
+      const backups = select(db, getBackupsByTier({ tier: "weekly" }));
       expect(backups).toEqual([]);
     });
   });
@@ -191,26 +203,26 @@ describe("backupSlice", () => {
     test("returns only completed backups for specified tier", () => {
       const id1 = syncDispatch(
         db,
-        backupSlice.createBackup("hourly", "2026-02-03T08:00:00.000Z")
+        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T08:00:00.000Z" })
       );
-      syncDispatch(db, backupSlice.startBackup(id1));
-      syncDispatch(db, backupSlice.completeBackup(id1, 1000, 100));
+      syncDispatch(db, startBackup({ id: id1 }));
+      syncDispatch(db, completeBackup({ id: id1, totalSizeBytes: 1000, durationMs: 100 }));
 
       const id2 = syncDispatch(
         db,
-        backupSlice.createBackup("hourly", "2026-02-03T12:00:00.000Z")
+        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
       );
-      syncDispatch(db, backupSlice.startBackup(id2));
-      syncDispatch(db, backupSlice.failBackup(id2, "error"));
+      syncDispatch(db, startBackup({ id: id2 }));
+      syncDispatch(db, failBackup({ id: id2, error: "error" }));
 
       syncDispatch(
         db,
-        backupSlice.createBackup("hourly", "2026-02-03T16:00:00.000Z")
+        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T16:00:00.000Z" })
       ); // Still pending
 
       const completedBackups = select(
         db,
-        backupSlice.getCompletedBackupsByTier("hourly")
+        getCompletedBackupsByTier({ tier: "hourly" })
       );
 
       expect(completedBackups).toHaveLength(1);
@@ -223,26 +235,26 @@ describe("backupSlice", () => {
     test("creates a backup file record", () => {
       const backupId = syncDispatch(
         db,
-        backupSlice.createBackup("hourly", "2026-02-03T12:00:00.000Z")
+        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
       );
 
       const fileId = syncDispatch(
         db,
-        backupSlice.createBackupFile(
+        createBackupFile({
           backupId,
-          "hourly",
-          "2026-02-03T12:00:00.000Z",
-          "main.sqlite",
-          "backups/hourly/2026-02-03T12-00-00Z/main.sqlite",
-          1024000,
-          153600, // ~15% compressed size
-          5000,
-          2000,
-          300
-        )
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+          fileName: "main.sqlite",
+          s3Key: "backups/hourly/2026-02-03T12-00-00Z/main.sqlite",
+          sizeBytes: 1024000,
+          compressedSizeBytes: 153600,
+          vacuumDurationMs: 5000,
+          uploadDurationMs: 2000,
+          compressionDurationMs: 300,
+        })
       );
 
-      const files = select(db, backupSlice.getBackupFiles(backupId));
+      const files = select(db, getBackupFiles({ backupId }));
 
       expect(files).toHaveLength(1);
       expect(files[0].id).toBe(fileId);
@@ -264,42 +276,42 @@ describe("backupSlice", () => {
     test("returns all files for a backup", () => {
       const backupId = syncDispatch(
         db,
-        backupSlice.createBackup("hourly", "2026-02-03T12:00:00.000Z")
+        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
       );
 
       syncDispatch(
         db,
-        backupSlice.createBackupFile(
+        createBackupFile({
           backupId,
-          "hourly",
-          "2026-02-03T12:00:00.000Z",
-          "main.sqlite",
-          "backups/hourly/2026-02-03T12-00-00Z/main.sqlite",
-          1024000,
-          153600,
-          5000,
-          2000,
-          300
-        )
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+          fileName: "main.sqlite",
+          s3Key: "backups/hourly/2026-02-03T12-00-00Z/main.sqlite",
+          sizeBytes: 1024000,
+          compressedSizeBytes: 153600,
+          vacuumDurationMs: 5000,
+          uploadDurationMs: 2000,
+          compressionDurationMs: 300,
+        })
       );
 
       syncDispatch(
         db,
-        backupSlice.createBackupFile(
+        createBackupFile({
           backupId,
-          "hourly",
-          "2026-02-03T12:00:00.000Z",
-          "space1.sqlite",
-          "backups/hourly/2026-02-03T12-00-00Z/space1.sqlite",
-          2048000,
-          307200,
-          6000,
-          3000,
-          400
-        )
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+          fileName: "space1.sqlite",
+          s3Key: "backups/hourly/2026-02-03T12-00-00Z/space1.sqlite",
+          sizeBytes: 2048000,
+          compressedSizeBytes: 307200,
+          vacuumDurationMs: 6000,
+          uploadDurationMs: 3000,
+          compressionDurationMs: 400,
+        })
       );
 
-      const files = select(db, backupSlice.getBackupFiles(backupId));
+      const files = select(db, getBackupFiles({ backupId }));
 
       expect(files).toHaveLength(2);
       expect(files.map((f) => f.fileName).sort()).toEqual([
@@ -309,7 +321,7 @@ describe("backupSlice", () => {
     });
 
     test("returns empty array when no files exist", () => {
-      const files = select(db, backupSlice.getBackupFiles("nonexistent-id"));
+      const files = select(db, getBackupFiles({ backupId: "nonexistent-id" }));
       expect(files).toEqual([]);
     });
   });
@@ -318,50 +330,50 @@ describe("backupSlice", () => {
     test("returns files for specified tier and scheduled time", () => {
       const backupId1 = syncDispatch(
         db,
-        backupSlice.createBackup("hourly", "2026-02-03T12:00:00.000Z")
+        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
       );
       syncDispatch(
         db,
-        backupSlice.createBackupFile(
-          backupId1,
-          "hourly",
-          "2026-02-03T12:00:00.000Z",
-          "main.sqlite",
-          "backups/hourly/2026-02-03T12-00-00Z/main.sqlite",
-          1024000,
-          153600,
-          5000,
-          2000,
-          300
-        )
+        createBackupFile({
+          backupId: backupId1,
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+          fileName: "main.sqlite",
+          s3Key: "backups/hourly/2026-02-03T12-00-00Z/main.sqlite",
+          sizeBytes: 1024000,
+          compressedSizeBytes: 153600,
+          vacuumDurationMs: 5000,
+          uploadDurationMs: 2000,
+          compressionDurationMs: 300,
+        })
       );
 
       const backupId2 = syncDispatch(
         db,
-        backupSlice.createBackup("hourly", "2026-02-03T16:00:00.000Z")
+        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T16:00:00.000Z" })
       );
       syncDispatch(
         db,
-        backupSlice.createBackupFile(
-          backupId2,
-          "hourly",
-          "2026-02-03T16:00:00.000Z",
-          "main.sqlite",
-          "backups/hourly/2026-02-03T16-00-00Z/main.sqlite",
-          1024000,
-          153600,
-          5000,
-          2000,
-          300
-        )
+        createBackupFile({
+          backupId: backupId2,
+          tier: "hourly",
+          scheduledAt: "2026-02-03T16:00:00.000Z",
+          fileName: "main.sqlite",
+          s3Key: "backups/hourly/2026-02-03T16-00-00Z/main.sqlite",
+          sizeBytes: 1024000,
+          compressedSizeBytes: 153600,
+          vacuumDurationMs: 5000,
+          uploadDurationMs: 2000,
+          compressionDurationMs: 300,
+        })
       );
 
       const files = select(
         db,
-        backupSlice.getBackupFilesByTierAndTime(
-          "hourly",
-          "2026-02-03T12:00:00.000Z"
-        )
+        getBackupFilesByTierAndTime({
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+        })
       );
 
       expect(files).toHaveLength(1);
@@ -374,50 +386,50 @@ describe("backupSlice", () => {
     test("deletes backup and all associated files", () => {
       const backupId = syncDispatch(
         db,
-        backupSlice.createBackup("hourly", "2026-02-03T12:00:00.000Z")
+        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
       );
 
       syncDispatch(
         db,
-        backupSlice.createBackupFile(
+        createBackupFile({
           backupId,
-          "hourly",
-          "2026-02-03T12:00:00.000Z",
-          "main.sqlite",
-          "backups/hourly/2026-02-03T12-00-00Z/main.sqlite",
-          1024000,
-          153600,
-          5000,
-          2000,
-          300
-        )
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+          fileName: "main.sqlite",
+          s3Key: "backups/hourly/2026-02-03T12-00-00Z/main.sqlite",
+          sizeBytes: 1024000,
+          compressedSizeBytes: 153600,
+          vacuumDurationMs: 5000,
+          uploadDurationMs: 2000,
+          compressionDurationMs: 300,
+        })
       );
 
       syncDispatch(
         db,
-        backupSlice.createBackupFile(
+        createBackupFile({
           backupId,
-          "hourly",
-          "2026-02-03T12:00:00.000Z",
-          "space1.sqlite",
-          "backups/hourly/2026-02-03T12-00-00Z/space1.sqlite",
-          2048000,
-          307200,
-          6000,
-          3000,
-          400
-        )
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+          fileName: "space1.sqlite",
+          s3Key: "backups/hourly/2026-02-03T12-00-00Z/space1.sqlite",
+          sizeBytes: 2048000,
+          compressedSizeBytes: 307200,
+          vacuumDurationMs: 6000,
+          uploadDurationMs: 3000,
+          compressionDurationMs: 400,
+        })
       );
 
       // Verify files exist
-      expect(select(db, backupSlice.getBackupFiles(backupId))).toHaveLength(2);
+      expect(select(db, getBackupFiles({ backupId }))).toHaveLength(2);
 
       // Delete backup with files
-      syncDispatch(db, backupSlice.deleteBackupWithFiles(backupId));
+      syncDispatch(db, deleteBackupWithFiles({ id: backupId }));
 
       // Verify both backup and files are deleted
-      expect(select(db, backupSlice.getBackupById(backupId))).toBeUndefined();
-      expect(select(db, backupSlice.getBackupFiles(backupId))).toHaveLength(0);
+      expect(select(db, getBackupById({ id: backupId }))).toBeUndefined();
+      expect(select(db, getBackupFiles({ backupId }))).toHaveLength(0);
     });
   });
 
@@ -425,16 +437,19 @@ describe("backupSlice", () => {
     test("creates new tier state if it doesn't exist", () => {
       syncDispatch(
         db,
-        backupSlice.updateTierState("hourly", {
-          lastScheduledTime: "2026-02-03T12:00:00.000Z",
-          nextScheduledTime: "2026-02-03T16:00:00.000Z",
-          lastCompletedAt: "2026-02-03T12:05:00.000Z",
-          consecutiveFailures: 0,
-          isBackupInProgress: false,
+        updateTierState({
+          tier: "hourly",
+          updates: {
+            lastScheduledTime: "2026-02-03T12:00:00.000Z",
+            nextScheduledTime: "2026-02-03T16:00:00.000Z",
+            lastCompletedAt: "2026-02-03T12:05:00.000Z",
+            consecutiveFailures: 0,
+            isBackupInProgress: false,
+          },
         })
       );
 
-      const tierState = select(db, backupSlice.getTierState("hourly"));
+      const tierState = select(db, getTierState({ tier: "hourly" }));
 
       expect(tierState).toBeDefined();
       expect(tierState?.tier).toBe("hourly");
@@ -448,22 +463,28 @@ describe("backupSlice", () => {
     test("updates existing tier state", () => {
       syncDispatch(
         db,
-        backupSlice.updateTierState("hourly", {
-          lastScheduledTime: "2026-02-03T12:00:00.000Z",
-          consecutiveFailures: 0,
+        updateTierState({
+          tier: "hourly",
+          updates: {
+            lastScheduledTime: "2026-02-03T12:00:00.000Z",
+            consecutiveFailures: 0,
+          },
         })
       );
 
       syncDispatch(
         db,
-        backupSlice.updateTierState("hourly", {
-          lastScheduledTime: "2026-02-03T16:00:00.000Z",
-          nextScheduledTime: "2026-02-03T20:00:00.000Z",
-          consecutiveFailures: 1,
+        updateTierState({
+          tier: "hourly",
+          updates: {
+            lastScheduledTime: "2026-02-03T16:00:00.000Z",
+            nextScheduledTime: "2026-02-03T20:00:00.000Z",
+            consecutiveFailures: 1,
+          },
         })
       );
 
-      const tierState = select(db, backupSlice.getTierState("hourly"));
+      const tierState = select(db, getTierState({ tier: "hourly" }));
 
       expect(tierState?.lastScheduledTime).toBe("2026-02-03T16:00:00.000Z");
       expect(tierState?.nextScheduledTime).toBe("2026-02-03T20:00:00.000Z");
@@ -473,67 +494,58 @@ describe("backupSlice", () => {
     test("tracks consecutive failures", () => {
       syncDispatch(
         db,
-        backupSlice.updateTierState("hourly", {
-          consecutiveFailures: 0,
-        })
+        updateTierState({ tier: "hourly", updates: { consecutiveFailures: 0 } })
       );
 
       syncDispatch(
         db,
-        backupSlice.updateTierState("hourly", {
-          consecutiveFailures: 1,
-        })
+        updateTierState({ tier: "hourly", updates: { consecutiveFailures: 1 } })
       );
 
       syncDispatch(
         db,
-        backupSlice.updateTierState("hourly", {
-          consecutiveFailures: 2,
-        })
+        updateTierState({ tier: "hourly", updates: { consecutiveFailures: 2 } })
       );
 
-      const tierState = select(db, backupSlice.getTierState("hourly"));
+      const tierState = select(db, getTierState({ tier: "hourly" }));
       expect(tierState?.consecutiveFailures).toBe(2);
     });
 
     test("manages backup in progress flag", () => {
       syncDispatch(
         db,
-        backupSlice.updateTierState("hourly", {
-          isBackupInProgress: true,
-        })
+        updateTierState({ tier: "hourly", updates: { isBackupInProgress: true } })
       );
 
-      let tierState = select(db, backupSlice.getTierState("hourly"));
+      let tierState = select(db, getTierState({ tier: "hourly" }));
       expect(tierState?.isBackupInProgress).toBe(true);
 
       syncDispatch(
         db,
-        backupSlice.updateTierState("hourly", {
-          isBackupInProgress: false,
-        })
+        updateTierState({ tier: "hourly", updates: { isBackupInProgress: false } })
       );
 
-      tierState = select(db, backupSlice.getTierState("hourly"));
+      tierState = select(db, getTierState({ tier: "hourly" }));
       expect(tierState?.isBackupInProgress).toBe(false);
     });
   });
 
   describe("getTierState", () => {
     test("returns undefined when tier state doesn't exist", () => {
-      const tierState = select(db, backupSlice.getTierState("hourly"));
+      const tierState = select(db, getTierState({ tier: "hourly" }));
       expect(tierState).toBeUndefined();
     });
 
     test("returns tier state when it exists", () => {
       syncDispatch(
         db,
-        backupSlice.updateTierState("daily", {
-          lastScheduledTime: "2026-02-03T00:00:00.000Z",
+        updateTierState({
+          tier: "daily",
+          updates: { lastScheduledTime: "2026-02-03T00:00:00.000Z" },
         })
       );
 
-      const tierState = select(db, backupSlice.getTierState("daily"));
+      const tierState = select(db, getTierState({ tier: "daily" }));
       expect(tierState).toBeDefined();
       expect(tierState?.tier).toBe("daily");
     });

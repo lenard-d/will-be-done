@@ -1,19 +1,16 @@
 import { nanoid } from "nanoid";
+import { asyncDispatch, DB, execAsync } from "@will-be-done/hyperdb-lib";
 import {
-  asyncDispatch,
-  DB,
-  execAsync,
-} from "@will-be-done/hyperdb";
-import {
-  changesSlice,
+  insertChangeFromInsert,
   changesTable,
   syncStateTable,
   ChangesetArrayType,
 } from "@will-be-done/slices/common";
 import { dbIdTrait } from "@will-be-done/slices/traits";
 import {
-  projectsSlice,
-  projectCategoriesSlice,
+  createInboxIfNotExists,
+  createProjectCategoryTask,
+  firstProjectCategoryChild,
   registeredSpaceSyncableTables,
   tasksTable,
 } from "@will-be-done/slices/space";
@@ -57,16 +54,14 @@ export async function initPopupStore(spaceId: string) {
   ];
 
   const asyncDriver = await initAsyncDriver(dbName);
-  const asyncDB = new DB(
-    asyncDriver,
-    [],
-    [dbIdTrait("space", spaceId)],
-  );
+  const asyncDB = new DB(asyncDriver, {
+    traits: [dbIdTrait("space", spaceId)],
+  });
 
   await execAsync(asyncDB.loadTables(persistDBTables));
 
   // Ensure inbox exists
-  await asyncDispatch(asyncDB, projectsSlice.createInboxIfNotExists());
+  await asyncDispatch(asyncDB, createInboxIfNotExists({}));
 
   return {
     async createInboxTask(title: string) {
@@ -74,30 +69,30 @@ export async function initPopupStore(spaceId: string) {
         asyncDB,
         (function* () {
           // Get inbox project
-          const inbox = yield* projectsSlice.createInboxIfNotExists();
+          const inbox = yield* createInboxIfNotExists({});
 
           // Get first category of inbox
-          const inboxCategory = yield* projectCategoriesSlice.firstChild(
-            inbox.id,
-          );
+          const inboxCategory = yield* firstProjectCategoryChild({
+            projectId: inbox.id,
+          });
           if (!inboxCategory) {
             throw new Error("Inbox category not found");
           }
 
           // Create task at the top (prepend)
-          const task = yield* projectCategoriesSlice.createTask(
-            inboxCategory.id,
-            "prepend",
-            { title },
-          );
+          const task = yield* createProjectCategoryTask({
+            categoryId: inboxCategory.id,
+            position: "prepend",
+            taskAttrs: { title },
+          });
 
           // Create change record
-          const change = yield* changesSlice.insertChangeFromInsert(
-            tasksTable,
-            task,
-            clientId,
-            nextClock,
-          );
+          const change = yield* insertChangeFromInsert({
+            tableDef: tasksTable,
+            row: task,
+            clientId: clientId,
+            nextClock: nextClock(),
+          });
 
           return { task, change };
         })(),

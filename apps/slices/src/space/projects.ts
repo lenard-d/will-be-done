@@ -1,48 +1,56 @@
-import { isObjectType } from "../utils";
 import { shouldNeverHappen } from "../utils";
 import {
-  action,
   deleteRows,
   insert,
-  runQuery,
   selectFrom,
-  selector,
-  table,
-  update,
-} from "@will-be-done/hyperdb";
+  upsert,
+  v,
+} from "@will-be-done/hyperdb-lib";
+import { action, selector } from "../builders";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { uuidv7 } from "uuidv7";
-import type { OrderableItem } from "./utils";
-import { generateOrderTokenPositioned } from "./utils";
-import { appSlice } from ".";
-import { projectsAllSlice } from ".";
-import { cardsTasksSlice } from ".";
-import { isTask, Task } from "./cardsTasks";
-import { cardsTaskTemplatesSlice } from ".";
-import { isTaskTemplate } from "./cardsTaskTemplates";
-import { registerSpaceSyncableTable } from "./syncMap";
-import { registerModelSlice, AnyModelType } from "./maps";
-import { projectCategoriesSlice } from ".";
-import { projectCategoryCardsSlice } from ".";
-import { dailyListsSlice } from ".";
-import { dailyListsProjectionsSlice } from ".";
-import { stashProjectionsSlice } from ".";
-import { isTaskProjection } from "./dailyListsProjections";
+import {
+  generateOrderTokenPositioned,
+  normalizeOrderPosition,
+  orderPositionArg,
+} from "./utils";
+import { appById } from "./app";
+import {
+  createCategory,
+  deleteCategories,
+  firstProjectCategoryChild,
+  inboxCategoryId,
+  projectCategoryById,
+  projectCategoriesByProjectId,
+  projectCategoriesByProjectIds,
+  createProjectCategoryTask,
+} from "./projectsCategories";
+import { projectCategoryCardIds } from "./projectsCategoriesCards";
+import {
+  firstProjectChild,
+  lastProjectChild,
+  projectSiblings,
+} from "./projectsAll";
+import { dailyListAllTaskIds, dailyListsByIds } from "./dailyLists";
+import { dailyProjectionByTaskId } from "./dailyListsProjections";
+import { stashProjectionAllTaskIds } from "./stashProjections";
+import { taskById, updateTask } from "./cardsTasks";
+import { updateTemplate } from "./cardsTaskTemplates";
+import { registerModelSlice } from "./maps";
 import { genUUIDV5 } from "../traits";
 import { startOfDay } from "date-fns";
-
-export const projectType = "project";
-export type Project = {
-  type: typeof projectType;
-  id: string;
-  title: string;
-  icon: string;
-  isInbox: boolean;
-  orderToken: string;
-  createdAt: number;
-};
-
-export const isProject = isObjectType<Project>(projectType);
+import {
+  projectType,
+  projectsTable,
+  tasksTable,
+  possibleModelType,
+  type Task,
+  Project,
+  isProject,
+  isTaskProjection,
+  isTask,
+  isTaskTemplate,
+} from "./tables";
 
 export const defaultProject: Project = {
   type: projectType,
@@ -54,458 +62,572 @@ export const defaultProject: Project = {
   createdAt: 0,
 };
 
-// Table definition
-export const projectsTable = table<Project>("projects").withIndexes({
-  byId: { cols: ["id"], type: "hash" },
-  byIds: { cols: ["id"], type: "btree" },
-  byOrderToken: { cols: ["orderToken"], type: "btree" },
-  byIsInbox: { cols: ["isInbox"], type: "hash" },
-});
-registerSpaceSyncableTable(projectsTable, projectType);
-
 // Selectors and actions
-export const allIds = selector(function* () {
-  const projects = yield* runQuery(
-    selectFrom(projectsTable, "byOrderToken").where((q) => q),
-  );
+export const projectAllIds = selector({
+  name: "projectAllIds",
+  args: {},
+  handler: function* projectAllIds() {
+    const projects = yield* selectFrom(projectsTable, "byOrderToken").where(
+      (q) => q,
+    );
 
-  return projects.map((p) => p.id);
+    return projects.map((p) => p.id);
+  },
 });
 
-export const byId = selector(function* (id: string) {
-  const projects = yield* runQuery(
-    selectFrom(projectsTable, "byId")
+export const projectById = selector({
+  name: "projectById",
+  args: { id: v.string() },
+  handler: function* projectById({ id }) {
+    const projects = yield* selectFrom(projectsTable, "byId")
       .where((q) => q.eq("id", id))
-      .limit(1),
-  );
-  return projects[0] as Project | undefined;
+      .limit(1);
+    return projects[0] as Project | undefined;
+  },
 });
 
-export const byIdOrDefault = selector(function* (id: string) {
-  return (yield* byId(id)) || defaultProject;
+export const projectByIdOrDefault = selector({
+  name: "projectByIdOrDefault",
+  args: { id: v.string() },
+  handler: function* projectByIdOrDefault({ id }) {
+    return (yield* projectById({ id })) || defaultProject;
+  },
 });
 
-export const canDrop = selector(function* (
-  projectId: string,
-  dropItemId: string,
-  dropModelType: AnyModelType,
-): Generator<unknown, boolean, unknown> {
-  const project = yield* byId(projectId);
-  if (!project) return false;
+export const projectCanDrop = selector({
+  name: "projectCanDrop",
+  args: {
+    projectId: v.string(),
+    dropItemId: v.string(),
+    dropModelType: possibleModelType,
+  },
+  handler: function* projectCanDrop({
+    projectId,
+    dropItemId,
+    dropModelType,
+  }): Generator<unknown, boolean, unknown> {
+    const project = yield* projectById({ id: projectId });
+    if (!project) return false;
 
-  const dropItem = yield* appSlice.byId(dropItemId, dropModelType);
-  if (!dropItem) return false;
+    const dropItem = yield* appById({
+      id: dropItemId,
+      modelType: dropModelType,
+    });
+    if (!dropItem) return false;
 
-  // Projects can accept tasks, templates, projections, and other projects
-  if (isProject(dropItem) || isTask(dropItem) || isTaskTemplate(dropItem)) {
-    return true;
-  }
-
-  if (isTaskProjection(dropItem)) {
-    const task = yield* cardsTasksSlice.byId(dropItem.id);
-    return task !== undefined && task.state === "todo";
-  }
-
-  return false;
-});
-
-export const inboxProjectId = selector(function* () {
-  return yield* genUUIDV5(projectType, "inbox");
-});
-
-export const overdueTasksCountExceptDailiesCount = selector(function* (
-  projectId: string,
-  exceptDailyListIds: string[],
-  currentDate: Date,
-): Generator<unknown, number, unknown> {
-  currentDate = startOfDay(currentDate);
-
-  const categories = yield* projectCategoriesSlice.byProjectId(projectId);
-
-  const taskIds = yield* dailyListsSlice.allTaskIds(exceptDailyListIds);
-  const exceptCardIds: Set<string> = new Set(taskIds);
-  const exceptDailyListSet = new Set(exceptDailyListIds);
-
-  // First pass: collect all unique dailyListIds that we need to check
-  const dailyListIdsToFetch = new Set<string>();
-  for (const category of categories) {
-    const childrenIds = yield* projectCategoryCardsSlice.childrenIds(
-      category.id,
-    );
-
-    for (const taskId of childrenIds) {
-      if (exceptCardIds.has(taskId)) continue;
-
-      const projection = yield* dailyListsProjectionsSlice.byTaskId(taskId);
-      if (!projection) continue;
-      if (exceptDailyListSet.has(projection.dailyListId)) continue;
-
-      dailyListIdsToFetch.add(projection.dailyListId);
+    // Projects can accept tasks, templates, projections, and other projects
+    if (isProject(dropItem) || isTask(dropItem) || isTaskTemplate(dropItem)) {
+      return true;
     }
-  }
 
-  // Batch fetch all daily lists at once
-  const dailyLists = yield* dailyListsSlice.byIds(
-    Array.from(dailyListIdsToFetch),
-  );
-  const dailyListMap = new Map(dailyLists.map((dl) => [dl.id, dl]));
+    if (isTaskProjection(dropItem)) {
+      const task = yield* taskById({ id: dropItem.id });
+      return task !== undefined && task.state === "todo";
+    }
 
-  // Second pass: count overdue tasks
-  let overdueCount = 0;
-  for (const category of categories) {
-    const childrenIds = yield* projectCategoryCardsSlice.childrenIds(
-      category.id,
-    );
+    return false;
+  },
+});
 
-    for (const taskId of childrenIds) {
-      if (exceptCardIds.has(taskId)) continue;
+export const inboxProjectId = selector({
+  name: "inboxProjectId",
+  args: {},
+  handler: function* inboxProjectId() {
+    return yield* genUUIDV5(projectType, "inbox");
+  },
+});
 
-      const projection = yield* dailyListsProjectionsSlice.byTaskId(taskId);
-      if (!projection) continue;
-      if (exceptDailyListSet.has(projection.dailyListId)) continue;
+export const overdueTasksCountExceptDailiesCount = selector({
+  name: "overdueTasksCountExceptDailiesCount",
+  args: {
+    projectId: v.string(),
+    exceptDailyListIds: v.array(v.string()),
+    currentDate: v.number(),
+  },
+  handler: function* overdueTasksCountExceptDailiesCount({
+    projectId,
+    exceptDailyListIds,
+    currentDate,
+  }): Generator<unknown, number, unknown> {
+    const currentDay = startOfDay(new Date(currentDate));
 
-      const dailyList = dailyListMap.get(projection.dailyListId);
-      if (!dailyList) continue;
+    const categories = yield* projectCategoriesByProjectId({ projectId });
 
-      // Parse the date and check if it's before currentDate
-      const listDate = new Date(dailyList.date);
-      if (listDate < currentDate) {
-        overdueCount++;
+    const taskIds = yield* dailyListAllTaskIds({
+      dailyListIds: exceptDailyListIds,
+    });
+    const exceptCardIds: Set<string> = new Set(taskIds);
+    const exceptDailyListSet = new Set(exceptDailyListIds);
+
+    // First pass: collect all unique dailyListIds that we need to check
+    const dailyListIdsToFetch = new Set<string>();
+    for (const category of categories) {
+      const childrenIds = yield* projectCategoryCardIds({
+        projectCategoryId: category.id,
+      });
+
+      for (const taskId of childrenIds) {
+        if (exceptCardIds.has(taskId)) continue;
+
+        const projection = yield* dailyProjectionByTaskId({ taskId });
+        if (!projection) continue;
+        if (exceptDailyListSet.has(projection.dailyListId)) continue;
+
+        dailyListIdsToFetch.add(projection.dailyListId);
       }
     }
-  }
 
-  return overdueCount;
-});
+    // Batch fetch all daily lists at once
+    const dailyLists = yield* dailyListsByIds({
+      ids: Array.from(dailyListIdsToFetch),
+    });
+    const dailyListMap = new Map(dailyLists.map((dl) => [dl.id, dl]));
 
-export const notDoneTasksCountExceptDailiesCount = selector(function* (
-  projectId: string,
-  exceptDailyListIds: string[],
-): Generator<unknown, number, unknown> {
-  const categories = yield* projectCategoriesSlice.byProjectId(projectId);
+    // Second pass: count overdue tasks
+    let overdueCount = 0;
+    for (const category of categories) {
+      const childrenIds = yield* projectCategoryCardIds({
+        projectCategoryId: category.id,
+      });
 
-  const taskIds = yield* dailyListsSlice.allTaskIds(exceptDailyListIds);
-  const exceptCardIds: Set<string> = new Set(taskIds);
+      for (const taskId of childrenIds) {
+        if (exceptCardIds.has(taskId)) continue;
 
-  const finalChildrenIds: string[] = [];
-  for (const category of categories) {
-    const childrenIds = yield* projectCategoryCardsSlice.childrenIds(
-      category.id,
-    );
+        const projection = yield* dailyProjectionByTaskId({ taskId });
+        if (!projection) continue;
+        if (exceptDailyListSet.has(projection.dailyListId)) continue;
 
-    finalChildrenIds.push(...childrenIds);
-  }
+        const dailyList = dailyListMap.get(projection.dailyListId);
+        if (!dailyList) continue;
 
-  return finalChildrenIds.filter((id) => !exceptCardIds.has(id)).length;
-});
-
-export const overdueTasksCountExceptDailiesAndStashCount = selector(function* (
-  projectId: string,
-  exceptDailyListIds: string[],
-  currentDate: Date,
-): Generator<unknown, number, unknown> {
-  currentDate = startOfDay(currentDate);
-
-  const categories = yield* projectCategoriesSlice.byProjectId(projectId);
-
-  const taskIds = yield* dailyListsSlice.allTaskIds(exceptDailyListIds);
-  const stashTaskIds = yield* stashProjectionsSlice.allTaskIds();
-  const exceptCardIds: Set<string> = new Set([...taskIds, ...stashTaskIds]);
-  const exceptDailyListSet = new Set(exceptDailyListIds);
-
-  const dailyListIdsToFetch = new Set<string>();
-  for (const category of categories) {
-    const childrenIds = yield* projectCategoryCardsSlice.childrenIds(
-      category.id,
-    );
-
-    for (const taskId of childrenIds) {
-      if (exceptCardIds.has(taskId)) continue;
-
-      const projection = yield* dailyListsProjectionsSlice.byTaskId(taskId);
-      if (!projection) continue;
-      if (exceptDailyListSet.has(projection.dailyListId)) continue;
-
-      dailyListIdsToFetch.add(projection.dailyListId);
-    }
-  }
-
-  const dailyLists = yield* dailyListsSlice.byIds(
-    Array.from(dailyListIdsToFetch),
-  );
-  const dailyListMap = new Map(dailyLists.map((dl) => [dl.id, dl]));
-
-  let overdueCount = 0;
-  for (const category of categories) {
-    const childrenIds = yield* projectCategoryCardsSlice.childrenIds(
-      category.id,
-    );
-
-    for (const taskId of childrenIds) {
-      if (exceptCardIds.has(taskId)) continue;
-
-      const projection = yield* dailyListsProjectionsSlice.byTaskId(taskId);
-      if (!projection) continue;
-      if (exceptDailyListSet.has(projection.dailyListId)) continue;
-
-      const dailyList = dailyListMap.get(projection.dailyListId);
-      if (!dailyList) continue;
-
-      const listDate = new Date(dailyList.date);
-      if (listDate < currentDate) {
-        overdueCount++;
+        // Parse the date and check if it's before currentDate
+        const listDate = new Date(dailyList.date);
+        if (listDate < currentDay) {
+          overdueCount++;
+        }
       }
     }
-  }
 
-  return overdueCount;
+    return overdueCount;
+  },
 });
 
-export const notDoneTasksCountExceptDailiesAndStashCount = selector(function* (
-  projectId: string,
-  exceptDailyListIds: string[],
-): Generator<unknown, number, unknown> {
-  const categories = yield* projectCategoriesSlice.byProjectId(projectId);
+export const notDoneTasksCountExceptDailiesCount = selector({
+  name: "notDoneTasksCountExceptDailiesCount",
+  args: {
+    projectId: v.string(),
+    exceptDailyListIds: v.array(v.string()),
+  },
+  handler: function* notDoneTasksCountExceptDailiesCount({
+    projectId,
+    exceptDailyListIds,
+  }): Generator<unknown, number, unknown> {
+    const categories = yield* projectCategoriesByProjectId({ projectId });
 
-  const taskIds = yield* dailyListsSlice.allTaskIds(exceptDailyListIds);
-  const stashTaskIds = yield* stashProjectionsSlice.allTaskIds();
-  const exceptCardIds: Set<string> = new Set([...taskIds, ...stashTaskIds]);
+    const taskIds = yield* dailyListAllTaskIds({
+      dailyListIds: exceptDailyListIds,
+    });
+    const exceptCardIds: Set<string> = new Set(taskIds);
 
-  const finalChildrenIds: string[] = [];
-  for (const category of categories) {
-    const childrenIds = yield* projectCategoryCardsSlice.childrenIds(
-      category.id,
-    );
+    const finalChildrenIds: string[] = [];
+    for (const category of categories) {
+      const childrenIds = yield* projectCategoryCardIds({
+        projectCategoryId: category.id,
+      });
 
-    finalChildrenIds.push(...childrenIds);
-  }
+      finalChildrenIds.push(...childrenIds);
+    }
 
-  return finalChildrenIds.filter((id) => !exceptCardIds.has(id)).length;
+    return finalChildrenIds.filter((id) => !exceptCardIds.has(id)).length;
+  },
 });
 
-export const create = action(function* (
-  project: Partial<Project>,
-  position:
-    | [OrderableItem | undefined, OrderableItem | undefined]
-    | "append"
-    | "prepend",
-): Generator<unknown, Project, unknown> {
-  const orderToken = yield* generateOrderTokenPositioned(
-    "all-projects-list",
-    projectsAllSlice,
+export const overdueTasksCountExceptDailiesAndStashCount = selector({
+  name: "overdueTasksCountExceptDailiesAndStashCount",
+  args: {
+    projectId: v.string(),
+    exceptDailyListIds: v.array(v.string()),
+    currentDate: v.number(),
+  },
+  handler: function* overdueTasksCountExceptDailiesAndStashCount({
+    projectId,
+    exceptDailyListIds,
+    currentDate,
+  }): Generator<unknown, number, unknown> {
+    const currentDay = startOfDay(new Date(currentDate));
+
+    const categories = yield* projectCategoriesByProjectId({ projectId });
+
+    const taskIds = yield* dailyListAllTaskIds({
+      dailyListIds: exceptDailyListIds,
+    });
+    const stashTaskIds = yield* stashProjectionAllTaskIds({});
+    const exceptCardIds: Set<string> = new Set([...taskIds, ...stashTaskIds]);
+    const exceptDailyListSet = new Set(exceptDailyListIds);
+
+    const dailyListIdsToFetch = new Set<string>();
+    for (const category of categories) {
+      const childrenIds = yield* projectCategoryCardIds({
+        projectCategoryId: category.id,
+      });
+
+      for (const taskId of childrenIds) {
+        if (exceptCardIds.has(taskId)) continue;
+
+        const projection = yield* dailyProjectionByTaskId({ taskId });
+        if (!projection) continue;
+        if (exceptDailyListSet.has(projection.dailyListId)) continue;
+
+        dailyListIdsToFetch.add(projection.dailyListId);
+      }
+    }
+
+    const dailyLists = yield* dailyListsByIds({
+      ids: Array.from(dailyListIdsToFetch),
+    });
+    const dailyListMap = new Map(dailyLists.map((dl) => [dl.id, dl]));
+
+    let overdueCount = 0;
+    for (const category of categories) {
+      const childrenIds = yield* projectCategoryCardIds({
+        projectCategoryId: category.id,
+      });
+
+      for (const taskId of childrenIds) {
+        if (exceptCardIds.has(taskId)) continue;
+
+        const projection = yield* dailyProjectionByTaskId({ taskId });
+        if (!projection) continue;
+        if (exceptDailyListSet.has(projection.dailyListId)) continue;
+
+        const dailyList = dailyListMap.get(projection.dailyListId);
+        if (!dailyList) continue;
+
+        const listDate = new Date(dailyList.date);
+        if (listDate < currentDay) {
+          overdueCount++;
+        }
+      }
+    }
+
+    return overdueCount;
+  },
+});
+
+export const notDoneTasksCountExceptDailiesAndStashCount = selector({
+  name: "notDoneTasksCountExceptDailiesAndStashCount",
+  args: {
+    projectId: v.string(),
+    exceptDailyListIds: v.array(v.string()),
+  },
+  handler: function* notDoneTasksCountExceptDailiesAndStashCount({
+    projectId,
+    exceptDailyListIds,
+  }): Generator<unknown, number, unknown> {
+    const categories = yield* projectCategoriesByProjectId({ projectId });
+
+    const taskIds = yield* dailyListAllTaskIds({
+      dailyListIds: exceptDailyListIds,
+    });
+    const stashTaskIds = yield* stashProjectionAllTaskIds({});
+    const exceptCardIds: Set<string> = new Set([...taskIds, ...stashTaskIds]);
+
+    const finalChildrenIds: string[] = [];
+    for (const category of categories) {
+      const childrenIds = yield* projectCategoryCardIds({
+        projectCategoryId: category.id,
+      });
+
+      finalChildrenIds.push(...childrenIds);
+    }
+
+    return finalChildrenIds.filter((id) => !exceptCardIds.has(id)).length;
+  },
+});
+
+export const createProject = action({
+  name: "createProject",
+  args: {
+    project: v.partial(projectsTable.v()),
+    position: orderPositionArg,
+  },
+  handler: function* createProject({
+    project,
     position,
-  );
-
-  const id = project.id || uuidv7();
-  const newProject: Project = {
-    type: projectType,
-    id,
-    title: "New project",
-    icon: "",
-    isInbox: false,
-    createdAt: Date.now(),
-    orderToken: orderToken,
-    ...project,
-  };
-
-  const isInbox = newProject.isInbox;
-
-  yield* insert(projectsTable, [newProject]);
-  if (isInbox) {
-    yield* projectCategoriesSlice.createCategory(
-      {
-        projectId: newProject.id,
-        title: "Inbox",
-        id: yield* projectCategoriesSlice.inboxCategoryId(),
-      },
-      "append",
+  }): Generator<unknown, Project, unknown> {
+    const orderToken = yield* generateOrderTokenPositioned(
+      "all-projects-list",
+      { firstChild: firstProjectChild, lastChild: lastProjectChild },
+      normalizeOrderPosition(position),
     );
-  } else {
-    yield* projectCategoriesSlice.createCategory(
-      { projectId: newProject.id, title: "Week" },
-      "append",
-    );
-    yield* projectCategoriesSlice.createCategory(
-      { projectId: newProject.id, title: "Month" },
-      "append",
-    );
-    yield* projectCategoriesSlice.createCategory(
-      { projectId: newProject.id, title: "Ideas" },
-      "append",
-    );
-  }
 
-  return newProject;
-});
-
-export const createInboxIfNotExists = action(function* (): Generator<
-  unknown,
-  Project,
-  unknown
-> {
-  const inbox = yield* byId(yield* inboxProjectId());
-  if (inbox) {
-    return inbox;
-  }
-
-  return yield* create(
-    {
-      id: yield* inboxProjectId(),
-      title: "Inbox",
+    const id = project.id || uuidv7();
+    const newProject: Project = {
+      type: projectType,
+      id,
+      title: "New project",
       icon: "",
-      isInbox: true,
-      orderToken: generateJitteredKeyBetween(null, null),
-      createdAt: new Date().getTime(),
-    },
-    [undefined, undefined],
-  );
-});
+      isInbox: false,
+      createdAt: Date.now(),
+      orderToken: orderToken,
+      ...project,
+    };
 
-export const updateProject = action(function* (
-  id: string,
-  project: Partial<Project>,
-): Generator<unknown, void, unknown> {
-  const projectInState = yield* byId(id);
-  if (!projectInState) throw new Error("Project not found");
+    const isInbox = newProject.isInbox;
 
-  yield* update(projectsTable, [{ ...projectInState, ...project }]);
-});
-
-export const deleteProjects = action(function* (
-  ids: string[],
-): Generator<unknown, void, unknown> {
-  const projectCategories = yield* projectCategoriesSlice.byProjectIds(ids);
-
-  yield* projectCategoriesSlice.deleteCategories(
-    projectCategories.map((c) => c.id),
-  );
-  yield* deleteRows(projectsTable, ids);
-});
-
-export const handleDrop = action(function* (
-  projectId: string,
-  dropItemId: string,
-  dropModelType: AnyModelType,
-  edge: "top" | "bottom",
-): Generator<unknown, void, unknown> {
-  const canDropResult = yield* canDrop(projectId, dropItemId, dropModelType);
-  if (!canDropResult) return;
-
-  const project = yield* byId(projectId);
-  if (!project) throw new Error("Project not found");
-
-  const dropItem = yield* appSlice.byId(dropItemId, dropModelType);
-  if (!dropItem) throw new Error("Target not found");
-
-  if (isProject(dropItem)) {
-    // Reorder projects - would need proper fractional indexing
-    const [up, down] = yield* projectsAllSlice.siblings(project.id);
-
-    let orderToken: string;
-    if (edge === "top") {
-      orderToken = generateJitteredKeyBetween(
-        up?.orderToken || null,
-        project.orderToken,
-      );
+    yield* insert(projectsTable, [newProject]);
+    if (isInbox) {
+      yield* createCategory({
+        categoryDraft: {
+          projectId: newProject.id,
+          title: "Inbox",
+          id: yield* inboxCategoryId({}),
+        },
+        position: "append",
+      });
     } else {
-      orderToken = generateJitteredKeyBetween(
-        project.orderToken,
-        down?.orderToken || null,
-      );
+      yield* createCategory({
+        categoryDraft: { projectId: newProject.id, title: "Week" },
+        position: "append",
+      });
+      yield* createCategory({
+        categoryDraft: { projectId: newProject.id, title: "Month" },
+        position: "append",
+      });
+      yield* createCategory({
+        categoryDraft: { projectId: newProject.id, title: "Ideas" },
+        position: "append",
+      });
     }
 
-    yield* updateProject(dropItem.id, { orderToken });
-  } else if (
-    isTask(dropItem) ||
-    isTaskTemplate(dropItem) ||
-    isTaskProjection(dropItem)
-  ) {
-    const category = yield* projectCategoriesSlice.firstChild(project.id);
-    if (!category) throw new Error("No categories found in project");
-
-    // Move task/template to this project
-    if (isTask(dropItem)) {
-      yield* cardsTasksSlice.updateTask(dropItem.id, {
-        projectCategoryId: category.id,
-      });
-    } else if (isTaskTemplate(dropItem)) {
-      yield* cardsTaskTemplatesSlice.updateTemplate(dropItem.id, {
-        projectCategoryId: category.id,
-      });
-    } else if (isTaskProjection(dropItem)) {
-      // When dropping a projection onto a project, move the underlying task
-      const task = yield* cardsTasksSlice.byId(dropItem.id);
-      if (task) {
-        yield* cardsTasksSlice.updateTask(task.id, {
-          projectCategoryId: category.id,
-        });
-        // Keep the projection in the daily list
-      }
-    }
-  } else {
-    shouldNeverHappen("unknown drop item type", dropItem);
-  }
+    return newProject;
+  },
 });
 
-export const createTask = action(function* (
-  projectId: string,
-  position:
-    | [OrderableItem | undefined, OrderableItem | undefined]
-    | "append"
-    | "prepend",
-  taskAttrs?: Partial<Task>,
-): Generator<unknown, Task, unknown> {
-  const project = yield* byId(projectId);
-  if (!project) throw new Error("Project not found");
+export const createInboxIfNotExists = action({
+  name: "createInboxIfNotExists",
+  args: {},
+  handler: function* createInboxIfNotExists(): Generator<
+    unknown,
+    Project,
+    unknown
+  > {
+    const inbox = yield* projectById({ id: yield* inboxProjectId({}) });
+    if (inbox) {
+      return inbox;
+    }
 
-  let projectCategoryId = taskAttrs?.projectCategoryId;
-  if (!projectCategoryId) {
-    const firstCategory = yield* projectCategoriesSlice.firstChild(projectId);
-    if (!firstCategory) throw new Error("No categories found");
-    projectCategoryId = firstCategory.id;
-  }
+    return yield* createProject({
+      project: {
+        id: yield* inboxProjectId({}),
+        title: "Inbox",
+        icon: "",
+        isInbox: true,
+        orderToken: generateJitteredKeyBetween(null, null),
+        createdAt: new Date().getTime(),
+      },
+      position: [null, null],
+    });
+  },
+});
 
-  return yield* projectCategoriesSlice.createTask(
-    projectCategoryId,
+export const updateProject = action({
+  name: "updateProject",
+  args: {
+    id: v.string(),
+    project: v.partial(projectsTable.v()),
+  },
+  handler: function* updateProject({
+    id,
+    project,
+  }): Generator<unknown, void, unknown> {
+    const projectInState = yield* projectById({ id });
+    if (!projectInState) throw new Error("Project not found");
+
+    yield* upsert(projectsTable, [{ ...projectInState, ...project }]);
+  },
+});
+
+export const deleteProjects = action({
+  name: "deleteProjects",
+  args: { ids: v.array(v.string()) },
+  handler: function* deleteProjects({
+    ids,
+  }): Generator<unknown, void, unknown> {
+    const projectCategories = yield* projectCategoriesByProjectIds({
+      projectIds: ids,
+    });
+
+    yield* deleteCategories({ ids: projectCategories.map((c) => c.id) });
+    yield* deleteRows(projectsTable, ids);
+  },
+});
+
+export const projectHandleDrop = action({
+  name: "projectHandleDrop",
+  args: {
+    projectId: v.string(),
+    dropItemId: v.string(),
+    dropModelType: possibleModelType,
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* projectHandleDrop({
+    projectId,
+    dropItemId,
+    dropModelType,
+    edge,
+  }): Generator<unknown, void, unknown> {
+    const canDropResult = yield* projectCanDrop({
+      projectId,
+      dropItemId,
+      dropModelType,
+    });
+    if (!canDropResult) return;
+
+    const project = yield* projectById({ id: projectId });
+    if (!project) throw new Error("Project not found");
+
+    const dropItem = yield* appById({
+      id: dropItemId,
+      modelType: dropModelType,
+    });
+    if (!dropItem) throw new Error("Target not found");
+
+    if (isProject(dropItem)) {
+      // Reorder projects - would need proper fractional indexing
+      const [up, down] = yield* projectSiblings({ projectId: project.id });
+
+      let orderToken: string;
+      if (edge === "top") {
+        orderToken = generateJitteredKeyBetween(
+          up?.orderToken || null,
+          project.orderToken,
+        );
+      } else {
+        orderToken = generateJitteredKeyBetween(
+          project.orderToken,
+          down?.orderToken || null,
+        );
+      }
+
+      yield* updateProject({
+        id: dropItem.id,
+        project: { orderToken },
+      });
+    } else if (
+      isTask(dropItem) ||
+      isTaskTemplate(dropItem) ||
+      isTaskProjection(dropItem)
+    ) {
+      const category = yield* firstProjectCategoryChild({
+        projectId: project.id,
+      });
+      if (!category) throw new Error("No categories found in project");
+
+      // Move task/template to this project
+      if (isTask(dropItem)) {
+        yield* updateTask({
+          id: dropItem.id,
+          task: {
+            projectCategoryId: category.id,
+          },
+        });
+      } else if (isTaskTemplate(dropItem)) {
+        yield* updateTemplate({
+          id: dropItem.id,
+          template: {
+            projectCategoryId: category.id,
+          },
+        });
+      } else if (isTaskProjection(dropItem)) {
+        // When dropping a projection onto a project, move the underlying task
+        const task = yield* taskById({ id: dropItem.id });
+        if (task) {
+          yield* updateTask({
+            id: task.id,
+            task: {
+              projectCategoryId: category.id,
+            },
+          });
+          // Keep the projection in the daily list
+        }
+      }
+    } else {
+      shouldNeverHappen("unknown drop item type", dropItem);
+    }
+  },
+});
+
+export const createProjectTask = action({
+  name: "createProjectTask",
+  args: {
+    projectId: v.string(),
+    position: orderPositionArg,
+    taskAttrs: v.optional(v.partial(tasksTable.v())),
+  },
+  handler: function* createProjectTask({
+    projectId,
     position,
     taskAttrs,
-  );
+  }): Generator<unknown, Task, unknown> {
+    const project = yield* projectById({ id: projectId });
+    if (!project) throw new Error("Project not found");
+
+    let projectCategoryId = taskAttrs?.projectCategoryId;
+    if (projectCategoryId) {
+      const category = yield* projectCategoryById({ id: projectCategoryId });
+      if (!category || category.projectId !== projectId) {
+        throw new Error("Project category does not belong to project");
+      }
+    } else {
+      const firstCategory = yield* firstProjectCategoryChild({ projectId });
+      if (!firstCategory) throw new Error("No categories found");
+      projectCategoryId = firstCategory.id;
+    }
+
+    return yield* createProjectCategoryTask({
+      categoryId: projectCategoryId,
+      position,
+      taskAttrs,
+    });
+  },
 });
 
-export const createTaskIfNotExists = action(function* (
-  projectId: string,
-  taskId: string,
-  position:
-    | [OrderableItem | undefined, OrderableItem | undefined]
-    | "append"
-    | "prepend",
-  taskAttrs?: Partial<Task>,
-): Generator<unknown, Task, unknown> {
-  const task = yield* cardsTasksSlice.byId(taskId);
-  if (task) {
-    return task;
-  }
+export const createProjectTaskIfNotExists = action({
+  name: "createProjectTaskIfNotExists",
+  args: {
+    projectId: v.string(),
+    taskId: v.string(),
+    position: orderPositionArg,
+    taskAttrs: v.optional(v.partial(tasksTable.v())),
+  },
+  handler: function* createProjectTaskIfNotExists({
+    projectId,
+    taskId,
+    position,
+    taskAttrs,
+  }): Generator<unknown, Task, unknown> {
+    const task = yield* taskById({ id: taskId });
+    if (task) {
+      return task;
+    }
 
-  return yield* createTaskIfNotExists(projectId, taskId, position, taskAttrs);
+    return yield* createProjectTask({
+      projectId,
+      position,
+      taskAttrs: {
+        ...taskAttrs,
+        id: taskId,
+      },
+    });
+  },
 });
 
 // Local slice object for registerModelSlice (not exported)
 const projectsSlice = {
-  allIds,
-  byId,
-  byIdOrDefault,
-  canDrop,
-  inboxProjectId,
-  overdueTasksCountExceptDailiesCount,
-  notDoneTasksCountExceptDailiesCount,
-  overdueTasksCountExceptDailiesAndStashCount,
-  notDoneTasksCountExceptDailiesAndStashCount,
-  createInboxIfNotExists,
-  create,
-  update: updateProject,
+  byId: projectById,
   delete: deleteProjects,
-  handleDrop,
-  createTask,
-  createTaskIfNotExists,
+  canDrop: projectCanDrop,
+  handleDrop: projectHandleDrop,
 };
 registerModelSlice(projectsSlice, projectsTable, projectType);

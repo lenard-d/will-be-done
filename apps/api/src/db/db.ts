@@ -6,11 +6,17 @@ import {
   SubscribableDB,
   syncDispatch,
   TableDefinition,
-} from "@will-be-done/hyperdb";
+} from "@will-be-done/hyperdb-lib";
 import path from "path";
 import { getEnvConfig } from "../env";
-import { changesSlice, changesTable } from "@will-be-done/slices/common";
-import { noop } from "@will-be-done/hyperdb/src/hyperdb/generators";
+import {
+  insertChangeFromInsert,
+  insertChangeFromUpdate,
+  insertChangeFromDelete,
+  changesTable,
+  type PrimitiveRow,
+} from "@will-be-done/slices/common";
+import { noop } from "@will-be-done/hyperdb-lib";
 import { usersTable, tokensTable } from "../slices/authSlice";
 import { dbsTable } from "../slices/dbSlice";
 import {
@@ -85,7 +91,7 @@ const getDB = (dbType: string, dbId: string) => {
     },
   });
 
-  return new DB(sqliteDriver, [], [dbIdTrait(dbType, dbId)]);
+  return new DB(sqliteDriver, { traits: [dbIdTrait(dbType, dbId)] });
 };
 
 let mainDB: DB | undefined = undefined;
@@ -141,34 +147,31 @@ export const getHyperDB = (dbConfig: DBConfig) => {
     for (const op of ops) {
       syncDispatch(
         db,
-        changesSlice.insertChangeFromInsert(
-          op.table,
-          op.newValue,
-          clientId,
-          nextClock,
-        ),
+        insertChangeFromInsert({ tableDef: op.table, row: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
       );
     }
 
     yield* noop();
   });
 
-  hyperDB.afterUpdate(function* (db, table, traits, ops) {
+  hyperDB.afterUpsert(function* (db, table, traits, ops) {
     if (table === changesTable) return;
     if (traits.some((t) => t.type === "skip-sync")) {
       return;
     }
 
     for (const op of ops) {
+      if (!op.oldValue) {
+        syncDispatch(
+          db,
+          insertChangeFromInsert({ tableDef: op.table, row: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
+        );
+        continue;
+      }
+
       syncDispatch(
         db,
-        changesSlice.insertChangeFromUpdate(
-          op.table,
-          op.oldValue,
-          op.newValue,
-          clientId,
-          nextClock,
-        ),
+        insertChangeFromUpdate({ tableDef: op.table, oldRow: op.oldValue as PrimitiveRow, newRow: op.newValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
       );
     }
 
@@ -184,12 +187,7 @@ export const getHyperDB = (dbConfig: DBConfig) => {
     for (const op of ops) {
       syncDispatch(
         db,
-        changesSlice.insertChangeFromDelete(
-          op.table,
-          op.oldValue,
-          clientId,
-          nextClock,
-        ),
+        insertChangeFromDelete({ tableDef: op.table, row: op.oldValue as PrimitiveRow, clientId: clientId, nextClock: nextClock() }),
       );
     }
 

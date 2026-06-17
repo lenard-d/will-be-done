@@ -5,26 +5,29 @@ import {
   syncDispatch,
   runSelector,
   insert,
-  action,
-  runQuery,
+  createAction,
   selectFrom,
-} from "@will-be-done/hyperdb";
-import { BptreeInmemDriver } from "@will-be-done/hyperdb/src/hyperdb/drivers/bptree-inmem-driver";
-import { tasksTable, type Task } from "./cardsTasks";
+  BptreeInmemDriver,
+} from "@will-be-done/hyperdb-lib";
 import {
-  taskTemplatesTable,
-  type TaskTemplate,
-  newTasksInRange,
-  newTasksToGenForTemplate,
-  createFromTask,
+  taskTemplateNewTasksInRange,
+  newTasksToGenForTaskTemplate,
+  createTaskTemplateFromTask,
 } from "./cardsTaskTemplates";
 import { dbIdTrait } from "@/traits";
-import { checklistItemsTable } from "./checklistItems";
-import { dailyListsTable, type DailyList } from "./dailyLists";
 import {
+  checklistItemsTable,
+  DailyList,
+  dailyListsTable,
+  Task,
+  TaskProjection,
   taskProjectionsTable,
-  type TaskProjection,
-} from "./dailyListsProjections";
+  tasksTable,
+  TaskTemplate,
+  taskTemplatesTable,
+} from "./tables";
+
+const action = createAction();
 
 function createDB(timezoneOffsetMinutes: number) {
   // Mock timezone before creating DB/running selectors
@@ -34,7 +37,7 @@ function createDB(timezoneOffsetMinutes: number) {
 
   const driver = new BptreeInmemDriver();
   const spaceId = "a0000000-0000-4000-8000-000000000001";
-  const db = new DB(driver, [], [dbIdTrait("space", spaceId)]);
+  const db = new DB(driver, { traits: [dbIdTrait("space", spaceId)] });
   execSync(
     db.loadTables([
       checklistItemsTable,
@@ -50,9 +53,13 @@ function createDB(timezoneOffsetMinutes: number) {
 function insertTemplate(db: DB, template: TaskTemplate) {
   syncDispatch(
     db,
-    action(function* () {
-      yield* insert(taskTemplatesTable, [template]);
-    })(),
+    action({
+      name: "anonymousAction",
+      args: {},
+      handler: function* anonymousAction() {
+        yield* insert(taskTemplatesTable, [template]);
+      },
+    })({}),
   );
 }
 
@@ -60,7 +67,10 @@ function getNewTasks(db: DB, templateId: string, toDate: Date): Task[] {
   return runSelector<Task[]>(
     db,
     function* () {
-      return yield* newTasksToGenForTemplate(templateId, toDate);
+      return yield* newTasksToGenForTaskTemplate({
+        templateId,
+        toDate: toDate.getTime(),
+      });
     },
     [],
   );
@@ -70,7 +80,10 @@ function getNewTasksInRange(db: DB, fromDate: Date, toDate: Date): Task[] {
   return runSelector<Task[]>(
     db,
     function* () {
-      return yield* newTasksInRange(fromDate, toDate);
+      return yield* taskTemplateNewTasksInRange({
+        fromDate: fromDate.getTime(),
+        toDate: toDate.getTime(),
+      });
     },
     [],
   );
@@ -210,7 +223,9 @@ describe("cardsTaskTemplates timezone consistency", () => {
     const idsB = tasksB.map((t) => t.id);
     const idsBSet = new Set(idsB);
     for (const id of idsA) {
-      expect(idsBSet.has(id), `Device A task ${id} missing from Device B`).toBe(true);
+      expect(idsBSet.has(id), `Device A task ${id} missing from Device B`).toBe(
+        true,
+      );
     }
   });
 
@@ -435,10 +450,8 @@ describe("cardsTaskTemplates timezone consistency", () => {
   });
 
   it("immediately generates today's task when converting a task to a template", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-03-04T17:05:00Z"));
-
-    const now = Date.now();
+    const db = createDB(0);
+    const now = new Date("2026-03-04T17:05:00Z").getTime();
     const task: Task = {
       type: "task",
       id: "task-to-template",
@@ -454,33 +467,36 @@ describe("cardsTaskTemplates timezone consistency", () => {
       templateDate: null,
     };
 
-    const db = createDB(0);
     const template = syncDispatch(
       db,
-      action(function* () {
-        yield* insert(tasksTable, [task]);
-        return yield* createFromTask(task, {});
-      })(),
+      action({
+        name: "anonymousAction",
+        args: {},
+        handler: function* anonymousAction() {
+          yield* insert(tasksTable, [task]);
+          return yield* createTaskTemplateFromTask({ task, data: {}, now });
+        },
+      })({}),
     ) as TaskTemplate;
 
     const tasks = runSelector<Task[]>(
       db,
       function* () {
-        return yield* runQuery(selectFrom(tasksTable, "byIds"));
+        return yield* selectFrom(tasksTable, "byIds");
       },
       [],
     );
     const projections = runSelector<TaskProjection[]>(
       db,
       function* () {
-        return yield* runQuery(selectFrom(taskProjectionsTable, "byIds"));
+        return yield* selectFrom(taskProjectionsTable, "byIds");
       },
       [],
     );
     const dailyLists = runSelector<DailyList[]>(
       db,
       function* () {
-        return yield* runQuery(selectFrom(dailyListsTable, "byIds"));
+        return yield* selectFrom(dailyListsTable, "byIds");
       },
       [],
     );

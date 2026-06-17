@@ -1,47 +1,45 @@
 import {
-  runQuery,
-  selector,
-  table,
   selectFrom,
-  action,
-  update,
-} from "@will-be-done/hyperdb";
+  upsert,
+  v,
+} from "@will-be-done/hyperdb-lib";
+import { action, selector } from "../builders";
+import { syncStateTable, syncStateId, type SyncState } from "./tables";
 
-export type SyncState = {
-  id: string;
-  lastSentClock: string;
-  lastServerAppliedClock: string;
-};
-const syncStateId = "deae72d6-ffca-4d20-9b3f-87e71acce8b6";
-export const syncStateTable = table<SyncState>("syncState").withIndexes({
-  byId: { cols: ["id"], type: "hash" },
-});
+export { syncStateTable, type SyncState } from "./tables";
 
-const getOrDefault = selector(function* () {
-  const currentSyncState = (yield* runQuery(
-    selectFrom(syncStateTable, "byId").where((q) => q.eq("id", syncStateId)),
-  ))[0];
+export const getSyncStateOrDefault = selector({
+  name: "getSyncStateOrDefault",
+  args: {},
+  handler: function* getSyncStateOrDefault() {
+    const currentSyncState = (yield* selectFrom(syncStateTable, "byId").where(
+      (q) => q.eq("id", syncStateId),
+    ))[0];
 
-  return (
-    currentSyncState ?? {
+    return (currentSyncState ?? {
       id: syncStateId,
       lastSentClock: "",
       lastServerAppliedClock: "",
-    }
-  ) as SyncState;
+    }) as SyncState;
+  },
 });
 
-const updateSyncState = action(function* (updates: Partial<SyncState>) {
-  const currentSyncState = yield* getOrDefault();
-  return yield* update(syncStateTable, [
-    {
-      ...currentSyncState,
-      ...updates,
-    },
-  ]);
+export const updateSyncState = action({
+  name: "updateSyncState",
+  args: {
+    updates: v.object({
+      id: v.optional(v.string()),
+      lastSentClock: v.optional(v.string()),
+      lastServerAppliedClock: v.optional(v.string()),
+    }),
+  },
+  handler: function* updateSyncState({ updates }) {
+    const currentSyncState = yield* getSyncStateOrDefault({});
+    return yield* upsert(syncStateTable, [
+      {
+        ...currentSyncState,
+        ...updates,
+      },
+    ]);
+  },
 });
-
-export const syncSlice = {
-  getOrDefault,
-  update: updateSyncState,
-};

@@ -1,401 +1,513 @@
 import {
-  action,
   deleteRows,
   insert,
   Row,
-  runQuery,
   selectFrom,
-  selector,
-  table,
   TableDefinition,
-  update,
-} from "@will-be-done/hyperdb";
+  upsert,
+  type Validator,
+  v,
+} from "@will-be-done/hyperdb-lib";
+import { action, selector } from "../builders";
 import { isEqual } from "es-toolkit";
 import { uniq } from "es-toolkit/array";
 import { z } from "zod";
 import { groupBy } from "es-toolkit";
+import { changesTable, type Change } from "./tables";
 
-export type Change = {
+export { changesTable, type Change } from "./tables";
+
+export type PrimitiveRow = Record<string, string | number | boolean | null> & {
   id: string;
-  entityId: string;
-  tableName: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
-  clientId: string;
-  changes: Record<string, string>;
 };
-export const changesTable = table<Change>("changes").withIndexes({
-  byId: { cols: ["id"], type: "hash" },
-  byEntityId: { cols: ["entityId"], type: "hash" },
-  byEntityIdAndTableName: { cols: ["entityId", "tableName"], type: "btree" },
-  byUpdatedAt: { cols: ["updatedAt"], type: "btree" },
+
+const SELECT_OR_CHUNK_SIZE = 400;
+const primitiveValueSchema = v.union(
+  v.string(),
+  v.number(),
+  v.boolean(),
+  v.null(),
+);
+const rowSchema = v.record(
+  v.string(),
+  primitiveValueSchema,
+) as Validator<PrimitiveRow>;
+const tableDefinitionArgSchema = v.object({
+  tableName: v.string(),
 });
-
-const byIdAndName = selector(function* (entityId: string, tableName: string) {
-  const changes = yield* runQuery(
-    selectFrom(changesTable, "byEntityIdAndTableName")
-      .where((q) => q.eq("entityId", entityId).eq("tableName", tableName))
-      .limit(1),
-  );
-
-  return changes[0] as Change | undefined;
+const changeSchema = v.object({
+  id: v.string(),
+  entityId: v.string(),
+  tableName: v.string(),
+  deletedAt: v.union(v.string(), v.null()),
+  clientId: v.string(),
+  changes: v.record(v.string(), v.string()),
+  createdAt: v.string(),
+  updatedAt: v.string(),
 });
-
-const allChangesAfter = selector(function* (after: string) {
-  return (yield* runQuery(
-    selectFrom(changesTable, "byUpdatedAt").where((q) =>
-      q.gt("updatedAt", after),
+const changesetArray = v.array(
+  v.object({
+    tableName: v.string(),
+    data: v.array(
+      v.object({
+        row: v.optional(rowSchema),
+        change: changeSchema,
+      }),
     ),
-  )) as Change[];
+  }),
+);
+
+const chunkArray = <T>(items: T[], chunkSize: number): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+  return chunks;
+};
+
+const getChangeByEntityAndTableName = selector({
+  name: "getChangeByEntityAndTableName",
+  args: {
+    entityId: v.string(),
+    tableName: v.string(),
+  },
+  handler: function* getChangeByEntityAndTableName({ entityId, tableName }) {
+    const changes = yield* selectFrom(changesTable, "byEntityIdAndTableName")
+      .where((q) => q.eq("entityId", entityId).eq("tableName", tableName))
+      .limit(1);
+
+    return changes[0] as Change | undefined;
+  },
 });
 
-const getChangesetAfter = selector(function* (
-  after: string,
-  registeredSyncableTableNameMap: Record<string, TableDefinition>,
-) {
-  const changesToSend = yield* allChangesAfter(after);
-  const changesets: ChangesetArrayType = [];
-  let maxClock = "";
+const allChangesAfter = selector({
+  name: "allChangesAfter",
+  args: { after: v.string() },
+  handler: function* allChangesAfter({ after }) {
+    return (yield* selectFrom(changesTable, "byUpdatedAt").where((q) =>
+      q.gt("updatedAt", after),
+    )) as Change[];
+  },
+});
 
-  if (changesToSend.length === 0) {
-    return { changesets: [], maxClock };
-  }
+export const getChangesetAfter = selector({
+  name: "getChangesetAfter",
+  args: {
+    after: v.string(),
+    requesterClientId: v.optional(v.string()),
+    registeredSyncableTableNameMap: v.record(
+      v.string(),
+      tableDefinitionArgSchema,
+    ),
+  },
+  handler: function* getChangesetAfter({
+    after,
+    requesterClientId,
+    registeredSyncableTableNameMap,
+  }) {
+    const allChangesToSend = yield* allChangesAfter({ after });
+    const changesets: ChangesetArrayType = [];
+    let maxClock = "";
 
-  for (const c of changesToSend) {
-    if (c.updatedAt > maxClock) {
-      maxClock = c.updatedAt;
+    for (const c of allChangesToSend) {
+      if (c.updatedAt > maxClock) {
+        maxClock = c.updatedAt;
+      }
     }
-  }
 
-  const groupedChanges = groupBy(changesToSend, (c) => c.tableName);
+    const changesToSend =
+      requesterClientId == null
+        ? allChangesToSend
+        : allChangesToSend.filter((c) => c.clientId !== requesterClientId);
 
-  for (const [tableName, changes] of Object.entries(groupedChanges)) {
-    const table = registeredSyncableTableNameMap[tableName];
-    if (!table) {
-      console.error("Unknown table, skipping sync for it", tableName);
-      continue;
+    if (changesToSend.length === 0) {
+      return { changesets: [], maxClock };
     }
 
-    const rows = yield* runQuery(
-      selectFrom(table, "byId").where((q) =>
-        changes.map((c) => q.eq("id", c.entityId)),
-      ),
-    );
-    const rowsMap = new Map(rows.map((r) => [r.id, r]));
+    const groupedChanges = groupBy(changesToSend, (c) => c.tableName);
 
-    const data = changes
-      .map((c) => {
-        const row = rowsMap.get(c.entityId);
+    for (const [tableName, changes] of Object.entries(groupedChanges)) {
+      const table = registeredSyncableTableNameMap[tableName] as
+        | TableDefinition
+        | undefined;
+      if (!table) {
+        console.error("Unknown table, skipping sync for it", tableName);
+        continue;
+      }
 
-        if (!row) {
-          if (c.deletedAt == null) {
-            console.error(
-              "failed to find row for not deleted change, skipping sync",
-              c,
-            );
+      const rows: Row[] = [];
+      for (const changesChunk of chunkArray(changes, SELECT_OR_CHUNK_SIZE)) {
+        rows.push(
+          ...(yield* selectFrom(table, "byId").where((q) =>
+            changesChunk.map((c) => q.eq("id", c.entityId)),
+          )),
+        );
+      }
+      const rowsMap = new Map(rows.map((r) => [r.id, r]));
 
-            return undefined;
+      const data = changes
+        .map((c) => {
+          const row = rowsMap.get(c.entityId);
+
+          if (!row) {
+            if (c.deletedAt == null) {
+              console.error(
+                "failed to find row for not deleted change, skipping sync",
+                c,
+              );
+
+              return undefined;
+            }
+
+            return { change: c };
           }
 
-          return { change: c };
-        }
+          return {
+            row: row as PrimitiveRow,
+            change: c,
+          };
+        })
+        .filter((c) => c != undefined);
 
-        return {
-          row: row,
-          change: c,
-        };
-      })
-      .filter((c) => c != undefined);
+      changesets.push({
+        tableName,
+        data,
+      });
+    }
 
-    changesets.push({
-      tableName,
-      data,
-    });
-  }
-
-  return { changesets, maxClock };
+    return { changesets, maxClock };
+  },
 });
 
-const insertChangeFromInsert = action(function* (
-  tableDef: TableDefinition,
-  row: Row,
-  clientId: string,
-  nextClock: () => string,
-) {
-  const createdAt = nextClock();
+export const insertChangeFromInsert = action({
+  name: "insertChangeFromInsert",
+  args: {
+    tableDef: tableDefinitionArgSchema,
+    row: rowSchema,
+    clientId: v.string(),
+    nextClock: v.string(),
+  },
+  handler: function* insertChangeFromInsert({
+    tableDef,
+    row,
+    clientId,
+    nextClock,
+  }) {
+    const createdAt = nextClock;
 
-  const changes: Record<string, string> = {};
-  for (const col of Object.keys(row)) {
-    changes[col] = createdAt;
-  }
+    const changes: Record<string, string> = {};
+    for (const col of Object.keys(row)) {
+      changes[col] = createdAt;
+    }
 
-  const newChange: Change = {
-    id: `${tableDef.tableName}:${row.id}`,
-    entityId: row.id,
-    tableName: tableDef.tableName,
-    deletedAt: null,
-    clientId: clientId,
-    changes,
-    createdAt,
-    updatedAt: createdAt,
-  };
-
-  yield* insert(changesTable, [newChange]);
-
-  return newChange;
-});
-
-const insertChangeFromUpdate = action(function* (
-  tableDef: TableDefinition,
-  oldRow: Row,
-  newRow: Row,
-  clientId: string,
-  nextClock: () => string,
-) {
-  if (oldRow.id !== newRow.id) {
-    throw new Error("Cannot update row with different id");
-  }
-
-  const updatedAt = nextClock();
-  const change: Change =
-    (yield* byIdAndName(oldRow.id, tableDef.tableName)) ||
-    ({
-      id: `${tableDef.tableName}:${oldRow.id}`,
-      entityId: oldRow.id,
+    const newChange: Change = {
+      id: `${tableDef.tableName}:${row.id}`,
+      entityId: row.id,
       tableName: tableDef.tableName,
-      createdAt: updatedAt,
+      deletedAt: null,
+      clientId: clientId,
+      changes,
+      createdAt,
+      updatedAt: createdAt,
+    };
+
+    yield* upsert(changesTable, [newChange]);
+
+    return newChange;
+  },
+});
+
+export const insertChangeFromUpdate = action({
+  name: "insertChangeFromUpdate",
+  args: {
+    tableDef: tableDefinitionArgSchema,
+    oldRow: rowSchema,
+    newRow: rowSchema,
+    clientId: v.string(),
+    nextClock: v.string(),
+  },
+  handler: function* insertChangeFromUpdate({
+    tableDef,
+    oldRow,
+    newRow,
+    clientId,
+    nextClock,
+  }) {
+    if (oldRow.id !== newRow.id) {
+      throw new Error("Cannot update row with different id");
+    }
+
+    const updatedAt = nextClock;
+    const change: Change =
+      (yield* getChangeByEntityAndTableName({
+        entityId: oldRow.id,
+        tableName: tableDef.tableName,
+      })) ||
+      ({
+        id: `${tableDef.tableName}:${oldRow.id}`,
+        entityId: oldRow.id,
+        tableName: tableDef.tableName,
+        createdAt: updatedAt,
+        updatedAt: updatedAt,
+        deletedAt: null,
+        clientId: clientId,
+        changes: {},
+      } satisfies Change);
+    const changedRows: Record<string, string> = change.changes;
+
+    for (const col of uniq([...Object.keys(oldRow), ...Object.keys(newRow)])) {
+      if (!isEqual(oldRow[col], newRow[col])) {
+        changedRows[col] = updatedAt;
+      }
+    }
+
+    if (Object.keys(changedRows).length === 0) {
+      return undefined as Change | undefined;
+    }
+
+    const newChange: Change = {
+      ...change,
+      changes: changedRows,
       updatedAt: updatedAt,
+    };
+
+    yield* upsert(changesTable, [newChange]);
+
+    return newChange as Change | undefined;
+  },
+});
+
+export const insertChangeFromDelete = action({
+  name: "insertChangeFromDelete",
+  args: {
+    tableDef: tableDefinitionArgSchema,
+    row: rowSchema,
+    clientId: v.string(),
+    nextClock: v.string(),
+  },
+  handler: function* insertChangeFromDelete({
+    tableDef,
+    row,
+    clientId,
+    nextClock,
+  }) {
+    const deletedAt = nextClock;
+
+    const change = (yield* getChangeByEntityAndTableName({
+      entityId: row.id,
+      tableName: tableDef.tableName,
+    })) || {
+      id: `${tableDef.tableName}:${row.id}`,
+      entityId: row.id,
+      tableName: tableDef.tableName,
+      createdAt: deletedAt,
+      updatedAt: deletedAt,
       deletedAt: null,
       clientId: clientId,
       changes: {},
-    } satisfies Change);
-  const changedRows: Record<string, string> = change.changes;
+    };
 
-  for (const col of uniq([...Object.keys(oldRow), ...Object.keys(newRow)])) {
-    if (!isEqual(oldRow[col], newRow[col])) {
-      changedRows[col] = updatedAt;
-    }
-  }
+    const deletedChange: Change = {
+      ...change,
+      deletedAt,
+      updatedAt: deletedAt,
+    };
 
-  if (Object.keys(changedRows).length === 0) {
-    return undefined as Change | undefined;
-  }
+    yield* upsert(changesTable, [deletedChange]);
 
-  const newChange: Change = {
-    ...change,
-    changes: changedRows,
-    updatedAt: updatedAt,
-  };
-
-  yield* insert(changesTable, [newChange]);
-
-  return newChange as Change | undefined;
+    return deletedChange;
+  },
 });
 
-const insertChangeFromDelete = action(function* (
-  tableDef: TableDefinition,
-  row: Row,
-  clientId: string,
-  nextClock: () => string,
-) {
-  const deletedAt = nextClock();
+export const mergeChanges = action({
+  name: "mergeChangesAction",
+  args: {
+    input: changesetArray,
+    nextClock: v.string(),
+    clientId: v.string(),
+    registeredSyncableTableNameMap: v.record(
+      v.string(),
+      tableDefinitionArgSchema,
+    ),
+  },
+  handler: function* mergeChanges({
+    input,
+    nextClock,
+    registeredSyncableTableNameMap,
+  }) {
+    const allChanges: Change[] = [];
 
-  const change = (yield* byIdAndName(row.id, tableDef.tableName)) || {
-    id: `${tableDef.tableName}:${row.id}`,
-    entityId: row.id,
-    tableName: tableDef.tableName,
-    createdAt: deletedAt,
-    updatedAt: deletedAt,
-    deletedAt: null,
-    clientId: clientId,
-    changes: {},
-  };
+    for (const changeset of input) {
+      const toDeleteRows: string[] = [];
+      const toUpdateRows: Row[] = [];
+      const toInsertRows: Row[] = [];
 
-  const deletedChange: Change = {
-    ...change,
-    deletedAt,
-    updatedAt: deletedAt,
-  };
+      const table = registeredSyncableTableNameMap[changeset.tableName] as
+        | TableDefinition
+        | undefined;
+      if (!table) {
+        throw new Error("Unknown table: " + changeset.tableName);
+      }
 
-  yield* insert(changesTable, [deletedChange]);
+      const currentChanges: Change[] = [];
+      for (const dataChunk of chunkArray(
+        changeset.data,
+        SELECT_OR_CHUNK_SIZE,
+      )) {
+        currentChanges.push(
+          ...((yield* selectFrom(changesTable, "byEntityIdAndTableName").where(
+            (q) =>
+              dataChunk.map((c) =>
+                q
+                  .eq("entityId", c.change.entityId)
+                  .eq("tableName", changeset.tableName),
+              ),
+          )) as Change[]),
+        );
+      }
+      const currentChangesMap = new Map(
+        currentChanges.map((c) => [c.entityId, c as Change]),
+      );
 
-  return deletedChange;
-});
+      const currentRows: Row[] = [];
+      for (const dataChunk of chunkArray(
+        changeset.data,
+        SELECT_OR_CHUNK_SIZE,
+      )) {
+        currentRows.push(
+          ...(yield* selectFrom(table, "byId").where((q) =>
+            dataChunk.map((c) => q.eq("id", c.change.entityId)),
+          )),
+        );
+      }
+      const currentRowsMap = new Map(currentRows.map((r) => [r.id, r]));
 
-const mergeChangesAction = action(function* (
-  input: ChangesetArrayType,
-  nextClock: () => string,
-  clientId: string,
-  registeredSyncableTableNameMap: Record<string, TableDefinition>,
-) {
-  const allChanges: Change[] = [];
+      for (const {
+        change: incomingChange,
+        row: incomingRow,
+      } of changeset.data) {
+        const currentChanges = currentChangesMap.get(incomingChange.entityId);
+        const currentRow = currentRowsMap.get(incomingChange.entityId);
 
-  for (const changeset of input) {
-    const toDeleteRows: string[] = [];
-    const toUpdateRows: Row[] = [];
-    const toInsertRows: Row[] = [];
+        // First-creator-wins: when both sides created the same entity,
+        // the earlier creator's values always take precedence
+        if (
+          currentChanges != null &&
+          currentRow != null &&
+          incomingRow != null &&
+          incomingChange.deletedAt == null &&
+          currentChanges.createdAt !== incomingChange.createdAt
+        ) {
+          const currentCreatedFirst =
+            currentChanges.createdAt <= incomingChange.createdAt;
 
-    const table = registeredSyncableTableNameMap[changeset.tableName];
-    if (!table) {
-      throw new Error("Unknown table: " + changeset.tableName);
-    }
+          // Winner's fields overwrite loser's (spread winner second)
+          const winnerRow = currentCreatedFirst
+            ? currentRow
+            : (incomingRow as Row);
+          const loserRow = currentCreatedFirst
+            ? (incomingRow as Row)
+            : currentRow;
+          const winnerChanges = currentCreatedFirst
+            ? currentChanges.changes
+            : incomingChange.changes;
+          const loserChanges = currentCreatedFirst
+            ? incomingChange.changes
+            : currentChanges.changes;
 
-    const currentChanges = yield* runQuery(
-      selectFrom(changesTable, "byEntityIdAndTableName").where((q) =>
-        changeset.data.map((c) =>
-          q
-            .eq("entityId", c.change.entityId)
-            .eq("tableName", changeset.tableName),
-        ),
-      ),
-    );
-    const currentChangesMap = new Map(
-      currentChanges.map((c) => [c.entityId, c as Change]),
-    );
+          const fcwMergedChanges = { ...loserChanges, ...winnerChanges };
+          const fcwMergedRow = { ...loserRow, ...winnerRow } as Row;
 
-    const currentRows = yield* runQuery(
-      selectFrom(table, "byId").where((q) =>
-        changeset.data.map((c) => q.eq("id", c.change.entityId)),
-      ),
-    );
-    const currentRowsMap = new Map(currentRows.map((r) => [r.id, r]));
+          if (!currentCreatedFirst) {
+            toUpdateRows.push(fcwMergedRow);
+          }
 
-    for (const {
-      change: incomingChange,
-      row: incomingRow,
-    } of changeset.data) {
-      const currentChanges = currentChangesMap.get(incomingChange.entityId);
-      const currentRow = currentRowsMap.get(incomingChange.entityId);
+          const currentClock = nextClock;
+          allChanges.push({
+            id: `${table.tableName}:${incomingChange.entityId}`,
+            entityId: incomingChange.entityId,
+            tableName: table.tableName,
+            createdAt: currentCreatedFirst
+              ? currentChanges.createdAt
+              : incomingChange.createdAt,
+            updatedAt: currentClock,
+            deletedAt: null,
+            clientId: incomingChange.clientId,
+            changes: fcwMergedChanges,
+          });
 
-      // First-creator-wins: when both sides created the same entity,
-      // the earlier creator's values always take precedence
-      if (
-        currentChanges != null &&
-        currentRow != null &&
-        incomingRow != null &&
-        incomingChange.deletedAt == null &&
-        currentChanges.createdAt !== incomingChange.createdAt
-      ) {
-        const currentCreatedFirst =
-          currentChanges.createdAt <= incomingChange.createdAt;
-
-        // Winner's fields overwrite loser's (spread winner second)
-        const winnerRow = currentCreatedFirst
-          ? currentRow
-          : (incomingRow as Row);
-        const loserRow = currentCreatedFirst
-          ? (incomingRow as Row)
-          : currentRow;
-        const winnerChanges = currentCreatedFirst
-          ? currentChanges.changes
-          : incomingChange.changes;
-        const loserChanges = currentCreatedFirst
-          ? incomingChange.changes
-          : currentChanges.changes;
-
-        const fcwMergedChanges = { ...loserChanges, ...winnerChanges };
-        const fcwMergedRow = { ...loserRow, ...winnerRow } as Row;
-
-        if (!currentCreatedFirst) {
-          toUpdateRows.push(fcwMergedRow);
+          continue; // Skip normal LWW merge
         }
 
-        const currentClock = nextClock();
+        const { mergedChanges, mergedRow } = lwwMerge(
+          currentChanges?.changes ?? {},
+          incomingChange.changes,
+          currentRow ?? { id: incomingChange.entityId },
+          incomingRow ?? { id: incomingChange.entityId },
+        );
+
+        // Delete always wins, no conflict resolution needed actually
+        if (incomingChange.deletedAt != null) {
+          if (currentRow) {
+            toDeleteRows.push(currentRow.id);
+          }
+        } else if (currentRow) {
+          toUpdateRows.push(mergedRow);
+        } else {
+          toInsertRows.push(mergedRow);
+        }
+
+        const currentClock = nextClock;
+        const lastDeletedAt = (function () {
+          // TODO: maybe compare time too instead of reussrection?
+          if (incomingChange.deletedAt == null) {
+            return null; // resurrection!
+          }
+
+          if (currentChanges && currentChanges.deletedAt) {
+            return currentChanges.deletedAt;
+          }
+
+          if (incomingChange.deletedAt != null) {
+            return currentClock;
+          }
+
+          return null;
+        })();
+
         allChanges.push({
           id: `${table.tableName}:${incomingChange.entityId}`,
           entityId: incomingChange.entityId,
           tableName: table.tableName,
-          createdAt: currentCreatedFirst
-            ? currentChanges.createdAt
-            : incomingChange.createdAt,
+          createdAt: currentChanges?.createdAt ?? currentClock,
           updatedAt: currentClock,
-          deletedAt: null,
-          clientId: clientId,
-          changes: fcwMergedChanges,
+          deletedAt: lastDeletedAt,
+          clientId: incomingChange.clientId,
+          changes: mergedChanges,
         });
-
-        continue; // Skip normal LWW merge
       }
 
-      const { mergedChanges, mergedRow } = mergeChanges(
-        currentChanges?.changes ?? {},
-        incomingChange.changes,
-        currentRow ?? { id: incomingChange.entityId },
-        incomingRow ?? { id: incomingChange.entityId },
-      );
-
-      // Delete always wins, no conflict resolution needed actually
-      if (incomingChange.deletedAt != null) {
-        if (currentRow) {
-          toDeleteRows.push(currentRow.id);
-        }
-      } else if (currentRow) {
-        toUpdateRows.push(mergedRow);
-      } else {
-        toInsertRows.push(mergedRow);
-      }
-
-      const currentClock = nextClock();
-      const lastDeletedAt = (function () {
-        // TODO: maybe compare time too instead of reussrection?
-        if (incomingChange.deletedAt == null) {
-          return null; // resurrection!
-        }
-
-        if (currentChanges && currentChanges.deletedAt) {
-          return currentChanges.deletedAt;
-        }
-
-        if (incomingChange.deletedAt != null) {
-          return currentClock;
-        }
-
-        return null;
-      })();
-
-      allChanges.push({
-        id: `${table.tableName}:${incomingChange.entityId}`,
-        entityId: incomingChange.entityId,
-        tableName: table.tableName,
-        createdAt: currentChanges?.createdAt ?? currentClock,
-        updatedAt: currentClock,
-        deletedAt: lastDeletedAt,
-        clientId: clientId,
-        changes: mergedChanges,
-      });
+      yield* insert(table, toInsertRows);
+      yield* upsert(table, toUpdateRows);
+      yield* deleteRows(table, toDeleteRows);
     }
 
-    yield* insert(table, toInsertRows);
-    yield* update(table, toUpdateRows);
-    yield* deleteRows(table, toDeleteRows);
-  }
-
-  console.log("changes to persist after merge", allChanges);
-
-  yield* insert(changesTable, allChanges);
+    yield* upsert(changesTable, allChanges);
+  },
 });
 
-export const changesSlice = {
-  byIdAndName,
-  allChangesAfter,
-  getChangesetAfter,
-  insertChangeFromInsert,
-  insertChangeFromUpdate,
-  insertChangeFromDelete,
-  mergeChanges: mergeChangesAction,
-};
-
-const mergeChanges = (
+const lwwMerge = (
   aChange: Record<string, string>,
   bChange: Record<string, string>,
   aRow: Row,
   bRow: Row,
 ): { mergedChanges: Record<string, string>; mergedRow: Row } => {
   const mergedChanges: Record<string, string> = {};
+  const primitiveARow = aRow as PrimitiveRow;
+  const primitiveBRow = bRow as PrimitiveRow;
   // Start with aRow as the base. Unchanged fields will be preserved.
-  const mergedRow: Record<string, string | number | boolean | null> = {
-    ...aRow,
+  const mergedRow: PrimitiveRow = {
+    ...primitiveARow,
   };
 
   // Get all unique keys from both change objects
@@ -414,21 +526,21 @@ const mergeChanges = (
       if (changeTimestampA > changeTimestampB) {
         // A is the winner
         winningTimestamp = changeTimestampA;
-        winningValue = aRow[key]!;
+        winningValue = primitiveARow[key]!;
       } else {
         // B is the winner (or they are equal, B wins the tie)
         winningTimestamp = changeTimestampB;
-        winningValue = bRow[key]!;
+        winningValue = primitiveBRow[key]!;
       }
     } else if (changeTimestampA !== undefined) {
       // --- Key was only changed in A ---
       winningTimestamp = changeTimestampA;
-      winningValue = aRow[key]!;
+      winningValue = primitiveARow[key]!;
     } else {
       // --- Key was only changed in B ---
       // We can assert changeTimestampB is not undefined here.
       winningTimestamp = changeTimestampB!;
-      winningValue = bRow[key]!;
+      winningValue = primitiveBRow[key]!;
     }
 
     // Update the merged results with the winning data
@@ -449,10 +561,6 @@ const row = z.intersection(
   }),
 );
 
-// const row = z.union([
-//   z.record(z.intersection([z.string(), z.number(), z.boolean(), z.null()])),
-//   z.object({ id: z.string() }),
-// ]);
 export const Changeset = z.object({
   tableName: z.string(),
   data: z.array(

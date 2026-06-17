@@ -1,41 +1,32 @@
-import { isObjectType } from "../utils";
 import { shouldNeverHappen } from "../utils";
 import {
-  action,
   deleteRows,
   insert,
-  runQuery,
   selectFrom,
-  selector,
-  table,
-  update,
-} from "@will-be-done/hyperdb";
+  upsert as upsertRows,
+  v,
+} from "@will-be-done/hyperdb-lib";
+import { action, selector } from "../builders";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { generateKeyPositionedBetween } from "./utils";
-import { registerSpaceSyncableTable } from "./syncMap";
-import { registerModelSlice, AnyModelType } from "./maps";
-import { appSlice } from ".";
-import { cardsTasksSlice } from ".";
-import { projectsSlice } from ".";
-import { isTask, type Task } from "./cardsTasks";
-import { projectCategoryCardsSlice } from ".";
-import { isTaskProjection } from "./dailyListsProjections";
-import { dailyListsProjectionsSlice } from ".";
-import type { OrderableItem } from "./utils";
-
-// Type definitions
-// stashProjection.id = task.id (1:1 relationship)
-export const stashProjectionType = "stashProjection";
-
-export type StashProjection = {
-  type: typeof stashProjectionType;
-  id: string; // Same as task.id
-  orderToken: string;
-  createdAt: number;
-};
-
-export const isStashProjection =
-  isObjectType<StashProjection>(stashProjectionType);
+import { registerModelSlice } from "./maps";
+import { appById } from "./app";
+import { createProjectTask } from "./projects";
+import { createSiblingTask } from "./projectsCategoriesCards";
+import { deleteDailyProjections } from "./dailyListsProjections";
+import { taskById, taskByIdOrDefault } from "./cardsTasks";
+import { orderPositionArg } from "./utils";
+import {
+  stashProjectionType,
+  stashProjectionsTable,
+  tasksTable,
+  possibleModelType,
+  isStashProjection,
+  type StashProjection,
+  Task,
+  isTask,
+  isTaskProjection,
+} from "./tables";
 
 export const defaultStashProjection: StashProjection = {
   type: stashProjectionType,
@@ -44,376 +35,488 @@ export const defaultStashProjection: StashProjection = {
   createdAt: 0,
 };
 
-// Table definition
-export const stashProjectionsTable = table<StashProjection>(
-  "stash_projections",
-).withIndexes({
-  byId: { cols: ["id"], type: "hash" },
-  byIds: { cols: ["id"], type: "btree" },
-  byTokenOrdered: {
-    cols: ["orderToken"],
-    type: "btree",
+// Selectors and actions
+export const stashProjectionAllIds = selector({
+  name: "stashProjectionAllIds",
+  args: {},
+  handler: function* stashProjectionAllIds() {
+    const projections = yield* selectFrom(stashProjectionsTable, "byIds").where(
+      (q) => q,
+    );
+    return projections.map((p) => p.id);
   },
 });
-registerSpaceSyncableTable(stashProjectionsTable, stashProjectionType);
 
-// Selectors and actions
-export const allIds = selector(function* () {
-  const projections = yield* runQuery(
-    selectFrom(stashProjectionsTable, "byIds").where((q) => q),
-  );
-  return projections.map((p) => p.id);
+export const stashProjectionAllTaskIds = selector({
+  name: "stashProjectionAllTaskIds",
+  args: {},
+  handler: function* stashProjectionAllTaskIds() {
+    return new Set(yield* stashProjectionAllIds({}));
+  },
 });
 
-export const allTaskIds = selector(function* () {
-  return new Set(yield* allIds());
-});
-
-export const byId = selector(function* (id: string) {
-  const projections = yield* runQuery(
-    selectFrom(stashProjectionsTable, "byId")
+export const stashProjectionById = selector({
+  name: "stashProjectionById",
+  args: { id: v.string() },
+  handler: function* stashProjectionById({ id }) {
+    const projections = yield* selectFrom(stashProjectionsTable, "byId")
       .where((q) => q.eq("id", id))
-      .limit(1),
-  );
-  return projections[0] as StashProjection | undefined;
+      .limit(1);
+    return projections[0] as StashProjection | undefined;
+  },
 });
 
-export const byIds = selector(function* (ids: string[]) {
-  const projections = yield* runQuery(
-    selectFrom(stashProjectionsTable, "byId").where((q) =>
-      ids.map((id) => q.eq("id", id)),
-    ),
-  );
-  return projections as StashProjection[];
+export const stashProjectionsByIds = selector({
+  name: "stashProjectionsByIds",
+  args: { ids: v.array(v.string()) },
+  handler: function* stashProjectionsByIds({ ids }) {
+    const projections = yield* selectFrom(stashProjectionsTable, "byId").where(
+      (q) => ids.map((id) => q.eq("id", id)),
+    );
+    return projections as StashProjection[];
+  },
 });
 
-export const byIdOrDefault = selector(function* (id: string) {
-  return (yield* byId(id)) || defaultStashProjection;
+export const stashProjectionByIdOrDefault = selector({
+  name: "stashProjectionByIdOrDefault",
+  args: { id: v.string() },
+  handler: function* stashProjectionByIdOrDefault({ id }) {
+    return (yield* stashProjectionById({ id })) || defaultStashProjection;
+  },
 });
 
 // Get all stash projections ordered by token
-export const allOrdered = selector(function* () {
-  return (yield* runQuery(
-    selectFrom(stashProjectionsTable, "byTokenOrdered").where((q) => q),
-  )) as StashProjection[];
+export const allStashProjectionsOrdered = selector({
+  name: "allStashProjectionsOrdered",
+  args: {},
+  handler: function* allStashProjectionsOrdered() {
+    return (yield* selectFrom(stashProjectionsTable, "byTokenOrdered").where(
+      (q) => q,
+    )) as StashProjection[];
+  },
 });
 
 // Check if a task is in the stash
-export const hasProjection = selector(function* (taskId: string) {
-  const projection = yield* byId(taskId);
-  return projection !== undefined;
+export const stashHasProjection = selector({
+  name: "stashHasProjection",
+  args: { taskId: v.string() },
+  handler: function* stashHasProjection({ taskId }) {
+    const projection = yield* stashProjectionById({ id: taskId });
+    return projection !== undefined;
+  },
 });
 
 // Get all task ids in stash (non-done, ordered)
-export const childrenIds = selector(function* (): Generator<
-  unknown,
-  string[],
-  unknown
-> {
-  const projections = yield* allOrdered();
+export const stashProjectionChildrenIds = selector({
+  name: "stashProjectionChildrenIds",
+  args: {},
+  handler: function* stashProjectionChildrenIds(): Generator<
+    unknown,
+    string[],
+    unknown
+  > {
+    const projections = yield* allStashProjectionsOrdered({});
 
-  const result: string[] = [];
-  for (const proj of projections) {
-    const task = yield* cardsTasksSlice.byId(proj.id);
-    if (task && task.state === "todo") {
-      result.push(proj.id);
+    const result: string[] = [];
+    for (const proj of projections) {
+      const task = yield* taskById({ id: proj.id });
+      if (task && task.state === "todo") {
+        result.push(proj.id);
+      }
     }
-  }
 
-  return result;
+    return result;
+  },
 });
 
 // Get all done task ids in stash (sorted by lastToggledAt)
-export const doneChildrenIds = selector(function* (): Generator<
-  unknown,
-  string[],
-  unknown
-> {
-  const projections = yield* allOrdered();
+export const doneStashProjectionChildrenIds = selector({
+  name: "doneStashProjectionChildrenIds",
+  args: {},
+  handler: function* doneStashProjectionChildrenIds(): Generator<
+    unknown,
+    string[],
+    unknown
+  > {
+    const projections = yield* allStashProjectionsOrdered({});
 
-  const doneTasks: { id: string; lastToggledAt: number }[] = [];
-  for (const proj of projections) {
-    const task = yield* cardsTasksSlice.byId(proj.id);
-    if (task && task.state === "done") {
-      doneTasks.push({ id: proj.id, lastToggledAt: task.lastToggledAt });
+    const doneTasks: { id: string; lastToggledAt: number }[] = [];
+    for (const proj of projections) {
+      const task = yield* taskById({ id: proj.id });
+      if (task && task.state === "done") {
+        doneTasks.push({ id: proj.id, lastToggledAt: task.lastToggledAt });
+      }
     }
-  }
 
-  return doneTasks
-    .sort((a, b) => b.lastToggledAt - a.lastToggledAt)
-    .map((t) => t.id);
+    return doneTasks
+      .sort((a, b) => b.lastToggledAt - a.lastToggledAt)
+      .map((t) => t.id);
+  },
 });
 
 // Get first task in stash
-export const firstChild = selector(function* (): Generator<
-  unknown,
-  Task | undefined,
-  unknown
-> {
-  const ids = yield* childrenIds();
-  const firstChildId = ids[0];
-  return firstChildId
-    ? yield* cardsTasksSlice.byId(firstChildId)
-    : (undefined as Task | undefined);
+export const firstStashProjectionChild = selector({
+  name: "firstStashProjectionChild",
+  args: {},
+  handler: function* firstStashProjectionChild(): Generator<
+    unknown,
+    Task | undefined,
+    unknown
+  > {
+    const ids = yield* stashProjectionChildrenIds({});
+    const firstChildId = ids[0];
+    return firstChildId
+      ? yield* taskById({ id: firstChildId })
+      : (undefined as Task | undefined);
+  },
 });
 
 // Get last task in stash
-export const lastChild = selector(function* (): Generator<
-  unknown,
-  Task | undefined,
-  unknown
-> {
-  const ids = yield* childrenIds();
-  const lastChildId = ids[ids.length - 1];
-  return lastChildId
-    ? yield* cardsTasksSlice.byId(lastChildId)
-    : (undefined as Task | undefined);
+export const lastStashProjectionChild = selector({
+  name: "lastStashProjectionChild",
+  args: {},
+  handler: function* lastStashProjectionChild(): Generator<
+    unknown,
+    Task | undefined,
+    unknown
+  > {
+    const ids = yield* stashProjectionChildrenIds({});
+    const lastChildId = ids[ids.length - 1];
+    return lastChildId
+      ? yield* taskById({ id: lastChildId })
+      : (undefined as Task | undefined);
+  },
 });
 
 // Get siblings of a task within the stash
-export const siblings = selector(function* (taskId: string) {
-  const projection = yield* byId(taskId);
-  if (!projection)
-    return [undefined, undefined] as [
+export const stashProjectionSiblings = selector({
+  name: "stashProjectionSiblings",
+  args: { taskId: v.string() },
+  handler: function* stashProjectionSiblings({ taskId }) {
+    const projection = yield* stashProjectionById({ id: taskId });
+    if (!projection)
+      return [undefined, undefined] as [
+        StashProjection | undefined,
+        StashProjection | undefined,
+      ];
+
+    const sortedProjections = yield* allStashProjectionsOrdered({});
+
+    const index = sortedProjections.findIndex((p) => p.id === taskId);
+
+    const before = index > 0 ? sortedProjections[index - 1] : undefined;
+    const after =
+      index < sortedProjections.length - 1
+        ? sortedProjections[index + 1]
+        : undefined;
+
+    return [before, after] as [
       StashProjection | undefined,
       StashProjection | undefined,
     ];
-
-  const sortedProjections = yield* allOrdered();
-
-  const index = sortedProjections.findIndex((p) => p.id === taskId);
-
-  const before = index > 0 ? sortedProjections[index - 1] : undefined;
-  const after =
-    index < sortedProjections.length - 1
-      ? sortedProjections[index + 1]
-      : undefined;
-
-  return [before, after] as [
-    StashProjection | undefined,
-    StashProjection | undefined,
-  ];
+  },
 });
 
 // Check if a stash projection can accept another model being dropped
-export const canDrop = selector(function* (
-  projectionId: string,
-  dropId: string,
-  dropModelType: AnyModelType,
-): Generator<unknown, boolean, unknown> {
-  const model = yield* appSlice.byId(dropId, dropModelType);
-  if (!model) return false;
+export const stashProjectionCanDrop = selector({
+  name: "stashProjectionCanDrop",
+  args: {
+    projectionId: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+  },
+  handler: function* stashProjectionCanDrop({
+    projectionId,
+    dropId,
+    dropModelType,
+  }): Generator<unknown, boolean, unknown> {
+    const model = yield* appById({ id: dropId, modelType: dropModelType });
+    if (!model) return false;
 
-  const projection = yield* byId(projectionId);
-  if (!projection) return false;
+    const projection = yield* stashProjectionById({ id: projectionId });
+    if (!projection) return false;
 
-  const task = yield* cardsTasksSlice.byId(projection.id);
-  if (!task) return false;
+    const task = yield* taskById({ id: projection.id });
+    if (!task) return false;
 
-  // Only allow dropping todo tasks
-  if (task.state === "done") return false;
+    // Only allow dropping todo tasks
+    if (task.state === "done") return false;
 
-  // Check if dropping a task directly
-  if (isTask(model)) {
-    return model.state === "todo";
-  }
+    // Check if dropping a task directly
+    if (isTask(model)) {
+      return model.state === "todo";
+    }
 
-  // Check if dropping a projection (task in daily list)
-  if (isTaskProjection(model)) {
-    const droppedTask = yield* cardsTasksSlice.byId(model.id);
-    return droppedTask !== undefined && droppedTask.state === "todo";
-  }
+    // Check if dropping a projection (task in daily list)
+    if (isTaskProjection(model)) {
+      const droppedTask = yield* taskById({ id: model.id });
+      return droppedTask !== undefined && droppedTask.state === "todo";
+    }
 
-  // Check if dropping a stash projection
-  if (isStashProjection(model)) {
-    const droppedTask = yield* cardsTasksSlice.byId(model.id);
-    return droppedTask !== undefined && droppedTask.state === "todo";
-  }
+    // Check if dropping a stash projection
+    if (isStashProjection(model)) {
+      const droppedTask = yield* taskById({ id: model.id });
+      return droppedTask !== undefined && droppedTask.state === "todo";
+    }
 
-  return false;
+    return false;
+  },
 });
 
 // Handle drop operations
-export const handleDrop = action(function* (
-  projectionId: string,
-  dropId: string,
-  dropModelType: AnyModelType,
-  edge: "top" | "bottom",
-): Generator<unknown, void, unknown> {
-  const canDropResult = yield* canDrop(projectionId, dropId, dropModelType);
-  if (!canDropResult) return;
-
-  const projection = yield* byId(projectionId);
-  if (!projection) return;
-
-  const dropItem = yield* appSlice.byId(dropId, dropModelType);
-  if (!dropItem) return;
-
-  const [up, down] = yield* siblings(projection.id);
-
-  let between: [string | undefined, string | undefined] = [
-    projection.orderToken,
-    down?.orderToken,
-  ];
-
-  if (edge === "top") {
-    between = [up?.orderToken, projection.orderToken];
-  }
-
-  const orderToken = generateJitteredKeyBetween(
-    between[0] || null,
-    between[1] || null,
-  );
-
-  if (isTask(dropItem)) {
-    yield* upsert({
-      id: dropItem.id,
-      orderToken,
+export const stashProjectionHandleDrop = action({
+  name: "stashProjectionHandleDrop",
+  args: {
+    projectionId: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* stashProjectionHandleDrop({
+    projectionId,
+    dropId,
+    dropModelType,
+    edge,
+  }): Generator<unknown, void, unknown> {
+    const canDropResult = yield* stashProjectionCanDrop({
+      projectionId,
+      dropId,
+      dropModelType,
     });
-  } else if (isTaskProjection(dropItem)) {
-    yield* upsert({
-      id: dropItem.id,
-      orderToken,
+    if (!canDropResult) return;
+
+    const projection = yield* stashProjectionById({ id: projectionId });
+    if (!projection) return;
+
+    const dropItem = yield* appById({ id: dropId, modelType: dropModelType });
+    if (!dropItem) return;
+
+    const [up, down] = yield* stashProjectionSiblings({
+      taskId: projection.id,
     });
-    yield* dailyListsProjectionsSlice.deleteProjections([dropItem.id]);
-  } else if (isStashProjection(dropItem)) {
-    yield* upsert({
-      id: dropItem.id,
-      orderToken,
-    });
-  } else {
-    shouldNeverHappen("unknown drop item type", dropItem);
-  }
+
+    let between: [string | undefined, string | undefined] = [
+      projection.orderToken,
+      down?.orderToken,
+    ];
+
+    if (edge === "top") {
+      between = [up?.orderToken, projection.orderToken];
+    }
+
+    const orderToken = generateJitteredKeyBetween(
+      between[0] || null,
+      between[1] || null,
+    );
+
+    if (isTask(dropItem)) {
+      yield* upsertStashProjection({
+        projection: {
+          id: dropItem.id,
+          orderToken,
+        },
+      });
+    } else if (isTaskProjection(dropItem)) {
+      yield* upsertStashProjection({
+        projection: {
+          id: dropItem.id,
+          orderToken,
+        },
+      });
+      yield* deleteDailyProjections({ ids: [dropItem.id] });
+    } else if (isStashProjection(dropItem)) {
+      yield* upsertStashProjection({
+        projection: {
+          id: dropItem.id,
+          orderToken,
+        },
+      });
+    } else {
+      shouldNeverHappen("unknown drop item type", dropItem);
+    }
+  },
 });
 
-export const deleteProjections = action(function* (ids: string[]) {
-  yield* deleteRows(stashProjectionsTable, ids);
+export const deleteStashProjections = action({
+  name: "deleteStashProjections",
+  args: { ids: v.array(v.string()) },
+  handler: function* deleteStashProjections({ ids }) {
+    yield* deleteRows(stashProjectionsTable, ids);
+  },
 });
 
-export const createProjection = action(function* (projection: {
-  id: string; // This should be the task.id
-  orderToken: string;
-}) {
-  const newProjection: StashProjection = {
-    type: stashProjectionType,
-    id: projection.id,
-    orderToken: projection.orderToken,
-    createdAt: Date.now(),
-  };
+export const createStashProjection = action({
+  name: "createStashProjection",
+  args: {
+    projection: v.required(v.partial(stashProjectionsTable.v()), [
+      "id",
+      "orderToken",
+    ]),
+  },
+  handler: function* createStashProjection({ projection }) {
+    const newProjection: StashProjection = {
+      type: stashProjectionType,
+      id: projection.id,
+      orderToken: projection.orderToken,
+      createdAt: Date.now(),
+    };
 
-  yield* insert(stashProjectionsTable, [newProjection]);
-  return newProjection;
+    yield* insert(stashProjectionsTable, [newProjection]);
+    return newProjection;
+  },
 });
 
-export const updateProjection = action(function* (
-  id: string,
-  projection: Partial<StashProjection>,
-): Generator<unknown, void, unknown> {
-  const projInState = yield* byId(id);
-  if (!projInState) throw new Error("Stash projection not found");
+export const updateStashProjection = action({
+  name: "updateStashProjection",
+  args: {
+    id: v.string(),
+    projection: v.partial(stashProjectionsTable.v()),
+  },
+  handler: function* updateStashProjection({
+    id,
+    projection,
+  }): Generator<unknown, void, unknown> {
+    const projInState = yield* stashProjectionById({ id });
+    if (!projInState) throw new Error("Stash projection not found");
 
-  yield* update(stashProjectionsTable, [{ ...projInState, ...projection }]);
+    yield* upsertRows(stashProjectionsTable, [
+      { ...projInState, ...projection },
+    ]);
+  },
 });
 
 // Create or update stash projection for a task
-export const upsert = action(function* (projection: {
-  id: string;
-  orderToken: string;
-}) {
-  const existing = yield* byId(projection.id);
+export const upsertStashProjection = action({
+  name: "upsertStashProjection",
+  args: {
+    projection: v.required(v.partial(stashProjectionsTable.v()), [
+      "id",
+      "orderToken",
+    ]),
+  },
+  handler: function* upsertStashProjection({ projection }) {
+    const existing = yield* stashProjectionById({ id: projection.id });
 
-  if (existing) {
-    yield* updateProjection(projection.id, {
-      orderToken: projection.orderToken,
-    });
-    return yield* byIdOrDefault(projection.id);
-  }
+    if (existing) {
+      yield* updateStashProjection({
+        id: projection.id,
+        projection: {
+          orderToken: projection.orderToken,
+        },
+      });
+      return yield* stashProjectionByIdOrDefault({ id: projection.id });
+    }
 
-  return yield* createProjection(projection);
+    return yield* createStashProjection({ projection });
+  },
 });
 
 // Create a sibling task in the stash
-export const createSibling = action(function* (
-  taskId: string,
-  position: "before" | "after",
-  taskParams?: Partial<Task>,
-) {
-  const task = yield* cardsTasksSlice.byId(taskId);
-  if (!task) throw new Error("Task not found");
-
-  const projection = yield* byId(taskId);
-  if (!projection) throw new Error("Task not in stash");
-
-  // Create task in project first
-  const newTask = yield* projectCategoryCardsSlice.createSiblingTask(
+export const createStashProjectionSibling = action({
+  name: "createStashProjectionSibling",
+  args: {
+    taskId: v.string(),
+    position: v.union(v.literal("before"), v.literal("after")),
+    taskParams: v.optional(v.partial(tasksTable.v())),
+  },
+  handler: function* createStashProjectionSibling({
     taskId,
     position,
     taskParams,
-  );
+  }) {
+    const task = yield* taskById({ id: taskId });
+    if (!task) throw new Error("Task not found");
 
-  // Add to stash with proper ordering
-  const sibs = yield* siblings(taskId);
-  const stashOrderToken = generateKeyPositionedBetween(
-    projection,
-    sibs,
-    position,
-  );
+    const projection = yield* stashProjectionById({ id: taskId });
+    if (!projection) throw new Error("Task not in stash");
 
-  return yield* createProjection({
-    id: newTask.id,
-    orderToken: stashOrderToken,
-  });
+    // Create task in project first
+    const newTask = yield* createSiblingTask({
+      cardId: taskId,
+      position,
+      taskParams,
+    });
+
+    // Add to stash with proper ordering
+    const sibs = yield* stashProjectionSiblings({ taskId });
+    const stashOrderToken = generateKeyPositionedBetween(
+      projection,
+      sibs,
+      position,
+    );
+
+    return yield* createStashProjection({
+      projection: {
+        id: newTask.id,
+        orderToken: stashOrderToken,
+      },
+    });
+  },
 });
 
 // Remove task from stash
-export const removeFromStash = action(function* (taskId: string) {
-  yield* deleteProjections([taskId]);
+export const removeFromStash = action({
+  name: "removeFromStash",
+  args: { taskId: v.string() },
+  handler: function* removeFromStash({ taskId }) {
+    yield* deleteStashProjections({ ids: [taskId] });
+  },
 });
 
 // Add task to stash
-export const addToStash = action(function* (
-  taskId: string,
-  position:
-    | "append"
-    | "prepend"
-    | [StashProjection | undefined, StashProjection | undefined],
-): Generator<unknown, void, unknown> {
-  const task = yield* cardsTasksSlice.byId(taskId);
-  if (!task) throw new Error("Task not found");
+export const addToStash = action({
+  name: "addToStash",
+  args: {
+    taskId: v.string(),
+    position: orderPositionArg,
+  },
+  handler: function* addToStash({
+    taskId,
+    position,
+  }): Generator<unknown, void, unknown> {
+    const task = yield* taskById({ id: taskId });
+    if (!task) throw new Error("Task not found");
 
-  let orderToken: string;
+    let orderToken: string;
 
-  if (position === "append") {
-    const projections = yield* allOrdered();
-    const lastToken =
-      projections.length > 0
-        ? projections[projections.length - 1].orderToken
-        : null;
-    orderToken = generateJitteredKeyBetween(lastToken, null);
-  } else if (position === "prepend") {
-    const projections = yield* allOrdered();
-    const firstToken =
-      projections.length > 0 ? projections[0].orderToken : null;
-    orderToken = generateJitteredKeyBetween(null, firstToken);
-  } else {
-    orderToken = generateJitteredKeyBetween(
-      position[0]?.orderToken || null,
-      position[1]?.orderToken || null,
-    );
-  }
+    if (position === "append") {
+      const projections = yield* allStashProjectionsOrdered({});
+      const lastToken =
+        projections.length > 0
+          ? projections[projections.length - 1].orderToken
+          : null;
+      orderToken = generateJitteredKeyBetween(lastToken, null);
+    } else if (position === "prepend") {
+      const projections = yield* allStashProjectionsOrdered({});
+      const firstToken =
+        projections.length > 0 ? projections[0].orderToken : null;
+      orderToken = generateJitteredKeyBetween(null, firstToken);
+    } else {
+      const siblings = [position[0] ?? undefined, position[1] ?? undefined] as [
+        StashProjection | undefined,
+        StashProjection | undefined,
+      ];
+      orderToken = generateJitteredKeyBetween(
+        siblings[0]?.orderToken || null,
+        siblings[1]?.orderToken || null,
+      );
+    }
 
-  yield* upsert({
-    id: taskId,
-    orderToken,
-  });
+    yield* upsertStashProjection({
+      projection: {
+        id: taskId,
+        orderToken,
+      },
+    });
+  },
 });
 
 registerModelSlice(
   {
-    byId,
-    delete: deleteProjections,
-    canDrop,
-    handleDrop,
+    byId: stashProjectionById,
+    delete: deleteStashProjections,
+    canDrop: stashProjectionCanDrop,
+    handleDrop: stashProjectionHandleDrop,
   },
   stashProjectionsTable,
   stashProjectionType,
@@ -427,100 +530,123 @@ export const stashType = "stash" as const;
 export const STASH_ID = "stash-singleton";
 
 // Column-level canDrop: any todo task/projection can be dropped onto the stash column
-const stashColumnCanDrop = selector(function* (
-  _stashId: string,
-  dropId: string,
-  dropModelType: AnyModelType,
-): Generator<unknown, boolean, unknown> {
-  const model = yield* appSlice.byId(dropId, dropModelType);
-  if (!model) return false;
+const stashColumnCanDrop = selector({
+  name: "stashColumnCanDrop",
+  args: {
+    _stashId: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+  },
+  handler: function* stashColumnCanDrop({
+    _stashId,
+    dropId,
+    dropModelType,
+  }): Generator<unknown, boolean, unknown> {
+    const model = yield* appById({ id: dropId, modelType: dropModelType });
+    if (!model) return false;
 
-  if (isTask(model)) {
-    return model.state === "todo";
-  }
+    if (isTask(model)) {
+      return model.state === "todo";
+    }
 
-  if (isTaskProjection(model)) {
-    const task = yield* cardsTasksSlice.byId(model.id);
-    return task !== undefined && task.state === "todo";
-  }
+    if (isTaskProjection(model)) {
+      const task = yield* taskById({ id: model.id });
+      return task !== undefined && task.state === "todo";
+    }
 
-  if (isStashProjection(model)) {
-    const task = yield* cardsTasksSlice.byId(model.id);
-    return task !== undefined && task.state === "todo";
-  }
+    if (isStashProjection(model)) {
+      const task = yield* taskById({ id: model.id });
+      return task !== undefined && task.state === "todo";
+    }
 
-  return false;
+    return false;
+  },
 });
 
 // Column-level handleDrop: add dropped task to stash (prepend/append based on edge)
-const stashColumnHandleDrop = action(function* (
-  _stashId: string,
-  dropId: string,
-  dropModelType: AnyModelType,
-  edge: "top" | "bottom",
-): Generator<unknown, void, unknown> {
-  const drop = yield* appSlice.byId(dropId, dropModelType);
-  if (!drop) return;
+const stashColumnHandleDrop = action({
+  name: "stashColumnHandleDrop",
+  args: {
+    _stashId: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* stashColumnHandleDrop({
+    _stashId,
+    dropId,
+    dropModelType,
+    edge,
+  }): Generator<unknown, void, unknown> {
+    const drop = yield* appById({ id: dropId, modelType: dropModelType });
+    if (!drop) return;
 
-  let taskId: string;
-  let shouldDeleteProjection = false;
-  if (isTask(drop)) {
-    taskId = drop.id;
-  } else if (isTaskProjection(drop)) {
-    taskId = drop.id;
-    shouldDeleteProjection = true;
-  } else if (isStashProjection(drop)) {
-    taskId = drop.id;
-  } else {
-    return;
-  }
+    let taskId: string;
+    let shouldDeleteProjection = false;
+    if (isTask(drop)) {
+      taskId = drop.id;
+    } else if (isTaskProjection(drop)) {
+      taskId = drop.id;
+      shouldDeleteProjection = true;
+    } else if (isStashProjection(drop)) {
+      taskId = drop.id;
+    } else {
+      return;
+    }
 
-  yield* addToStash(taskId, edge === "top" ? "prepend" : "append");
+    yield* addToStash({
+      taskId,
+      position: edge === "top" ? "prepend" : "append",
+    });
 
-  if (shouldDeleteProjection) {
-    yield* dailyListsProjectionsSlice.deleteProjections([taskId]);
-  }
+    if (shouldDeleteProjection) {
+      yield* deleteDailyProjections({ ids: [taskId] });
+    }
+  },
 });
 
 // Column-level byId: returns the stash projection if it exists, for the column model lookup
-const stashColumnById = selector(function* (_id: string) {
-  return undefined as StashProjection | undefined;
+const stashColumnById = selector({
+  name: "stashColumnById",
+  args: { _id: v.string() },
+  handler: function* stashColumnById({ _id }) {
+    return undefined as StashProjection | undefined;
+  },
 });
 
-const stashColumnDelete = action(function* (_ids: string[]) {
-  // No-op: stash is a virtual singleton, nothing to delete
+const stashColumnDelete = action({
+  name: "stashColumnDelete",
+  args: { _ids: v.array(v.string()) },
+  handler: function* stashColumnDelete({ _ids }) {
+    // No-op: stash is a virtual singleton, nothing to delete
+  },
 });
 
 // Create a task directly in the stash
-export const createTaskInStash = action(function* (
-  projectId: string,
-  position:
-    | [OrderableItem | undefined, OrderableItem | undefined]
-    | "append"
-    | "prepend",
-  categoryPosition:
-    | [OrderableItem | undefined, OrderableItem | undefined]
-    | "append"
-    | "prepend",
-): Generator<unknown, Task, unknown> {
-  const task = yield* projectsSlice.createTask(projectId, categoryPosition);
+export const createTaskInStash = action({
+  name: "createTaskInStash",
+  args: {
+    projectId: v.string(),
+    position: orderPositionArg,
+    categoryPosition: orderPositionArg,
+  },
+  handler: function* createTaskInStash({
+    projectId,
+    position,
+    categoryPosition,
+  }): Generator<unknown, Task, unknown> {
+    const task = yield* createProjectTask({
+      projectId,
+      position: categoryPosition,
+    });
 
-  let stashPosition:
-    | "append"
-    | "prepend"
-    | [StashProjection | undefined, StashProjection | undefined];
-  if (position === "append" || position === "prepend") {
-    stashPosition = position;
-  } else {
-    stashPosition = [
-      position[0] as StashProjection | undefined,
-      position[1] as StashProjection | undefined,
-    ];
-  }
+    yield* addToStash({
+      taskId: task.id,
+      position,
+    });
 
-  yield* addToStash(task.id, stashPosition);
-
-  return yield* cardsTasksSlice.byIdOrDefault(task.id);
+    return yield* taskByIdOrDefault({ id: task.id });
+  },
 });
 
 registerModelSlice(

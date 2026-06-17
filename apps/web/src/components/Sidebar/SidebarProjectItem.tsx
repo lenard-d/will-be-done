@@ -1,6 +1,11 @@
 import { CSSProperties, useEffect, useRef, useState } from "react";
-import { useSyncSelector, useDB, select } from "@will-be-done/hyperdb";
-import { projectsSlice } from "@will-be-done/slices/space";
+import { useSyncSelector, useDB, select } from "@will-be-done/hyperdb-lib";
+import {
+  notDoneTasksCountExceptDailiesCount,
+  overdueTasksCountExceptDailiesCount,
+  projectByIdOrDefault,
+  projectCanDrop,
+} from "@will-be-done/slices/space";
 import { cn } from "@/lib/utils.ts";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useCurrentDate } from "../DaysBoard/hooks.tsx";
@@ -65,33 +70,31 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
   const db = useDB();
   const { isMobile, setOpenMobile } = useSidebar();
 
-  const project = useSyncSelector(
-    () => projectsSlice.byIdOrDefault(projectId),
-    [projectId],
-  );
+  const project = useSyncSelector({
+    selector: projectByIdOrDefault,
+    args: { id: projectId },
+  });
 
   const currentDate = useCurrentDate();
 
-  const notDoneCount = useSyncSelector(
-    () => projectsSlice.notDoneTasksCountExceptDailiesCount(projectId, []),
-    [projectId],
-  );
+  const notDoneCount = useSyncSelector({
+    selector: notDoneTasksCountExceptDailiesCount,
+    args: { projectId: projectId, exceptDailyListIds: [] },
+  });
 
-  const overdueCount = useSyncSelector(
-    () =>
-      projectsSlice.overdueTasksCountExceptDailiesCount(
-        projectId,
-        [],
-        currentDate,
-      ),
-    [projectId, currentDate],
-  );
+  const overdueCount = useSyncSelector({
+    selector: overdueTasksCountExceptDailiesCount,
+    args: {
+      projectId: projectId,
+      exceptDailyListIds: [],
+      currentDate: currentDate.getTime(),
+    },
+  });
 
   const isActive = useRouterState({
     select: (s) =>
       s.matches.some(
-        (m) =>
-          (m.params as Record<string, string>).projectId === projectId,
+        (m) => (m.params as Record<string, string>).projectId === projectId,
       ),
   });
 
@@ -135,7 +138,11 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
           if (!isModelDNDData(data)) return false;
           return select(
             db,
-            projectsSlice.canDrop(project.id, data.modelId, data.modelType),
+            projectCanDrop({
+              projectId: project.id,
+              dropItemId: data.modelId,
+              dropModelType: data.modelType,
+            }),
           );
         },
         getIsSticky: () => true,

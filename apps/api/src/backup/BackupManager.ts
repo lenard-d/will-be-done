@@ -2,12 +2,23 @@ import { Database } from "bun:sqlite";
 import { readdirSync, unlinkSync, existsSync, mkdirSync } from "fs";
 import { stat, readFile, writeFile } from "fs/promises";
 import path from "path";
-import type { DB } from "@will-be-done/hyperdb";
-import { syncDispatch, select } from "@will-be-done/hyperdb";
+import type { DB } from "@will-be-done/hyperdb-lib";
+import { syncDispatch, select } from "@will-be-done/hyperdb-lib";
 import { S3Client } from "./S3Client";
 import { RetentionPolicy } from "./RetentionPolicy";
 import { ScheduledTimeCalculator } from "./ScheduledTimeCalculator";
-import { backupSlice } from "../slices/backupSlice";
+import {
+  updateTierState,
+  createBackup,
+  startBackup,
+  createBackupFile,
+  completeBackup,
+  failBackup,
+  getTierState,
+  getCompletedBackupsByTier,
+  getBackupFiles,
+  deleteBackupWithFiles,
+} from "../slices/backupSlice";
 import type { BackupConfig, BackupTier } from "./types";
 
 export class BackupManager {
@@ -53,9 +64,7 @@ export class BackupManager {
     for (const tier of dueTiers) {
       syncDispatch(
         this.mainDB,
-        backupSlice.updateTierState(tier, {
-          isBackupInProgress: true,
-        }),
+        updateTierState({ tier, updates: { isBackupInProgress: true } }),
       );
     }
 
@@ -75,12 +84,12 @@ export class BackupManager {
         // Create backup record
         const backupId = syncDispatch(
           this.mainDB,
-          backupSlice.createBackup(tier, scheduledTimeStr),
+          createBackup({ tier, scheduledAt: scheduledTimeStr }),
         );
         backupIds.set(tier, backupId);
 
         // Mark as running
-        syncDispatch(this.mainDB, backupSlice.startBackup(backupId));
+        syncDispatch(this.mainDB, startBackup({ id: backupId }));
 
         console.log(
           `[Backup] Created ${tier} backup (scheduled: ${scheduledTimeStr}, id: ${backupId})`,
@@ -161,18 +170,18 @@ export class BackupManager {
             const backupId = backupIds.get(tier)!;
             syncDispatch(
               this.mainDB,
-              backupSlice.createBackupFile(
+              createBackupFile({
                 backupId,
                 tier,
-                scheduledTimeStr,
-                dbFile,
+                scheduledAt: scheduledTimeStr,
+                fileName: dbFile,
                 s3Key,
-                fileStats.size, // Original size (after vacuum + drop indexes)
-                compressedSize, // Compressed size
+                sizeBytes: fileStats.size,
+                compressedSizeBytes: compressedSize,
                 vacuumDurationMs,
                 uploadDurationMs,
-                compressionDurationMs, // Compression duration
-              ),
+                compressionDurationMs,
+              }),
             );
           }
 
@@ -208,17 +217,20 @@ export class BackupManager {
 
         syncDispatch(
           this.mainDB,
-          backupSlice.completeBackup(backupId, totalSize, totalDurationMs),
+          completeBackup({ id: backupId, totalSizeBytes: totalSize, durationMs: totalDurationMs }),
         );
 
         syncDispatch(
           this.mainDB,
-          backupSlice.updateTierState(tier, {
-            lastScheduledTime: scheduledTimeStr,
-            nextScheduledTime: nextScheduledTime.toISOString(),
-            lastCompletedAt: new Date().toISOString(),
-            consecutiveFailures: 0,
-            isBackupInProgress: false,
+          updateTierState({
+            tier,
+            updates: {
+              lastScheduledTime: scheduledTimeStr,
+              nextScheduledTime: nextScheduledTime.toISOString(),
+              lastCompletedAt: new Date().toISOString(),
+              consecutiveFailures: 0,
+              isBackupInProgress: false,
+            },
           }),
         );
 
@@ -242,21 +254,21 @@ export class BackupManager {
         if (backupId) {
           syncDispatch(
             this.mainDB,
-            backupSlice.failBackup(
-              backupId,
-              error instanceof Error ? error.message : String(error),
-            ),
+            failBackup({
+              id: backupId,
+              error: error instanceof Error ? error.message : String(error),
+            }),
           );
         }
 
-        const tierState = select(this.mainDB, backupSlice.getTierState(tier));
+        const tierState = select(this.mainDB, getTierState({ tier }));
         const consecutiveFailures = (tierState?.consecutiveFailures || 0) + 1;
 
         syncDispatch(
           this.mainDB,
-          backupSlice.updateTierState(tier, {
-            consecutiveFailures,
-            isBackupInProgress: false,
+          updateTierState({
+            tier,
+            updates: { consecutiveFailures, isBackupInProgress: false },
           }),
         );
       }
@@ -272,7 +284,7 @@ export class BackupManager {
       // Get all completed backups for this tier
       const backups = select(
         this.mainDB,
-        backupSlice.getCompletedBackupsByTier(tier),
+        getCompletedBackupsByTier({ tier }),
       );
 
       const retentionCount = this.retentionPolicy.getRetentionCount(tier);
@@ -290,7 +302,7 @@ export class BackupManager {
             // Get all files for this backup
             const files = select(
               this.mainDB,
-              backupSlice.getBackupFiles(backup.id),
+              getBackupFiles({ backupId: backup.id }),
             );
 
             if (files.length > 0) {
@@ -305,7 +317,7 @@ export class BackupManager {
             // Delete backup record and all associated files from database
             syncDispatch(
               this.mainDB,
-              backupSlice.deleteBackupWithFiles(backup.id),
+              deleteBackupWithFiles({ id: backup.id }),
             );
           } catch (error) {
             console.error(
@@ -341,6 +353,7 @@ export class BackupManager {
     } catch (error) {
       throw new Error(
         `VACUUM failed for ${dbPath}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }
@@ -410,6 +423,7 @@ export class BackupManager {
         `Compression failed for ${inputPath}: ${
           error instanceof Error ? error.message : String(error)
         }`,
+        { cause: error },
       );
     }
   }

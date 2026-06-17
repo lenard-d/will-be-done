@@ -1,14 +1,14 @@
 import { describe, test, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
-import { DB, SqlDriver, syncDispatch, execSync } from "@will-be-done/hyperdb";
+import { DB, SqlDriver, syncDispatch, execSync } from "@will-be-done/hyperdb-lib";
 import { BackupScheduler } from "./BackupScheduler";
 import type { BackupManager } from "./BackupManager";
 import type { BackupConfig } from "./types";
 import {
-  backupSlice,
   backupStateTable,
   backupTierStateTable,
   backupFileTable,
+  updateTierState,
 } from "../slices/backupSlice";
 
 const mockConfig: BackupConfig = {
@@ -105,42 +105,54 @@ describe("BackupScheduler", () => {
       // Set up tier state with old scheduled time
       syncDispatch(
         db,
-        backupSlice.updateTierState("hourly", {
-          lastScheduledTime: "2026-02-03T08:00:00.000Z", // 4 hours ago
-          nextScheduledTime: "2026-02-03T12:00:00.000Z",
-          consecutiveFailures: 0,
-          isBackupInProgress: false,
+        updateTierState({
+          tier: "hourly",
+          updates: {
+            lastScheduledTime: "2026-02-03T08:00:00.000Z", // 4 hours ago
+            nextScheduledTime: "2026-02-03T12:00:00.000Z",
+            consecutiveFailures: 0,
+            isBackupInProgress: false,
+          },
         }),
       );
 
       // Set up other tiers as current
       syncDispatch(
         db,
-        backupSlice.updateTierState("daily", {
-          lastScheduledTime:
-            new Date().toISOString().split("T")[0] + "T00:00:00.000Z",
-          consecutiveFailures: 0,
-          isBackupInProgress: false,
+        updateTierState({
+          tier: "daily",
+          updates: {
+            lastScheduledTime:
+              new Date().toISOString().split("T")[0] + "T00:00:00.000Z",
+            consecutiveFailures: 0,
+            isBackupInProgress: false,
+          },
         }),
       );
 
       syncDispatch(
         db,
-        backupSlice.updateTierState("weekly", {
-          lastScheduledTime:
-            new Date().toISOString().split("T")[0] + "T00:00:00.000Z",
-          consecutiveFailures: 0,
-          isBackupInProgress: false,
+        updateTierState({
+          tier: "weekly",
+          updates: {
+            lastScheduledTime:
+              new Date().toISOString().split("T")[0] + "T00:00:00.000Z",
+            consecutiveFailures: 0,
+            isBackupInProgress: false,
+          },
         }),
       );
 
       syncDispatch(
         db,
-        backupSlice.updateTierState("monthly", {
-          lastScheduledTime:
-            new Date().toISOString().split("T")[0] + "T00:00:00.000Z",
-          consecutiveFailures: 0,
-          isBackupInProgress: false,
+        updateTierState({
+          tier: "monthly",
+          updates: {
+            lastScheduledTime:
+              new Date().toISOString().split("T")[0] + "T00:00:00.000Z",
+            consecutiveFailures: 0,
+            isBackupInProgress: false,
+          },
         }),
       );
 
@@ -164,10 +176,13 @@ describe("BackupScheduler", () => {
       // Set all tiers to current scheduled time
       syncDispatch(
         db,
-        backupSlice.updateTierState("hourly", {
-          lastScheduledTime: scheduledTimeStr,
-          consecutiveFailures: 0,
-          isBackupInProgress: false,
+        updateTierState({
+          tier: "hourly",
+          updates: {
+            lastScheduledTime: scheduledTimeStr,
+            consecutiveFailures: 0,
+            isBackupInProgress: false,
+          },
         }),
       );
 
@@ -175,10 +190,13 @@ describe("BackupScheduler", () => {
       today.setUTCHours(0, 0, 0, 0);
       syncDispatch(
         db,
-        backupSlice.updateTierState("daily", {
-          lastScheduledTime: today.toISOString(),
-          consecutiveFailures: 0,
-          isBackupInProgress: false,
+        updateTierState({
+          tier: "daily",
+          updates: {
+            lastScheduledTime: today.toISOString(),
+            consecutiveFailures: 0,
+            isBackupInProgress: false,
+          },
         }),
       );
 
@@ -189,10 +207,13 @@ describe("BackupScheduler", () => {
       currentWeekStart.setUTCDate(currentWeekStart.getUTCDate() + diff);
       syncDispatch(
         db,
-        backupSlice.updateTierState("weekly", {
-          lastScheduledTime: currentWeekStart.toISOString(),
-          consecutiveFailures: 0,
-          isBackupInProgress: false,
+        updateTierState({
+          tier: "weekly",
+          updates: {
+            lastScheduledTime: currentWeekStart.toISOString(),
+            consecutiveFailures: 0,
+            isBackupInProgress: false,
+          },
         }),
       );
 
@@ -201,10 +222,13 @@ describe("BackupScheduler", () => {
       monthStart.setUTCDate(1);
       syncDispatch(
         db,
-        backupSlice.updateTierState("monthly", {
-          lastScheduledTime: monthStart.toISOString(),
-          consecutiveFailures: 0,
-          isBackupInProgress: false,
+        updateTierState({
+          tier: "monthly",
+          updates: {
+            lastScheduledTime: monthStart.toISOString(),
+            consecutiveFailures: 0,
+            isBackupInProgress: false,
+          },
         }),
       );
 
@@ -221,9 +245,12 @@ describe("BackupScheduler", () => {
       // Set hourly as in progress
       syncDispatch(
         db,
-        backupSlice.updateTierState("hourly", {
-          lastScheduledTime: "2026-02-03T08:00:00.000Z",
-          isBackupInProgress: true, // In progress!
+        updateTierState({
+          tier: "hourly",
+          updates: {
+            lastScheduledTime: "2026-02-03T08:00:00.000Z",
+            isBackupInProgress: true, // In progress!
+          },
         }),
       );
 

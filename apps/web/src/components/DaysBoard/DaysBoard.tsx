@@ -1,12 +1,16 @@
 import { useEffect, useCallback, useRef, useState } from "react";
 import { useMemo } from "react";
 import { addDays, format, startOfDay, subDays } from "date-fns";
-import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb";
+import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb-lib";
 import {
-  dailyListsSlice,
-  dailyListsProjectionsSlice,
-  projectsSlice,
+  createManyDailyListsIfNotPresent,
+  createTaskInList,
   type DailyList,
+  dailyListByIdOrDefault,
+  dailyListIdsByDates,
+  dailyProjectionChildrenForDisplay,
+  doneDailyProjectionChildrenForDisplay,
+  inboxProjectId,
 } from "@will-be-done/slices/space";
 import { cn } from "@/lib/utils.ts";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
@@ -37,24 +41,24 @@ const ColumnView = ({
   dailyListId: string;
   onTaskAdd: (dailyList: DailyList) => void;
 }) => {
-  const dailyList = useSyncSelector(
-    () => dailyListsSlice.byIdOrDefault(dailyListId),
-    [dailyListId],
-  );
+  const dailyList = useSyncSelector({
+    selector: dailyListByIdOrDefault,
+    args: { id: dailyListId },
+  });
   const currentDate = useCurrentDMY();
   const isToday = useMemo(() => {
     return currentDate === dailyList.date;
   }, [currentDate, dailyList.date]);
 
-  const cardsForDisplay = useSyncSelector(
-    () => dailyListsProjectionsSlice.childrenForDisplay(dailyListId),
-    [dailyListId],
-  );
+  const cardsForDisplay = useSyncSelector({
+    selector: dailyProjectionChildrenForDisplay,
+    args: { dailyListId: dailyListId },
+  });
 
-  const doneCardsForDisplay = useSyncSelector(
-    () => dailyListsProjectionsSlice.doneChildrenForDisplay(dailyListId),
-    [dailyListId],
-  );
+  const doneCardsForDisplay = useSyncSelector({
+    selector: doneDailyProjectionChildrenForDisplay,
+    args: { dailyListId: dailyListId },
+  });
 
   // const [isHiddenClicked, setIsHiddenClicked] = useState(false);
 
@@ -118,6 +122,7 @@ const ColumnView = ({
               cardWrapper={displayData.cardWrapper}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
+              hasCheclistItems={displayData.hasChecklist}
               alwaysShowProject
             />
           );
@@ -132,6 +137,7 @@ const ColumnView = ({
               cardWrapper={displayData.cardWrapper}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
+              hasCheclistItems={displayData.hasChecklist}
               alwaysShowProject
             />
           );
@@ -183,7 +189,10 @@ const BoardView = ({
 }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch();
-  const inboxId = useSyncSelector(() => projectsSlice.inboxProjectId(), []);
+  const inboxId = useSyncSelector({
+    selector: inboxProjectId,
+    args: {},
+  });
   const isStashOpen = useStashOpen((s) => s.isOpen);
   const setStashOpen = useStashOpen((s) => s.setOpen);
   const stashWidth = useStashSize((s) => s.width);
@@ -193,12 +202,12 @@ const BoardView = ({
   const handleAddTask = useCallback(
     (dailyList: DailyList) => {
       const task = dispatch(
-        dailyListsSlice.createTaskInList(
-          dailyList.id,
-          inboxId,
-          "prepend",
-          "prepend",
-        ),
+        createTaskInList({
+          dailyListId: dailyList.id,
+          projectId: inboxId,
+          listPosition: "prepend",
+          categoryPosition: "prepend",
+        }),
       );
 
       useFocusStore.getState().editByKey(buildFocusKey(task.id, "projection"));
@@ -394,14 +403,18 @@ export const Board = ({
     [startingDate],
   );
 
-  const dailyListsIds = useSyncSelector(
-    () => dailyListsSlice.idsByDates(weekDays),
-    [weekDays],
-  );
+  const dailyListsIds = useSyncSelector({
+    selector: dailyListIdsByDates,
+    args: { dates: weekDays.map((date) => date.getTime()) },
+  });
   const dispatch = useDispatch();
 
   useEffect(() => {
-    dispatch(dailyListsSlice.createManyIfNotPresent(weekDays));
+    dispatch(
+      createManyDailyListsIfNotPresent({
+        dates: weekDays.map((date) => date.getTime()),
+      }),
+    );
   }, [dispatch, weekDays]);
 
   return (

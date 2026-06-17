@@ -1,9 +1,9 @@
-import type { DB } from "@will-be-done/hyperdb";
-import { select } from "@will-be-done/hyperdb";
+import type { DB } from "@will-be-done/hyperdb-lib";
+import { select } from "@will-be-done/hyperdb-lib";
 import type { BackupManager } from "./BackupManager";
 import type { BackupTier, BackupConfig } from "./types";
 import { ScheduledTimeCalculator } from "./ScheduledTimeCalculator";
-import { backupSlice } from "../slices/backupSlice";
+import { getTierState } from "../slices/backupSlice";
 
 export class BackupScheduler {
   private intervalId: Timer | null = null;
@@ -40,7 +40,7 @@ export class BackupScheduler {
       const tierStates = new Map();
 
       for (const tier of allTiers) {
-        const state = select(this.mainDB, backupSlice.getTierState(tier));
+        const state = select(this.mainDB, getTierState({ tier }));
         tierStates.set(tier, state);
       }
 

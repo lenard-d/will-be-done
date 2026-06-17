@@ -1,19 +1,19 @@
 import { changesTable, syncStateTable } from "@will-be-done/slices/common";
 import {
-  backupSlice,
-  cardsTasksSlice,
-  cardsTaskTemplatesSlice,
-  projectsSlice,
+  allTasks,
+  createInboxIfNotExists,
+  generateTasksFromTemplates,
+  loadSpaceBackup,
   registeredSpaceSyncableTableNameMap,
   registeredSpaceSyncableTables,
   type Task,
 } from "@will-be-done/slices/space";
-import { HyperDB, runSelector, syncDispatch } from "@will-be-done/hyperdb";
+import { HyperDB, runSelector, syncDispatch } from "@will-be-done/hyperdb-lib";
 import {
   registeredUserSyncableTableNameMap,
   registeredUserSyncableTables,
 } from "@will-be-done/slices/user";
-import { SyncConfig } from "./load";
+import type { SyncConfig } from "./syncTypes";
 import { generateDemoBackup } from "@/lib/demoData";
 
 const demoDbId = "e89b6c8f-1d6c-4bf4-9d27-478339773fc9";
@@ -31,11 +31,11 @@ export const spaceDBConfig = (dbId: string) => {
     syncableDBTables: registeredSpaceSyncableTables,
     tableNameMap: registeredSpaceSyncableTableNameMap,
     afterInit: (db: HyperDB) => {
-      syncDispatch(db, projectsSlice.createInboxIfNotExists());
+      syncDispatch(db, createInboxIfNotExists({}));
 
-      syncDispatch(db, cardsTaskTemplatesSlice.generateTasksFromTemplates());
+      syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       setInterval(() => {
-        syncDispatch(db, cardsTaskTemplatesSlice.generateTasksFromTemplates());
+        syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       }, 60 * 1000);
     },
   } satisfies SyncConfig;
@@ -46,22 +46,22 @@ export const demoSpaceDBConfig = () => {
     ...spaceDBConfig(demoDbId),
     disableSync: true,
     afterInit: async (db: HyperDB) => {
-      syncDispatch(db, projectsSlice.createInboxIfNotExists());
+      syncDispatch(db, createInboxIfNotExists({}));
       const tasks = runSelector<Task[]>(
         db,
         function* () {
-          return yield* cardsTasksSlice.all();
+          return yield* allTasks({});
         },
         [],
       );
 
       if (tasks.length === 0) {
-        syncDispatch(db, backupSlice.loadBackup(generateDemoBackup()));
+        syncDispatch(db, loadSpaceBackup({ backup: generateDemoBackup() }));
       }
 
-      syncDispatch(db, cardsTaskTemplatesSlice.generateTasksFromTemplates());
+      syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       setInterval(() => {
-        syncDispatch(db, cardsTaskTemplatesSlice.generateTasksFromTemplates());
+        syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       }, 60 * 1000);
     },
   } satisfies SyncConfig;

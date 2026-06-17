@@ -1,41 +1,42 @@
-import { isObjectType } from "../utils";
 import { shouldNeverHappen } from "../utils";
 import {
-  action,
   deleteRows,
   insert,
-  runQuery,
   selectFrom,
-  selector,
-  table,
-  update,
-} from "@will-be-done/hyperdb";
+  upsert as upsertRows,
+  v,
+} from "@will-be-done/hyperdb-lib";
+import { action, selector } from "../builders";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
-import { dailyDateFormat, generateKeyPositionedBetween } from "./utils";
-import { registerSpaceSyncableTable } from "./syncMap";
-import { registerModelSlice, AnyModelType } from "./maps";
-import { appSlice } from ".";
-import { cardsTasksSlice } from ".";
-import { isTask, type Task, tasksTable } from "./cardsTasks";
-import { projectCategoryCardsSlice } from ".";
-import { dailyListsSlice } from ".";
-import { isStashProjection } from "./stashProjections";
-import { stashProjectionsSlice } from ".";
+import {
+  dailyDateFormat,
+  generateKeyPositionedBetween,
+  normalizeOrderPosition,
+  type OrderableItem,
+  orderPositionArg,
+} from "./utils";
+import { registerModelSlice } from "./maps";
+import { appById } from "./app";
+import { dailyListById, createDailyListIfNotPresent } from "./dailyLists";
+import {
+  createSiblingTask,
+  projectCategoryCardsForDisplay,
+  type CardForDisplay,
+} from "./projectsCategoriesCards";
+import { deleteStashProjections } from "./stashProjections";
+import { taskById } from "./cardsTasks";
 import { parse } from "date-fns";
-
-// Type definitions
-// projection.id = task.id (1:1 relationship)
-export const projectionType = "projection";
-
-export type TaskProjection = {
-  type: typeof projectionType;
-  id: string; // Same as task.id
-  orderToken: string;
-  dailyListId: string;
-  createdAt: number;
-};
-
-export const isTaskProjection = isObjectType<TaskProjection>(projectionType);
+import {
+  projectionType,
+  taskProjectionsTable,
+  tasksTable,
+  Task,
+  isTask,
+  possibleModelType,
+  TaskProjection,
+  isTaskProjection,
+  isStashProjection,
+} from "./tables";
 
 export const defaultTaskProjection: TaskProjection = {
   type: projectionType,
@@ -45,474 +46,573 @@ export const defaultTaskProjection: TaskProjection = {
   createdAt: 0,
 };
 
-// Table definition
-export const taskProjectionsTable = table<TaskProjection>(
-  "task_projections",
-).withIndexes({
-  byId: { cols: ["id"], type: "hash" },
-  byIds: { cols: ["id"], type: "btree" },
-  byDailyListId: { cols: ["dailyListId"], type: "hash" },
-  byDailyListIdTokenOrdered: {
-    cols: ["dailyListId", "orderToken"],
-    type: "btree",
+export const dailyProjectionAllIds = selector({
+  name: "dailyProjectionAllIds",
+  args: {},
+  handler: function* dailyProjectionAllIds() {
+    const projections = yield* selectFrom(taskProjectionsTable, "byIds").where(
+      (q) => q,
+    );
+    return projections.map((p) => p.id);
   },
 });
-registerSpaceSyncableTable(taskProjectionsTable, projectionType);
 
-// Selectors and actions
-export const allIds = selector(function* () {
-  const projections = yield* runQuery(
-    selectFrom(taskProjectionsTable, "byIds").where((q) => q),
-  );
-  return projections.map((p) => p.id);
-});
-
-export const byId = selector(function* (id: string) {
-  const projections = yield* runQuery(
-    selectFrom(taskProjectionsTable, "byId")
+export const dailyProjectionById = selector({
+  name: "dailyProjectionById",
+  args: { id: v.string() },
+  handler: function* dailyProjectionById({ id }) {
+    const projections = yield* selectFrom(taskProjectionsTable, "byId")
       .where((q) => q.eq("id", id))
-      .limit(1),
-  );
-  return projections[0] as TaskProjection | undefined;
+      .limit(1);
+    return projections[0] as TaskProjection | undefined;
+  },
 });
 
-export const byIds = selector(function* (ids: string[]) {
-  const projections = yield* runQuery(
-    selectFrom(taskProjectionsTable, "byId").where((q) =>
-      ids.map((id) => q.eq("id", id)),
-    ),
-  );
-  return projections as TaskProjection[];
+export const dailyProjectionsByIds = selector({
+  name: "dailyProjectionsByIds",
+  args: { ids: v.array(v.string()) },
+  handler: function* dailyProjectionsByIds({ ids }) {
+    const projections = yield* selectFrom(taskProjectionsTable, "byId").where(
+      (q) => ids.map((id) => q.eq("id", id)),
+    );
+    return projections as TaskProjection[];
+  },
 });
 
-export const byIdOrDefault = selector(function* (id: string) {
-  return (yield* byId(id)) || defaultTaskProjection;
+export const dailyProjectionByIdOrDefault = selector({
+  name: "dailyProjectionByIdOrDefault",
+  args: { id: v.string() },
+  handler: function* dailyProjectionByIdOrDefault({ id }) {
+    return (yield* dailyProjectionById({ id })) || defaultTaskProjection;
+  },
 });
 
-// Get projection for a task (since id = taskId, this is the same as byId)
-export const byTaskId = selector(function* (taskId: string) {
-  return yield* byId(taskId);
+export const dailyProjectionByTaskId = selector({
+  name: "dailyProjectionByTaskId",
+  args: { taskId: v.string() },
+  handler: function* dailyProjectionByTaskId({ taskId }) {
+    return yield* dailyProjectionById({ id: taskId });
+  },
 });
 
-// Check if a task has a projection (is in a daily list)
-export const hasProjection = selector(function* (taskId: string) {
-  const projection = yield* byId(taskId);
-  return projection !== undefined;
+export const dailyListHasProjection = selector({
+  name: "dailyListHasProjection",
+  args: { taskId: v.string() },
+  handler: function* dailyListHasProjection({ taskId }) {
+    const projection = yield* dailyProjectionById({ id: taskId });
+    return projection !== undefined;
+  },
 });
 
-// Get all projections for a daily list
-export const byDailyListId = selector(function* (dailyListId: string) {
-  return (yield* runQuery(
-    selectFrom(taskProjectionsTable, "byDailyListIdTokenOrdered").where((q) =>
-      q.eq("dailyListId", dailyListId),
-    ),
-  )) as TaskProjection[];
+export const dailyProjectionsByDailyListId = selector({
+  name: "dailyProjectionsByDailyListId",
+  args: { dailyListId: v.string() },
+  handler: function* dailyProjectionsByDailyListId({ dailyListId }) {
+    return (yield* selectFrom(
+      taskProjectionsTable,
+      "byDailyListIdTokenOrdered",
+    ).where((q) => q.eq("dailyListId", dailyListId))) as TaskProjection[];
+  },
 });
 
-// Get all task ids in a specific daily list (non-done, ordered)
-export const childrenIds = selector(function* (
-  dailyListId: string,
-): Generator<unknown, string[], unknown> {
-  const projections = yield* byDailyListId(dailyListId);
+export const dailyProjectionChildrenIds = selector({
+  name: "dailyProjectionChildrenIds",
+  args: { dailyListId: v.string() },
+  handler: function* dailyProjectionChildrenIds({
+    dailyListId,
+  }): Generator<unknown, string[], unknown> {
+    const projections = yield* dailyProjectionsByDailyListId({ dailyListId });
 
-  const result: string[] = [];
-  for (const proj of projections) {
-    const task = yield* cardsTasksSlice.byId(proj.id);
-    if (task && task.state === "todo") {
-      result.push(proj.id);
+    const result: string[] = [];
+    for (const proj of projections) {
+      const task = yield* taskById({ id: proj.id });
+      if (task && task.state === "todo") {
+        result.push(proj.id);
+      }
     }
-  }
 
-  return result;
+    return result;
+  },
 });
 
-export const childrenForDisplay = selector(function* (
-  dailyListId: string,
-): Generator<unknown, projectCategoryCardsSlice.CardForDisplay[], unknown> {
-  const projections = yield* byDailyListId(dailyListId);
-  const projectionIds = projections.map((projection) => projection.id);
-  const tasks = projectionIds.length
-    ? yield* runQuery(
-        selectFrom(tasksTable, "byId").where((q) =>
+export const dailyProjectionChildrenForDisplay = selector({
+  name: "dailyProjectionChildrenForDisplay",
+  args: { dailyListId: v.string() },
+  handler: function* dailyProjectionChildrenForDisplay({
+    dailyListId,
+  }): Generator<unknown, CardForDisplay[], unknown> {
+    const projections = yield* dailyProjectionsByDailyListId({ dailyListId });
+    const projectionIds = projections.map((projection) => projection.id);
+    const tasks = projectionIds.length
+      ? yield* selectFrom(tasksTable, "byId").where((q) =>
           projectionIds.map((id) => q.eq("id", id)),
-        ),
-      )
-    : [];
-  const taskMap = new Map((tasks as Task[]).map((task) => [task.id, task]));
+        )
+      : [];
+    const taskMap = new Map((tasks as Task[]).map((task) => [task.id, task]));
 
-  const cards: Task[] = [];
-  const cardWrappers: TaskProjection[] = [];
-  for (const projection of projections) {
-    const task = taskMap.get(projection.id);
-    if (task && task.state === "todo") {
-      cards.push(task);
-      cardWrappers.push(projection);
+    const cards: Task[] = [];
+    const cardWrappers: TaskProjection[] = [];
+    for (const projection of projections) {
+      const task = taskMap.get(projection.id);
+      if (task && task.state === "todo") {
+        cards.push(task);
+        cardWrappers.push(projection);
+      }
     }
-  }
 
-  return yield* projectCategoryCardsSlice.cardsForDisplay(cards, cardWrappers);
+    return yield* projectCategoryCardsForDisplay({ cards, cardWrappers });
+  },
 });
 
-export const getDateOfTask = selector(function* (
-  taskId: string,
-): Generator<unknown, Date | undefined, unknown> {
-  const projection = yield* byTaskId(taskId);
-  if (!projection) return undefined as Date | undefined;
+export const dailyProjectionDateOfTask = selector({
+  name: "dailyProjectionDateOfTask",
+  args: { taskId: v.string() },
+  handler: function* dailyProjectionDateOfTask({
+    taskId,
+  }): Generator<unknown, Date | undefined, unknown> {
+    const projection = yield* dailyProjectionByTaskId({ taskId });
+    if (!projection) return undefined as Date | undefined;
 
-  const list = yield* dailyListsSlice.byId(projection.dailyListId);
-  if (!list) return undefined as Date | undefined;
+    const list = yield* dailyListById({ id: projection.dailyListId });
+    if (!list) return undefined as Date | undefined;
 
-  return parse(list.date, dailyDateFormat, new Date());
+    return parse(list.date, dailyDateFormat, new Date());
+  },
 });
 
-// Get all done task ids in a daily list (sorted by lastToggledAt)
-export const doneChildrenIds = selector(function* (
-  dailyListId: string,
-): Generator<unknown, string[], unknown> {
-  const projections = yield* byDailyListId(dailyListId);
+export const doneDailyProjectionChildrenIds = selector({
+  name: "doneDailyProjectionChildrenIds",
+  args: { dailyListId: v.string() },
+  handler: function* doneDailyProjectionChildrenIds({
+    dailyListId,
+  }): Generator<unknown, string[], unknown> {
+    const projections = yield* dailyProjectionsByDailyListId({ dailyListId });
 
-  const doneTasks: { id: string; lastToggledAt: number }[] = [];
-  for (const proj of projections) {
-    const task = yield* cardsTasksSlice.byId(proj.id);
-    if (task && task.state === "done") {
-      doneTasks.push({ id: proj.id, lastToggledAt: task.lastToggledAt });
+    const doneTasks: { id: string; lastToggledAt: number }[] = [];
+    for (const proj of projections) {
+      const task = yield* taskById({ id: proj.id });
+      if (task && task.state === "done") {
+        doneTasks.push({ id: proj.id, lastToggledAt: task.lastToggledAt });
+      }
     }
-  }
 
-  return doneTasks
-    .sort((a, b) => b.lastToggledAt - a.lastToggledAt)
-    .map((t) => t.id);
+    return doneTasks
+      .sort((a, b) => b.lastToggledAt - a.lastToggledAt)
+      .map((t) => t.id);
+  },
 });
 
-export const doneChildrenForDisplay = selector(function* (
-  dailyListId: string,
-): Generator<unknown, projectCategoryCardsSlice.CardForDisplay[], unknown> {
-  const projections = yield* byDailyListId(dailyListId);
-  const projectionIds = projections.map((projection) => projection.id);
-  const tasks = projectionIds.length
-    ? yield* runQuery(
-        selectFrom(tasksTable, "byId").where((q) =>
+export const doneDailyProjectionChildrenForDisplay = selector({
+  name: "doneDailyProjectionChildrenForDisplay",
+  args: { dailyListId: v.string() },
+  handler: function* doneDailyProjectionChildrenForDisplay({
+    dailyListId,
+  }): Generator<unknown, CardForDisplay[], unknown> {
+    const projections = yield* dailyProjectionsByDailyListId({ dailyListId });
+    const projectionIds = projections.map((projection) => projection.id);
+    const tasks = projectionIds.length
+      ? yield* selectFrom(tasksTable, "byId").where((q) =>
           projectionIds.map((id) => q.eq("id", id)),
-        ),
-      )
-    : [];
-  const taskMap = new Map((tasks as Task[]).map((task) => [task.id, task]));
+        )
+      : [];
+    const taskMap = new Map((tasks as Task[]).map((task) => [task.id, task]));
 
-  const cardsWithProjections: {
-    card: Task;
-    cardWrapper: TaskProjection;
-  }[] = [];
-  for (const projection of projections) {
-    const task = taskMap.get(projection.id);
-    if (task && task.state === "done") {
-      cardsWithProjections.push({ card: task, cardWrapper: projection });
+    const cardsWithProjections: { card: Task; cardWrapper: TaskProjection }[] =
+      [];
+    for (const projection of projections) {
+      const task = taskMap.get(projection.id);
+      if (task && task.state === "done") {
+        cardsWithProjections.push({ card: task, cardWrapper: projection });
+      }
     }
-  }
 
-  cardsWithProjections.sort(
-    (a, b) => b.card.lastToggledAt - a.card.lastToggledAt,
-  );
+    cardsWithProjections.sort(
+      (a, b) => b.card.lastToggledAt - a.card.lastToggledAt,
+    );
 
-  return yield* projectCategoryCardsSlice.cardsForDisplay(
-    cardsWithProjections.map(({ card }) => card),
-    cardsWithProjections.map(({ cardWrapper }) => cardWrapper),
-  );
+    return yield* projectCategoryCardsForDisplay({
+      cards: cardsWithProjections.map(({ card }) => card),
+      cardWrappers: cardsWithProjections.map(({ cardWrapper }) => cardWrapper),
+    });
+  },
 });
 
-// Get first task in daily list
-export const firstChild = selector(function* (
-  dailyListId: string,
-): Generator<unknown, Task | undefined, unknown> {
-  const ids = yield* childrenIds(dailyListId);
-  const firstChildId = ids[0];
-  return firstChildId
-    ? yield* cardsTasksSlice.byId(firstChildId)
-    : (undefined as Task | undefined);
+export const firstDailyProjectionChild = selector({
+  name: "firstDailyProjectionChild",
+  args: { dailyListId: v.string() },
+  handler: function* firstDailyProjectionChild({
+    dailyListId,
+  }): Generator<unknown, Task | undefined, unknown> {
+    const ids = yield* dailyProjectionChildrenIds({ dailyListId });
+    const firstChildId = ids[0];
+    return firstChildId
+      ? yield* taskById({ id: firstChildId })
+      : (undefined as Task | undefined);
+  },
 });
 
-// Get last task in daily list
-export const lastChild = selector(function* (
-  dailyListId: string,
-): Generator<unknown, Task | undefined, unknown> {
-  const ids = yield* childrenIds(dailyListId);
-  const lastChildId = ids[ids.length - 1];
-  return lastChildId
-    ? yield* cardsTasksSlice.byId(lastChildId)
-    : (undefined as Task | undefined);
+export const lastDailyProjectionChild = selector({
+  name: "lastDailyProjectionChild",
+  args: { dailyListId: v.string() },
+  handler: function* lastDailyProjectionChild({
+    dailyListId,
+  }): Generator<unknown, Task | undefined, unknown> {
+    const ids = yield* dailyProjectionChildrenIds({ dailyListId });
+    const lastChildId = ids[ids.length - 1];
+    return lastChildId
+      ? yield* taskById({ id: lastChildId })
+      : (undefined as Task | undefined);
+  },
 });
 
-// Get siblings of a task within its daily list
-export const siblings = selector(function* (taskId: string) {
-  const projection = yield* byTaskId(taskId);
-  if (!projection)
-    return [undefined, undefined] as [
+export const dailyProjectionSiblings = selector({
+  name: "dailyProjectionSiblings",
+  args: { taskId: v.string() },
+  handler: function* dailyProjectionSiblings({ taskId }) {
+    const projection = yield* dailyProjectionByTaskId({ taskId });
+    if (!projection)
+      return [undefined, undefined] as [
+        TaskProjection | undefined,
+        TaskProjection | undefined,
+      ];
+
+    const sortedProjections = yield* dailyProjectionsByDailyListId({
+      dailyListId: projection.dailyListId,
+    });
+
+    const index = sortedProjections.findIndex((p) => p.id === taskId);
+
+    const before = index > 0 ? sortedProjections[index - 1] : undefined;
+    const after =
+      index < sortedProjections.length - 1
+        ? sortedProjections[index + 1]
+        : undefined;
+
+    return [before, after] as [
       TaskProjection | undefined,
       TaskProjection | undefined,
     ];
-
-  const sortedProjections = yield* byDailyListId(projection.dailyListId);
-
-  const index = sortedProjections.findIndex((p) => p.id === taskId);
-
-  const before = index > 0 ? sortedProjections[index - 1] : undefined;
-  const after =
-    index < sortedProjections.length - 1
-      ? sortedProjections[index + 1]
-      : undefined;
-
-  return [before, after] as [
-    TaskProjection | undefined,
-    TaskProjection | undefined,
-  ];
+  },
 });
 
-// Check if a projection can accept another model being dropped
-export const canDrop = selector(function* (
-  projectionId: string,
-  dropId: string,
-  dropModelType: AnyModelType,
-): Generator<unknown, boolean, unknown> {
-  const model = yield* appSlice.byId(dropId, dropModelType);
-  if (!model) return false;
+export const dailyProjectionCanDrop = selector({
+  name: "dailyProjectionCanDrop",
+  args: {
+    projectionId: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+  },
+  handler: function* dailyProjectionCanDrop({
+    projectionId,
+    dropId,
+    dropModelType,
+  }): Generator<unknown, boolean, unknown> {
+    const model = yield* appById({ id: dropId, modelType: dropModelType });
+    if (!model) return false;
 
-  const projection = yield* byId(projectionId);
-  if (!projection) return false;
+    const projection = yield* dailyProjectionById({ id: projectionId });
+    if (!projection) return false;
 
-  const task = yield* cardsTasksSlice.byId(projection.id);
-  if (!task) return false;
+    const task = yield* taskById({ id: projection.id });
+    if (!task) return false;
 
-  // Only allow dropping todo tasks
-  if (task.state === "done") return false;
+    if (task.state === "done") return false;
 
-  // Check if dropping a task directly
-  if (isTask(model)) {
-    return model.state === "todo";
-  }
+    if (isTask(model)) {
+      return model.state === "todo";
+    }
 
-  // Check if dropping a projection (task in daily list)
-  if (isTaskProjection(model)) {
-    const droppedTask = yield* cardsTasksSlice.byId(model.id);
-    return droppedTask !== undefined && droppedTask.state === "todo";
-  }
+    if (isTaskProjection(model)) {
+      const droppedTask = yield* taskById({ id: model.id });
+      return droppedTask !== undefined && droppedTask.state === "todo";
+    }
 
-  // Check if dropping a stash projection
-  if (isStashProjection(model)) {
-    const droppedTask = yield* cardsTasksSlice.byId(model.id);
-    return droppedTask !== undefined && droppedTask.state === "todo";
-  }
+    if (isStashProjection(model)) {
+      const droppedTask = yield* taskById({ id: model.id });
+      return droppedTask !== undefined && droppedTask.state === "todo";
+    }
 
-  return false;
+    return false;
+  },
 });
 
-// Handle drop operations
-export const handleDrop = action(function* (
-  projectionId: string,
-  dropId: string,
-  dropModelType: AnyModelType,
-  edge: "top" | "bottom",
-): Generator<unknown, void, unknown> {
-  const canDropResult = yield* canDrop(projectionId, dropId, dropModelType);
-  if (!canDropResult) return;
-
-  const projection = yield* byId(projectionId);
-  if (!projection) return;
-
-  const dropItem = yield* appSlice.byId(dropId, dropModelType);
-  if (!dropItem) return;
-
-  const [up, down] = yield* siblings(projection.id);
-
-  let between: [string | undefined, string | undefined] = [
-    projection.orderToken,
-    down?.orderToken,
-  ];
-
-  if (edge === "top") {
-    between = [up?.orderToken, projection.orderToken];
-  }
-
-  const orderToken = generateJitteredKeyBetween(
-    between[0] || null,
-    between[1] || null,
-  );
-
-  if (isTask(dropItem)) {
-    yield* upsert({
-      id: dropItem.id,
-      dailyListId: projection.dailyListId,
-      orderToken,
+export const dailyProjectionHandleDrop = action({
+  name: "dailyProjectionHandleDrop",
+  args: {
+    projectionId: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* dailyProjectionHandleDrop({
+    projectionId,
+    dropId,
+    dropModelType,
+    edge,
+  }): Generator<unknown, void, unknown> {
+    const canDropResult = yield* dailyProjectionCanDrop({
+      projectionId,
+      dropId,
+      dropModelType,
     });
-  } else if (isTaskProjection(dropItem)) {
-    yield* upsert({
-      id: dropItem.id, // projection.id is the same as task.id
-      dailyListId: projection.dailyListId,
-      orderToken,
+    if (!canDropResult) return;
+
+    const projection = yield* dailyProjectionById({ id: projectionId });
+    if (!projection) return;
+
+    const dropItem = yield* appById({ id: dropId, modelType: dropModelType });
+    if (!dropItem) return;
+
+    const [up, down] = yield* dailyProjectionSiblings({
+      taskId: projection.id,
     });
-  } else if (isStashProjection(dropItem)) {
-    yield* upsert({
-      id: dropItem.id,
-      dailyListId: projection.dailyListId,
-      orderToken,
-    });
-    yield* stashProjectionsSlice.deleteProjections([dropItem.id]);
-  } else {
-    shouldNeverHappen("unknown drop item type", dropItem);
-  }
+
+    let between: [string | undefined, string | undefined] = [
+      projection.orderToken,
+      down?.orderToken,
+    ];
+
+    if (edge === "top") {
+      between = [up?.orderToken, projection.orderToken];
+    }
+
+    const orderToken = generateJitteredKeyBetween(
+      between[0] || null,
+      between[1] || null,
+    );
+
+    if (isTask(dropItem)) {
+      yield* upsertDailyProjection({
+        projection: {
+          id: dropItem.id,
+          dailyListId: projection.dailyListId,
+          orderToken,
+        },
+      });
+    } else if (isTaskProjection(dropItem)) {
+      yield* upsertDailyProjection({
+        projection: {
+          id: dropItem.id,
+          dailyListId: projection.dailyListId,
+          orderToken,
+        },
+      });
+    } else if (isStashProjection(dropItem)) {
+      yield* upsertDailyProjection({
+        projection: {
+          id: dropItem.id,
+          dailyListId: projection.dailyListId,
+          orderToken,
+        },
+      });
+      yield* deleteStashProjections({ ids: [dropItem.id] });
+    } else {
+      shouldNeverHappen("unknown drop item type", dropItem);
+    }
+  },
 });
 
-export const deleteProjections = action(function* (ids: string[]) {
-  yield* deleteRows(taskProjectionsTable, ids);
+export const deleteDailyProjections = action({
+  name: "deleteDailyProjections",
+  args: { ids: v.array(v.string()) },
+  handler: function* deleteDailyProjections({ ids }) {
+    yield* deleteRows(taskProjectionsTable, ids);
+  },
 });
 
-export const createProjection = action(function* (projection: {
-  id: string; // This should be the task.id
-  dailyListId: string;
-  orderToken: string;
-}) {
-  const newProjection: TaskProjection = {
-    type: projectionType,
-    id: projection.id,
-    dailyListId: projection.dailyListId,
-    orderToken: projection.orderToken,
-    createdAt: Date.now(),
-  };
-
-  yield* insert(taskProjectionsTable, [newProjection]);
-  return newProjection;
-});
-
-export const updateProjection = action(function* (
-  id: string,
-  projection: Partial<TaskProjection>,
-): Generator<unknown, void, unknown> {
-  const projInState = yield* byId(id);
-  if (!projInState) throw new Error("Projection not found");
-
-  yield* update(taskProjectionsTable, [{ ...projInState, ...projection }]);
-});
-
-// Create or update projection for a task
-export const upsert = action(function* (projection: {
-  id: string;
-  dailyListId: string;
-  orderToken: string;
-}) {
-  const existing = yield* byId(projection.id);
-
-  if (existing) {
-    yield* updateProjection(projection.id, {
+export const createDailyProjection = action({
+  name: "createDailyProjection",
+  args: {
+    projection: v.required(v.partial(taskProjectionsTable.v()), [
+      "id",
+      "dailyListId",
+      "orderToken",
+    ]),
+  },
+  handler: function* createDailyProjection({ projection }) {
+    const newProjection: TaskProjection = {
+      type: projectionType,
+      id: projection.id,
       dailyListId: projection.dailyListId,
       orderToken: projection.orderToken,
-    });
-    return yield* byIdOrDefault(projection.id);
-  }
+      createdAt: Date.now(),
+    };
 
-  return yield* createProjection(projection);
+    yield* insert(taskProjectionsTable, [newProjection]);
+    return newProjection;
+  },
 });
 
-// Create a sibling task in the daily list
-export const createSibling = action(function* (
-  taskId: string,
-  position: "before" | "after",
-  taskParams?: Partial<Task>,
-) {
-  const task = yield* cardsTasksSlice.byId(taskId);
-  if (!task) throw new Error("Task not found");
+export const updateDailyProjection = action({
+  name: "updateDailyProjection",
+  args: {
+    id: v.string(),
+    projection: v.partial(taskProjectionsTable.v()),
+  },
+  handler: function* updateDailyProjection({ id, projection }) {
+    const projInState = yield* dailyProjectionById({ id });
+    if (!projInState) throw new Error("Projection not found");
 
-  const projection = yield* byTaskId(taskId);
-  if (!projection) throw new Error("Task not in daily list");
+    yield* upsertRows(taskProjectionsTable, [
+      { ...projInState, ...projection },
+    ]);
+  },
+});
 
-  // Create task in project first
-  const newTask = yield* projectCategoryCardsSlice.createSiblingTask(
+export const upsertDailyProjection = action({
+  name: "upsertDailyProjection",
+  args: {
+    projection: v.required(v.partial(taskProjectionsTable.v()), [
+      "id",
+      "dailyListId",
+      "orderToken",
+    ]),
+  },
+  handler: function* upsertDailyProjection({ projection }) {
+    const existing = yield* dailyProjectionById({ id: projection.id });
+
+    if (existing) {
+      yield* updateDailyProjection({
+        id: projection.id,
+        projection: {
+          dailyListId: projection.dailyListId,
+          orderToken: projection.orderToken,
+        },
+      });
+      return yield* dailyProjectionByIdOrDefault({ id: projection.id });
+    }
+
+    return yield* createDailyProjection({ projection });
+  },
+});
+
+export const createDailyProjectionSibling = action({
+  name: "createDailyProjectionSibling",
+  args: {
+    taskId: v.string(),
+    position: v.union(v.literal("before"), v.literal("after")),
+    taskParams: v.optional(v.partial(tasksTable.v())),
+  },
+  handler: function* createDailyProjectionSibling({
     taskId,
     position,
     taskParams,
-  );
+  }) {
+    const task = yield* taskById({ id: taskId });
+    if (!task) throw new Error("Task not found");
 
-  // Add to daily list with proper ordering
-  const sibs = yield* siblings(taskId);
-  const dailyListOrderToken = generateKeyPositionedBetween(
-    projection,
-    sibs,
-    position,
-  );
+    const projection = yield* dailyProjectionByTaskId({ taskId });
+    if (!projection) throw new Error("Task not in daily list");
 
-  return yield* createProjection({
-    id: newTask.id,
-    dailyListId: projection.dailyListId,
-    orderToken: dailyListOrderToken,
-  });
+    const newTask = yield* createSiblingTask({
+      cardId: taskId,
+      position,
+      taskParams,
+    });
+
+    const sibs = yield* dailyProjectionSiblings({ taskId });
+    const dailyListOrderToken = generateKeyPositionedBetween(
+      projection,
+      sibs,
+      position,
+    );
+
+    return yield* createDailyProjection({
+      projection: {
+        id: newTask.id,
+        dailyListId: projection.dailyListId,
+        orderToken: dailyListOrderToken,
+      },
+    });
+  },
 });
 
-// Remove task from daily list
-export const removeFromDailyList = action(function* (taskId: string) {
-  yield* deleteProjections([taskId]);
+export const removeFromDailyList = action({
+  name: "removeFromDailyList",
+  args: { taskId: v.string() },
+  handler: function* removeFromDailyList({ taskId }) {
+    yield* deleteDailyProjections({ ids: [taskId] });
+  },
 });
 
-// Create projection at the top of a daily list (ensures daily list exists)
-export const createProjectionInDailyList = action(function* (
-  taskId: string,
-  date: string,
-) {
-  const dailyList = yield* dailyListsSlice.createIfNotPresent(date);
+export const createProjectionInDailyList = action({
+  name: "createProjectionInDailyList",
+  args: {
+    taskId: v.string(),
+    date: v.string(),
+  },
+  handler: function* createProjectionInDailyList({ taskId, date }) {
+    const dailyList = yield* createDailyListIfNotPresent({ date });
 
-  const projections = yield* byDailyListId(dailyList.id);
-  const firstToken = projections.length > 0 ? projections[0].orderToken : null;
-  const orderToken = generateJitteredKeyBetween(null, firstToken);
-
-  return yield* createProjection({
-    id: taskId,
-    dailyListId: dailyList.id,
-    orderToken,
-  });
-});
-
-// Add task to daily list
-export const addToDailyList = action(function* (
-  taskId: string,
-  dailyListId: string,
-  position:
-    | "append"
-    | "prepend"
-    | [TaskProjection | undefined, TaskProjection | undefined],
-): Generator<unknown, void, unknown> {
-  const task = yield* cardsTasksSlice.byId(taskId);
-  if (!task) throw new Error("Task not found");
-
-  let orderToken: string;
-
-  if (position === "append") {
-    const projections = yield* byDailyListId(dailyListId);
-    const lastToken =
-      projections.length > 0
-        ? projections[projections.length - 1].orderToken
-        : null;
-    orderToken = generateJitteredKeyBetween(lastToken, null);
-  } else if (position === "prepend") {
-    const projections = yield* byDailyListId(dailyListId);
+    const projections = yield* dailyProjectionsByDailyListId({
+      dailyListId: dailyList.id,
+    });
     const firstToken =
       projections.length > 0 ? projections[0].orderToken : null;
-    orderToken = generateJitteredKeyBetween(null, firstToken);
-  } else {
-    orderToken = generateJitteredKeyBetween(
-      position[0]?.orderToken || null,
-      position[1]?.orderToken || null,
-    );
-  }
+    const orderToken = generateJitteredKeyBetween(null, firstToken);
 
-  yield* upsert({
-    id: taskId,
+    return yield* createDailyProjection({
+      projection: {
+        id: taskId,
+        dailyListId: dailyList.id,
+        orderToken,
+      },
+    });
+  },
+});
+
+export const addToDailyList = action({
+  name: "addToDailyList",
+  args: {
+    taskId: v.string(),
+    dailyListId: v.string(),
+    position: orderPositionArg,
+  },
+  handler: function* addToDailyList({
+    taskId,
     dailyListId,
-    orderToken,
-  });
+    position,
+  }): Generator<unknown, void, unknown> {
+    const task = yield* taskById({ id: taskId });
+    if (!task) throw new Error("Task not found");
+
+    let orderToken: string;
+
+    if (position === "append") {
+      const projections = yield* dailyProjectionsByDailyListId({ dailyListId });
+      const lastToken =
+        projections.length > 0
+          ? projections[projections.length - 1].orderToken
+          : null;
+      orderToken = generateJitteredKeyBetween(lastToken, null);
+    } else if (position === "prepend") {
+      const projections = yield* dailyProjectionsByDailyListId({ dailyListId });
+      const firstToken =
+        projections.length > 0 ? projections[0].orderToken : null;
+      orderToken = generateJitteredKeyBetween(null, firstToken);
+    } else {
+      const siblings = normalizeOrderPosition(position) as [
+        OrderableItem | undefined,
+        OrderableItem | undefined,
+      ];
+      orderToken = generateJitteredKeyBetween(
+        siblings[0]?.orderToken || null,
+        siblings[1]?.orderToken || null,
+      );
+    }
+
+    yield* upsertDailyProjection({
+      projection: { id: taskId, dailyListId, orderToken },
+    });
+  },
 });
 
 registerModelSlice(
   {
-    byId,
-    delete: deleteProjections,
-    canDrop,
-    handleDrop,
+    byId: dailyProjectionById,
+    delete: deleteDailyProjections,
+    canDrop: dailyProjectionCanDrop,
+    handleDrop: dailyProjectionHandleDrop,
   },
   taskProjectionsTable,
   projectionType,

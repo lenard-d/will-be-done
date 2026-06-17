@@ -1,34 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { DB, execSync, runSelector, syncDispatch } from "@will-be-done/hyperdb";
-import { BptreeInmemDriver } from "@will-be-done/hyperdb/src/hyperdb/drivers/bptree-inmem-driver";
+import {
+  DB,
+  execSync,
+  runSelector,
+  syncDispatch,
+  BptreeInmemDriver,
+} from "@will-be-done/hyperdb-lib";
 import { dbIdTrait } from "../traits";
 import {
-  checklistItemsSlice,
-  checklistItemsTable,
-  type ChecklistItem,
-} from ".";
+  checklistItemChildren,
+  createItem as createChecklistItem,
+  toggleChecklistItemState,
+} from "./checklistItems";
+import { ChecklistItem, checklistItemsTable } from "./tables";
 
 function createDB() {
   const driver = new BptreeInmemDriver();
   const spaceId = "a0000000-0000-4000-8000-000000000001";
-  const db = new DB(driver, [], [dbIdTrait("space", spaceId)]);
+  const db = new DB(driver, { traits: [dbIdTrait("space", spaceId)] });
 
   execSync(db.loadTables([checklistItemsTable]));
 
   return db;
 }
 
-function createItem(
-  db: DB,
-  item: Pick<ChecklistItem, "id" | "state">,
-) {
+function createItem(db: DB, item: Pick<ChecklistItem, "id" | "state">) {
   syncDispatch(
     db,
-    checklistItemsSlice.createItem({
-      ...item,
-      parentId: "task-1",
-      parentType: "task",
-      content: item.id,
+    createChecklistItem({
+      item: {
+        ...item,
+        parentId: "task-1",
+        parentType: "task",
+        content: item.id,
+      },
     }),
   );
 }
@@ -37,9 +42,10 @@ function childIds(db: DB) {
   return runSelector<string[]>(
     db,
     function* () {
-      return (yield* checklistItemsSlice.children("task-1", "task")).map(
-        (item) => item.id,
-      );
+      return (yield* checklistItemChildren({
+        parentId: "task-1",
+        parentType: "task",
+      })).map((item) => item.id);
     },
     [],
   );
@@ -54,7 +60,7 @@ describe("checklist item state ordering", () => {
     createItem(db, { id: "done-1", state: "done" });
     createItem(db, { id: "done-2", state: "done" });
 
-    syncDispatch(db, checklistItemsSlice.toggleState("todo-1"));
+    syncDispatch(db, toggleChecklistItemState({ id: "todo-1" }));
 
     expect(childIds(db)).toEqual(["todo-2", "todo-1", "done-1", "done-2"]);
   });
@@ -66,7 +72,7 @@ describe("checklist item state ordering", () => {
     createItem(db, { id: "todo-2", state: "todo" });
     createItem(db, { id: "todo-3", state: "todo" });
 
-    syncDispatch(db, checklistItemsSlice.toggleState("todo-1"));
+    syncDispatch(db, toggleChecklistItemState({ id: "todo-1" }));
 
     expect(childIds(db)).toEqual(["todo-2", "todo-3", "todo-1"]);
   });

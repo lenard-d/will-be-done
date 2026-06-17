@@ -1,50 +1,47 @@
-import { isObjectType } from "../utils";
 import {
-  action,
   deleteRows,
   insert,
-  runQuery,
   selectFrom,
-  selector,
-  table,
-  update,
-} from "@will-be-done/hyperdb";
+  upsert,
+  v,
+} from "@will-be-done/hyperdb-lib";
+import { action, selector } from "../builders";
 import { uuidv7 } from "uuidv7";
 import { RRule } from "rrule";
+import { appById } from "./app";
 import {
-  appSlice,
-  cardsTasksSlice,
-  taskType,
-  checklistItemsSlice,
-  dailyListsProjectionsSlice,
-  projectCategoriesSlice,
-  projectCategoryCardsSlice,
-} from ".";
-import { isTask, type Task, type TaskNature } from "./cardsTasks";
-import { registerSpaceSyncableTable } from "./syncMap";
-import { AnyModelType, registerModelSlice } from "./maps";
+  copyItems,
+  deleteForParents,
+  checklistItemCanDropOnParent,
+  checklistItemHandleDropOnParent,
+} from "./checklistItems";
+import { createProjectionInDailyList } from "./dailyListsProjections";
+import {
+  createTaskCardAfter,
+  projectCategoryCardSiblings,
+} from "./projectsCategoriesCards";
+import { firstProjectCategoryChild } from "./projectsCategories";
+import {
+  deleteTasks,
+  taskById,
+  taskIdsOfTemplateId,
+  updateTask,
+} from "./cardsTasks";
+import { registerModelSlice } from "./maps";
 import { genUUIDV5 } from "../traits/";
 import { generateKeyPositionedBetween, getDMY } from "./utils";
-import { isTaskProjection } from "./dailyListsProjections";
-
-// Type definitions
-export const taskTemplateType = "template";
-
-export type TaskTemplate = {
-  type: typeof taskTemplateType;
-  id: string;
-  title: string;
-  content?: string;
-  orderToken: string;
-  repeatRule: string;
-  repeatRuleDtStart: number;
-  createdAt: number;
-  lastGeneratedAt: number;
-  projectCategoryId: string;
-  nature?: TaskNature;
-};
-
-export const isTaskTemplate = isObjectType<TaskTemplate>(taskTemplateType);
+import {
+  taskType,
+  tasksTable,
+  taskTemplateType,
+  taskTemplatesTable,
+  Task,
+  TaskTemplate,
+  possibleModelType,
+  isTaskTemplate,
+  isTask,
+  isTaskProjection,
+} from "./tables";
 
 export const defaultTaskTemplate: TaskTemplate = {
   type: taskTemplateType,
@@ -58,39 +55,43 @@ export const defaultTaskTemplate: TaskTemplate = {
   projectCategoryId: "abeee7aa-8bf4-4a5f-9167-ce42ad6187b6",
 };
 
-// Table definition
-export const taskTemplatesTable = table<TaskTemplate>(
-  "task_templates",
-).withIndexes({
-  byId: { cols: ["id"], type: "hash" },
-  byIds: { cols: ["id"], type: "btree" },
-  byCategoryIdOrderStates: {
-    cols: ["projectCategoryId", "orderToken"],
-    type: "btree",
+// Template utility functions
+const genTaskId = selector({
+  name: "genTaskId",
+  args: {
+    taskTemplateId: v.string(),
+    epoch: v.number(),
+  },
+  handler: function* genTaskId({ taskTemplateId, epoch }) {
+    return yield* genUUIDV5(taskType, taskTemplateId + "_" + epoch);
   },
 });
-registerSpaceSyncableTable(taskTemplatesTable, taskTemplateType);
 
-// Template utility functions
-const genTaskId = selector(function* (taskTemplateId: string, epoch: number) {
-  return yield* genUUIDV5(taskType, taskTemplateId + "_" + epoch);
-});
-
-const templateToTask = selector(function* (tmpl: TaskTemplate, epoch: number) {
-  return {
-    type: "task",
-    id: yield* genTaskId(tmpl.id, epoch),
-    title: tmpl.title,
-    content: "",
-    state: "todo",
-    projectCategoryId: tmpl.projectCategoryId,
-    orderToken: tmpl.orderToken,
-    lastToggledAt: epoch,
-    nature: tmpl.nature,
-    createdAt: epoch,
-    templateId: tmpl.id,
-    templateDate: epoch,
-  } satisfies Task;
+const templateToTask = selector({
+  name: "templateToTask",
+  args: {
+    tmpl: taskTemplatesTable.v(),
+    epoch: v.number(),
+  },
+  handler: function* templateToTask({ tmpl, epoch }) {
+    return {
+      type: "task",
+      id: yield* genTaskId({
+        taskTemplateId: tmpl.id,
+        epoch,
+      }),
+      title: tmpl.title,
+      content: "",
+      state: "todo",
+      projectCategoryId: tmpl.projectCategoryId,
+      orderToken: tmpl.orderToken,
+      lastToggledAt: epoch,
+      nature: tmpl.nature,
+      createdAt: epoch,
+      templateId: tmpl.id,
+      templateDate: epoch,
+    } satisfies Task;
+  },
 });
 
 // RRule utility functions
@@ -195,374 +196,506 @@ function buildRecurrencePolicy(template: TaskTemplate): RecurrencePolicy {
 }
 
 // Selectors
-export const allIds = selector(function* () {
-  const templates = yield* runQuery(
-    selectFrom(taskTemplatesTable, "byIds").where((q) => q),
-  );
-  return templates.map((p) => p.id);
+export const taskTemplateAllIds = selector({
+  name: "taskTemplateAllIds",
+  args: {},
+  handler: function* taskTemplateAllIds() {
+    const templates = yield* selectFrom(taskTemplatesTable, "byIds").where(
+      (q) => q,
+    );
+    return templates.map((p) => p.id);
+  },
 });
 
-export const byId = selector(function* (id: string) {
-  const templates = yield* runQuery(
-    selectFrom(taskTemplatesTable, "byId")
+export const taskTemplateById = selector({
+  name: "taskTemplateById",
+  args: { id: v.string() },
+  handler: function* taskTemplateById({ id }: { id: string }) {
+    const templates = yield* selectFrom(taskTemplatesTable, "byId")
       .where((q) => q.eq("id", id))
-      .limit(1),
-  );
-  return templates[0] as TaskTemplate | undefined;
+      .limit(1);
+    return templates[0] as TaskTemplate | undefined;
+  },
 });
 
-export const byIdOrDefault = selector(function* (id: string) {
-  const templates = yield* runQuery(
-    selectFrom(taskTemplatesTable, "byId")
+export const taskTemplateByIdOrDefault = selector({
+  name: "taskTemplateByIdOrDefault",
+  args: { id: v.string() },
+  handler: function* taskTemplateByIdOrDefault({ id }: { id: string }) {
+    const templates = yield* selectFrom(taskTemplatesTable, "byId")
       .where((q) => q.eq("id", id))
-      .limit(1),
-  );
-  return (templates[0] as TaskTemplate | undefined) ?? defaultTaskTemplate;
+      .limit(1);
+    return (templates[0] as TaskTemplate | undefined) ?? defaultTaskTemplate;
+  },
 });
 
-export const all = selector(function* () {
-  const templates = yield* runQuery(
-    selectFrom(taskTemplatesTable, "byCategoryIdOrderStates"),
-  );
-  return templates;
+export const allTaskTemplates = selector({
+  name: "allTaskTemplates",
+  args: {},
+  handler: function* allTaskTemplates() {
+    const templates = yield* selectFrom(
+      taskTemplatesTable,
+      "byCategoryIdOrderStates",
+    );
+    return templates;
+  },
 });
 
-export const ids = selector(function* () {
-  const templates = yield* all();
-  return templates.map((t) => t.id);
+export const taskTemplateIds = selector({
+  name: "taskTemplateIds",
+  args: {},
+  handler: function* taskTemplateIds() {
+    const templates = yield* allTaskTemplates({});
+    return templates.map((t) => t.id);
+  },
 });
 
-export const rule = selector(function* (id: string) {
-  const template = yield* byIdOrDefault(id);
-  return createRuleFromString(template.repeatRule);
+export const taskTemplateRule = selector({
+  name: "taskTemplateRule",
+  args: { id: v.string() },
+  handler: function* taskTemplateRule({ id }: { id: string }) {
+    const template = yield* taskTemplateByIdOrDefault({ id });
+    return createRuleFromString(template.repeatRule);
+  },
 });
 
-export const ruleText = selector(function* (id: string) {
-  const r = yield* rule(id);
-  return r.toText();
+export const taskTemplateRuleText = selector({
+  name: "taskTemplateRuleText",
+  args: { id: v.string() },
+  handler: function* taskTemplateRuleText({ id }: { id: string }) {
+    const r = yield* taskTemplateRule({ id });
+    return r.toText();
+  },
 });
 
-export const newTasksInRange = selector(function* (
-  fromDate: Date,
-  toDate: Date,
-) {
-  const templates = yield* all();
-  const newTasks: Task[] = [];
+export const taskTemplateNewTasksInRange = selector({
+  name: "taskTemplateNewTasksInRange",
+  args: {
+    fromDate: v.number(),
+    toDate: v.number(),
+  },
+  handler: function* taskTemplateNewTasksInRange({ fromDate, toDate }) {
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
+    const templates = yield* allTaskTemplates({});
+    const newTasks: Task[] = [];
 
-  for (const template of templates) {
-    const policy = buildRecurrencePolicy(template);
-    const r = createRuleWithDtstart(template.repeatRule, policy.dtstart);
-    const range = policy.canonicalizeRange(fromDate, toDate);
-    const dates = r.between(range.from, range.to, policy.inclusiveBetween);
-    for (const date of dates) {
-      const epoch = policy.occurrenceEpoch(date);
-      const taskId = yield* genTaskId(template.id, epoch);
-      const existingTask = yield* cardsTasksSlice.byId(taskId);
-      if (!existingTask) {
-        newTasks.push(yield* templateToTask(template, epoch));
+    for (const template of templates) {
+      const policy = buildRecurrencePolicy(template);
+      const r = createRuleWithDtstart(template.repeatRule, policy.dtstart);
+      const range = policy.canonicalizeRange(from, to);
+      const dates = r.between(range.from, range.to, policy.inclusiveBetween);
+      for (const date of dates) {
+        const epoch = policy.occurrenceEpoch(date);
+        const taskId = yield* genTaskId({
+          taskTemplateId: template.id,
+          epoch,
+        });
+        const existingTask = yield* taskById({ id: taskId });
+        if (!existingTask) {
+          newTasks.push(
+            yield* templateToTask({
+              tmpl: template,
+              epoch,
+            }),
+          );
+        }
       }
     }
-  }
 
-  return newTasks;
+    return newTasks;
+  },
 });
 
-export const newTasksToGenForTemplate = selector(function* (
-  templateId: string,
-  toDate: Date,
-) {
-  const template = yield* byId(templateId);
-  if (!template) return [];
+export const newTasksToGenForTaskTemplate = selector({
+  name: "newTasksToGenForTaskTemplate",
+  args: {
+    templateId: v.string(),
+    toDate: v.number(),
+  },
+  handler: function* newTasksToGenForTaskTemplate({ templateId, toDate }) {
+    const template = yield* taskTemplateById({ id: templateId });
+    if (!template) return [];
+    const to = new Date(toDate);
 
-  const policy = buildRecurrencePolicy(template);
-  const r = createRuleWithDtstart(template.repeatRule, policy.dtstart);
-  const newTasks: Task[] = [];
+    const policy = buildRecurrencePolicy(template);
+    const r = createRuleWithDtstart(template.repeatRule, policy.dtstart);
+    const newTasks: Task[] = [];
 
-  // Cap generation window to 2 weeks to avoid generating thousands of tasks
-  const earliestFrom = Math.max(
-    template.lastGeneratedAt,
-    toDate.getTime() - MAX_GENERATION_WINDOW_MS,
-  );
+    // Cap generation window to 2 weeks to avoid generating thousands of tasks
+    const earliestFrom = Math.max(
+      template.lastGeneratedAt,
+      toDate - MAX_GENERATION_WINDOW_MS,
+    );
 
-  const range = policy.canonicalizeGenerationRange(
-    new Date(earliestFrom),
-    toDate,
-  );
-  const dates = r.between(range.from, range.to, policy.inclusiveBetween);
+    const range = policy.canonicalizeGenerationRange(
+      new Date(earliestFrom),
+      to,
+    );
+    const dates = r.between(range.from, range.to, policy.inclusiveBetween);
 
-  for (const date of dates) {
-    const epoch = policy.occurrenceEpoch(date);
-    const taskId = yield* genTaskId(template.id, epoch);
-    const existingTask = yield* cardsTasksSlice.byId(taskId);
-    if (!existingTask) {
-      newTasks.push(yield* templateToTask(template, epoch));
+    for (const date of dates) {
+      const epoch = policy.occurrenceEpoch(date);
+      const taskId = yield* genTaskId({
+        taskTemplateId: template.id,
+        epoch,
+      });
+      const existingTask = yield* taskById({ id: taskId });
+      if (!existingTask) {
+        newTasks.push(
+          yield* templateToTask({
+            tmpl: template,
+            epoch,
+          }),
+        );
+      }
     }
-  }
 
-  return newTasks;
+    return newTasks;
+  },
 });
 
-export const newTasksToGenForTemplates = selector(function* (toDate: Date) {
-  const templateIds = yield* ids();
-  const newTasks: Task[] = [];
+export const newTasksToGenForTaskTemplates = selector({
+  name: "newTasksToGenForTaskTemplates",
+  args: { toDate: v.number() },
+  handler: function* newTasksToGenForTaskTemplates({ toDate }) {
+    const templateIds = yield* taskTemplateIds({});
+    const newTasks: Task[] = [];
 
-  for (const templateId of templateIds) {
-    const tasks = yield* newTasksToGenForTemplate(templateId, toDate);
-    newTasks.push(...tasks);
-  }
+    for (const templateId of templateIds) {
+      const tasks = yield* newTasksToGenForTaskTemplate({
+        templateId,
+        toDate,
+      });
+      newTasks.push(...tasks);
+    }
 
-  return newTasks;
+    return newTasks;
+  },
 });
 
-export const canDrop = selector(function* (
-  taskTemplateId: string,
-  dropId: string,
-  dropModelType: AnyModelType,
-) {
-  const template = yield* byId(taskTemplateId);
-  if (!template) return false;
+export const taskTemplateCanDrop = selector({
+  name: "taskTemplateCanDrop",
+  args: {
+    taskTemplateId: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+  },
+  handler: function* taskTemplateCanDrop({
+    taskTemplateId,
+    dropId,
+    dropModelType,
+  }) {
+    const template = yield* taskTemplateById({ id: taskTemplateId });
+    if (!template) return false;
 
-  const model = yield* appSlice.byId(dropId, dropModelType);
-  if (!model) return false;
+    const model = yield* appById({
+      id: dropId,
+      modelType: dropModelType,
+    });
+    if (!model) return false;
 
-  if (isTask(model)) {
-    return model.state === "todo";
-  }
+    if (isTask(model)) {
+      return model.state === "todo";
+    }
 
-  if (isTaskProjection(model)) {
-    const droppedTask = yield* cardsTasksSlice.byId(model.id);
-    return droppedTask !== undefined && droppedTask.state === "todo";
-  }
+    if (isTaskProjection(model)) {
+      const droppedTask = yield* taskById({ id: model.id });
+      return droppedTask !== undefined && droppedTask.state === "todo";
+    }
 
-  if (
-    yield* checklistItemsSlice.canDropOnParent(
-      taskTemplateId,
-      taskTemplateType,
-      dropId,
-      dropModelType,
-    )
-  ) {
-    return true;
-  }
+    if (
+      yield* checklistItemCanDropOnParent({
+        parentId: taskTemplateId,
+        parentType: taskTemplateType,
+        dropId,
+        dropModelType,
+      })
+    ) {
+      return true;
+    }
 
-  return isTaskTemplate(model);
+    return isTaskTemplate(model);
+  },
 });
 
 // Actions
-export const create = action(function* (
-  template: Partial<TaskTemplate> & {
-    orderToken: string;
-    projectCategoryId: string;
+export const createTaskTemplate = action({
+  name: "createTaskTemplate",
+  args: {
+    now: v.number(),
+    template: v.required(v.partial(taskTemplatesTable.v()), [
+      "orderToken",
+      "projectCategoryId",
+    ]),
   },
-) {
-  const id = template.id || uuidv7();
+  handler: function* createTaskTemplate({ now, template }) {
+    const id = template.id || uuidv7();
 
-  const now = Date.now();
-  const newTemplate: TaskTemplate = {
-    type: taskTemplateType,
-    id,
-    title: "New template",
-    repeatRule: defaultRule,
-    repeatRuleDtStart: now,
-    createdAt: now,
-    lastGeneratedAt: now,
-    ...template,
-  };
+    const newTemplate: TaskTemplate = {
+      type: taskTemplateType,
+      id,
+      title: "New template",
+      repeatRule: defaultRule,
+      repeatRuleDtStart: now,
+      createdAt: now,
+      lastGeneratedAt: now,
+      ...template,
+    };
 
-  yield* insert(taskTemplatesTable, [newTemplate]);
-  return newTemplate;
+    yield* insert(taskTemplatesTable, [newTemplate]);
+    return newTemplate;
+  },
 });
 
-export const updateTemplate = action(function* (
-  id: string,
-  template: Partial<TaskTemplate>,
-) {
-  const templateInState = yield* byId(id);
-  if (!templateInState) throw new Error("Template not found");
+export const updateTemplate = action({
+  name: "updateTemplate",
+  args: {
+    id: v.string(),
+    template: v.partial(taskTemplatesTable.v()),
+  },
+  handler: function* updateTemplate({ id, template }) {
+    const templateInState = yield* taskTemplateById({ id });
+    if (!templateInState) throw new Error("Template not found");
 
-  yield* update(taskTemplatesTable, [{ ...templateInState, ...template }]);
-  return templateInState;
+    const updatedTemplate = { ...templateInState, ...template };
+    yield* upsert(taskTemplatesTable, [updatedTemplate]);
+    return updatedTemplate;
+  },
 });
 
-export const deleteTemplates = action(function* (ids: string[]) {
-  const taskIds = yield* cardsTasksSlice.taskIdsOfTemplateId(ids);
-  for (const tId of taskIds) {
-    yield* cardsTasksSlice.updateTask(tId, {
-      templateId: null,
-      templateDate: null,
-    });
-  }
-  yield* checklistItemsSlice.deleteForParents(ids, taskTemplateType);
-  yield* deleteRows(taskTemplatesTable, ids);
-});
-
-export const createFromTask = action(function* (
-  task: Task,
-  data: Partial<TaskTemplate>,
-) {
-  const newId = uuidv7();
-  yield* checklistItemsSlice.copyItems(
-    task.id,
-    taskType,
-    newId,
-    taskTemplateType,
-  );
-  yield* cardsTasksSlice.deleteTasks([task.id]);
-
-  const now = Date.now();
-  const template: TaskTemplate = {
-    id: newId,
-    type: taskTemplateType,
-    title: task.title,
-    content: task.content,
-    orderToken: task.orderToken,
-    createdAt: task.createdAt,
-    repeatRule: defaultRule,
-    repeatRuleDtStart: now,
-    lastGeneratedAt: now,
-    projectCategoryId: task.projectCategoryId,
-    ...data,
-  };
-
-  yield* insert(taskTemplatesTable, [template]);
-  yield* generateTasksFromTemplates();
-  return template;
-});
-
-export const handleDrop = action(function* (
-  taskTemplateId: string,
-  dropId: string,
-  dropModelType: AnyModelType,
-  edge: "top" | "bottom",
-) {
-  if (!(yield* canDrop(taskTemplateId, dropId, dropModelType))) return;
-
-  const template = yield* byId(taskTemplateId);
-  if (!template) return;
-
-  const dropItem = yield* appSlice.byId(dropId, dropModelType);
-  if (!dropItem) return;
-
-  const orderToken = generateKeyPositionedBetween(
-    template,
-    yield* projectCategoryCardsSlice.siblings(taskTemplateId),
-    edge === "top" ? "before" : "after",
-  );
-
-  if (isTask(dropItem)) {
-    yield* cardsTasksSlice.updateTask(dropItem.id, {
-      projectCategoryId: template.projectCategoryId,
-      orderToken,
-    });
-  } else if (isTaskTemplate(dropItem)) {
-    yield* updateTemplate(dropItem.id, {
-      projectCategoryId: template.projectCategoryId,
-      orderToken,
-    });
-  } else if (isTaskProjection(dropItem)) {
-    const droppedTask = yield* cardsTasksSlice.byId(dropItem.id);
-    if (droppedTask) {
-      yield* cardsTasksSlice.updateTask(droppedTask.id, {
-        projectCategoryId: template.projectCategoryId,
-        orderToken,
+export const deleteTemplates = action({
+  name: "deleteTemplates",
+  args: { taskTemplateIds: v.array(v.string()) },
+  handler: function* deleteTemplates({ taskTemplateIds }) {
+    const taskIds = yield* taskIdsOfTemplateId({ ids: taskTemplateIds });
+    for (const tId of taskIds) {
+      yield* updateTask({
+        id: tId,
+        task: {
+          templateId: null,
+          templateDate: null,
+        },
       });
     }
-  } else if (
-    yield* checklistItemsSlice.canDropOnParent(
-      taskTemplateId,
-      taskTemplateType,
-      dropId,
-      dropModelType,
-    )
-  ) {
-    yield* checklistItemsSlice.handleDropOnParent(
-      taskTemplateId,
-      taskTemplateType,
-      dropId,
-      dropModelType,
-      edge,
-    );
-  }
+    yield* deleteForParents({
+      parentIds: taskTemplateIds,
+      parentType: taskTemplateType,
+    });
+    yield* deleteRows(taskTemplatesTable, taskTemplateIds);
+  },
 });
 
-export const generateTasksFromTemplates = action(function* () {
-  const toDate = new Date();
+export const createTaskTemplateFromTask = action({
+  name: "createTaskTemplateFromTask",
+  args: {
+    task: tasksTable.v(),
+    data: v.partial(taskTemplatesTable.v()),
+    now: v.number(),
+  },
+  handler: function* createTaskTemplateFromTask({ task, data, now }) {
+    const newId = uuidv7();
+    yield* copyItems({
+      fromParentId: task.id,
+      fromParentType: taskType,
+      toParentId: newId,
+      toParentType: taskTemplateType,
+    });
+    yield* deleteTasks({ ids: [task.id] });
 
-  const newTasks = yield* newTasksToGenForTemplates(toDate);
+    const template: TaskTemplate = {
+      id: newId,
+      type: taskTemplateType,
+      title: task.title,
+      content: task.content,
+      orderToken: task.orderToken,
+      createdAt: task.createdAt,
+      repeatRule: defaultRule,
+      repeatRuleDtStart: now,
+      lastGeneratedAt: now,
+      projectCategoryId: task.projectCategoryId,
+      ...data,
+    };
 
-  for (const task of newTasks) {
-    if (task.templateId === null) {
-      throw new Error("TemplateId is null");
+    yield* insert(taskTemplatesTable, [template]);
+    yield* generateTasksFromTemplates({ toDate: now });
+    return template;
+  },
+});
+
+export const taskTemplateHandleDrop = action({
+  name: "taskTemplateHandleDrop",
+  args: {
+    taskTemplateId: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* taskTemplateHandleDrop({
+    taskTemplateId,
+    dropId,
+    dropModelType,
+    edge,
+  }) {
+    if (
+      !(yield* taskTemplateCanDrop({
+        taskTemplateId,
+        dropId,
+        dropModelType,
+      }))
+    )
+      return;
+
+    const template = yield* taskTemplateById({ id: taskTemplateId });
+    if (!template) return;
+
+    const dropItem = yield* appById({
+      id: dropId,
+      modelType: dropModelType,
+    });
+    if (!dropItem) return;
+
+    const orderToken = generateKeyPositionedBetween(
+      template,
+      yield* projectCategoryCardSiblings({ cardId: taskTemplateId }),
+      edge === "top" ? "before" : "after",
+    );
+
+    if (isTask(dropItem)) {
+      yield* updateTask({
+        id: dropItem.id,
+        task: {
+          projectCategoryId: template.projectCategoryId,
+          orderToken,
+        },
+      });
+    } else if (isTaskTemplate(dropItem)) {
+      yield* updateTemplate({
+        id: dropItem.id,
+        template: {
+          projectCategoryId: template.projectCategoryId,
+          orderToken,
+        },
+      });
+    } else if (isTaskProjection(dropItem)) {
+      const droppedTask = yield* taskById({ id: dropItem.id });
+      if (droppedTask) {
+        yield* updateTask({
+          id: droppedTask.id,
+          task: {
+            projectCategoryId: template.projectCategoryId,
+            orderToken,
+          },
+        });
+      }
+    } else if (
+      yield* checklistItemCanDropOnParent({
+        parentId: taskTemplateId,
+        parentType: taskTemplateType,
+        dropId,
+        dropModelType,
+      })
+    ) {
+      yield* checklistItemHandleDropOnParent({
+        parentId: taskTemplateId,
+        parentType: taskTemplateType,
+        dropId,
+        dropModelType,
+        edge,
+      });
+    }
+  },
+});
+
+export const generateTasksFromTemplates = action({
+  name: "generateTasksFromTemplates",
+  args: {
+    toDate: v.number(),
+  },
+  handler: function* generateTasksFromTemplates({ toDate }) {
+    const newTasks = yield* newTasksToGenForTaskTemplates({
+      toDate,
+    });
+
+    for (const task of newTasks) {
+      if (task.templateId === null) {
+        throw new Error("TemplateId is null");
+      }
+
+      // Create task card after the template card in the project category
+      yield* createTaskCardAfter({
+        cardId: task.templateId,
+        taskParams: {
+          ...task,
+        },
+      });
+      yield* copyItems({
+        fromParentId: task.templateId,
+        fromParentType: taskTemplateType,
+        toParentId: task.id,
+        toParentType: taskType,
+      });
+
+      // Create projection at top of daily list for the task's date
+      const localDate = fromUTC(new Date(task.createdAt));
+      const dmy = getDMY(localDate);
+      yield* createProjectionInDailyList({
+        taskId: task.id,
+        date: dmy,
+      });
     }
 
-    // Create task card after the template card in the project category
-    yield* projectCategoryCardsSlice.createTaskCardAfter(task.templateId, {
-      ...task,
-    });
-    yield* checklistItemsSlice.copyItems(
-      task.templateId,
-      taskTemplateType,
-      task.id,
-      taskType,
+    const templateIdsToUpdate = new Set(
+      newTasks.filter((t) => t.templateId !== null).map((t) => t.templateId!),
     );
-
-    // Create projection at top of daily list for the task's date
-    const localDate = fromUTC(new Date(task.createdAt));
-    const dmy = getDMY(localDate);
-    yield* dailyListsProjectionsSlice.createProjectionInDailyList(task.id, dmy);
-  }
-
-  const templateIdsToUpdate = new Set(
-    newTasks.filter((t) => t.templateId !== null).map((t) => t.templateId!),
-  );
-  for (const templateId of templateIdsToUpdate) {
-    yield* updateTemplate(templateId, { lastGeneratedAt: toDate.getTime() });
-  }
+    for (const templateId of templateIdsToUpdate) {
+      yield* updateTemplate({
+        id: templateId,
+        template: { lastGeneratedAt: toDate },
+      });
+    }
+  },
 });
 
-export const cleanAll = action(function* () {
-  const templates = yield* all();
-  for (const template of templates) {
-    yield* deleteRows(taskTemplatesTable, [template.id]);
-  }
+export const cleanAllTaskTemplates = action({
+  name: "cleanAllTaskTemplates",
+  args: {},
+  handler: function* cleanAllTaskTemplates() {
+    const templates = yield* allTaskTemplates({});
+    for (const template of templates) {
+      yield* deleteRows(taskTemplatesTable, [template.id]);
+    }
+  },
 });
 
-export const moveTemplateToProject = action(function* (
-  templateId: string,
-  projectId: string,
-) {
-  const template = yield* byId(templateId);
-  if (!template) throw new Error("Template not found");
+export const moveTemplateToProject = action({
+  name: "moveTemplateToProject",
+  args: {
+    templateId: v.string(),
+    projectId: v.string(),
+  },
+  handler: function* moveTemplateToProject({ templateId, projectId }) {
+    const template = yield* taskTemplateById({ id: templateId });
+    if (!template) throw new Error("Template not found");
 
-  const firstCategory = yield* projectCategoriesSlice.firstChild(projectId);
-  if (!firstCategory) throw new Error("No categories found");
+    const firstCategory = yield* firstProjectCategoryChild({ projectId });
+    if (!firstCategory) throw new Error("No categories found");
 
-  yield* updateTemplate(templateId, {
-    projectCategoryId: firstCategory.id,
-  });
+    yield* updateTemplate({
+      id: templateId,
+      template: {
+        projectCategoryId: firstCategory.id,
+      },
+    });
+  },
 });
 
 // Local slice object for registerModelSlice (not exported)
 const cardsTaskTemplatesSlice = {
-  allIds,
-  byId,
-  byIdOrDefault,
-  all,
-  ids,
-  rule,
-  ruleText,
-  newTasksInRange,
-  newTasksToGenForTemplate,
-  newTasksToGenForTemplates,
-  canDrop,
-  create,
-  update: updateTemplate,
+  byId: taskTemplateById,
   delete: deleteTemplates,
-  createFromTask,
-  handleDrop,
-  cleanAll,
-  moveTemplateToProject,
-  generateTasksFromTemplates,
+  canDrop: taskTemplateCanDrop,
+  handleDrop: taskTemplateHandleDrop,
 };
 
 registerModelSlice(

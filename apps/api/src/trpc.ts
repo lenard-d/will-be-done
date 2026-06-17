@@ -1,8 +1,8 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { FastifyRequest, FastifyReply } from "fastify";
-import { syncDispatch } from "@will-be-done/hyperdb";
+import { syncDispatch } from "@will-be-done/hyperdb-lib";
 import { getMainHyperDB } from "./db/db";
-import { authSlice } from "./slices/authSlice";
+import { validateToken } from "./slices/authSlice";
 
 /**
  * Context type definition
@@ -27,7 +27,7 @@ function createContextFromToken(authHeader?: string): Context {
   const token = authHeader.slice(7); // Remove "Bearer "
 
   try {
-    const user = syncDispatch(mainDB, authSlice.validateToken(token));
+    const user = syncDispatch(mainDB, validateToken({ tokenId: token }));
     return { user };
   } catch (error) {
     console.error("Token validation error:", error);

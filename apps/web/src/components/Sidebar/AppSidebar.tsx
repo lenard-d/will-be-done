@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useSyncSelector, useDispatch } from "@will-be-done/hyperdb";
+import { useSyncSelector, useDispatch } from "@will-be-done/hyperdb-lib";
 import {
-  backupSlice,
-  projectsAllSlice,
-  projectsSlice,
+  createProject,
+  inboxProject,
+  loadSpaceBackup,
+  notDoneTasksCountExceptDailiesCount,
+  projectChildrenIdsWithoutInbox,
 } from "@will-be-done/slices/space";
 import { SidebarProjectItem } from "./SidebarProjectItem.tsx";
 import { SpaceBlock } from "./SpaceBlock.tsx";
@@ -135,10 +137,10 @@ const InboxNavItem = ({ inboxId }: { inboxId: string }) => {
   const spaceId = Route.useParams().spaceId;
   const closeMobile = useCloseMobileOnNav();
 
-  const notDoneCount = useSyncSelector(
-    () => projectsSlice.notDoneTasksCountExceptDailiesCount(inboxId, []),
-    [inboxId],
-  );
+  const notDoneCount = useSyncSelector({
+    selector: notDoneTasksCountExceptDailiesCount,
+    args: { projectId: inboxId, exceptDailyListIds: [] },
+  });
 
   const isActive = useRouterState({
     select: (s) =>
@@ -186,16 +188,19 @@ const NavStrip = () => {
 
 export const AppSidebar = () => {
   const dispatch = useDispatch();
-  const inbox = useSyncSelector(() => projectsAllSlice.inbox(), []);
-  const projectIdsWithoutInbox = useSyncSelector(
-    () => projectsAllSlice.childrenIdsWithoutInbox(),
-    [],
-  );
+  const inbox = useSyncSelector({
+    selector: inboxProject,
+    args: {},
+  });
+  const projectIdsWithoutInbox = useSyncSelector({
+    selector: projectChildrenIdsWithoutInbox,
+    args: {},
+  });
 
   const handleAddProjectClick = async () => {
     const title = await promptDialog("Enter project title");
     if (title) {
-      dispatch(projectsSlice.create({ title }, "append"));
+      dispatch(createProject({ project: { title }, position: "append" }));
     }
   };
 
@@ -261,7 +266,7 @@ const GenerateTestDataButton = () => {
     const l = parseInt(todo, 10) || 0;
 
     const backup = generateTestBackup(n, m, k, l);
-    dispatch(backupSlice.loadBackup(backup));
+    dispatch(loadSpaceBackup({ backup: backup }));
     setOpen(false);
   };
 
