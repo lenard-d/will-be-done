@@ -1,9 +1,5 @@
 import { nanoid } from "nanoid";
-import {
-  asyncDispatch,
-  DB,
-  execAsync,
-} from "@will-be-done/hyperdb-lib";
+import { asyncDispatch, DB, execAsync } from "@will-be-done/hyperdb-lib";
 import {
   insertChangeFromInsert,
   changesTable,
@@ -58,10 +54,9 @@ export async function initPopupStore(spaceId: string) {
   ];
 
   const asyncDriver = await initAsyncDriver(dbName);
-  const asyncDB = new DB(
-    asyncDriver,
-    { traits: [dbIdTrait("space", spaceId)] },
-  );
+  const asyncDB = new DB(asyncDriver, {
+    traits: [dbIdTrait("space", spaceId)],
+  });
 
   await execAsync(asyncDB.loadTables(persistDBTables));
 
@@ -77,16 +72,27 @@ export async function initPopupStore(spaceId: string) {
           const inbox = yield* createInboxIfNotExists({});
 
           // Get first category of inbox
-          const inboxCategory = yield* firstProjectCategoryChild({ projectId: inbox.id });
+          const inboxCategory = yield* firstProjectCategoryChild({
+            projectId: inbox.id,
+          });
           if (!inboxCategory) {
             throw new Error("Inbox category not found");
           }
 
           // Create task at the top (prepend)
-          const task = yield* createProjectCategoryTask({ categoryId: inboxCategory.id, position: "prepend", taskAttrs: { title } });
+          const task = yield* createProjectCategoryTask({
+            categoryId: inboxCategory.id,
+            position: "prepend",
+            taskAttrs: { title },
+          });
 
           // Create change record
-          const change = yield* insertChangeFromInsert({ tableDef: tasksTable, row: task, clientId: clientId, nextClock: nextClock() });
+          const change = yield* insertChangeFromInsert({
+            tableDef: tasksTable,
+            row: task,
+            clientId: clientId,
+            nextClock: nextClock(),
+          });
 
           return { task, change };
         })(),

@@ -5,8 +5,8 @@ import {
   syncDispatch,
   runSelector,
   insert,
-  action,
-  selector,
+  createAction,
+  createSelector,
   selectFrom,
   defineTable,
   Row,
@@ -21,6 +21,9 @@ import {
   type ChangesetArrayType,
 } from "./changes";
 
+const action = createAction();
+const selector = createSelector();
+
 // A simple test table
 const testTable = defineTable("testItems", {
   type: v.string(),
@@ -32,7 +35,7 @@ const testTable = defineTable("testItems", {
 
 function createDB() {
   const driver = new BptreeInmemDriver();
-  const db = new DB(driver, [], []);
+  const db = new DB(driver);
   execSync(db.loadTables([testTable, changesTable]));
   return db;
 }
@@ -64,6 +67,7 @@ function localCreate(
     createdAt: number;
   },
   createdAtClock: string,
+  clientId = "local",
 ) {
   syncDispatch(
     db,
@@ -80,7 +84,7 @@ function localCreate(
             createdAt: createdAtClock,
             updatedAt: createdAtClock,
             deletedAt: null,
-            clientId: "local",
+            clientId,
             changes: {
               type: createdAtClock,
               id: createdAtClock,
@@ -418,6 +422,10 @@ describe("first-creator-wins merge", () => {
     const row = getRow(db, entityId);
     expect(row).toBeDefined();
     expect(row!.title).toBe("remote-title"); // inserted as-is
+
+    const change = getChange(db, entityId);
+    expect(change).toBeDefined();
+    expect(change!.clientId).toBe("remote");
   });
 
   it("normal update sync is not blocked by FCW guard (same createdAt)", () => {
@@ -557,5 +565,52 @@ describe("first-creator-wins merge", () => {
 
     expect(changesets).toHaveLength(1);
     expect(changesets[0]!.data).toHaveLength(1205);
+  });
+
+  it("filters changes from the requesting client while preserving max clock", () => {
+    resetClock();
+    const db = createDB();
+
+    localCreate(
+      db,
+      {
+        type: "task",
+        id: "remote-change",
+        title: "remote",
+        orderToken: "a",
+        createdAt: 100,
+      },
+      "0000000020-0001-remote",
+      "remote-client",
+    );
+    localCreate(
+      db,
+      {
+        type: "task",
+        id: "own-change",
+        title: "own",
+        orderToken: "b",
+        createdAt: 200,
+      },
+      "0000000030-0001-local",
+      "local-client",
+    );
+
+    const { changesets, maxClock } = runSelector(
+      db,
+      function* () {
+        return yield* getChangesetAfter({
+          after: "",
+          requesterClientId: "local-client",
+          registeredSyncableTableNameMap: registeredTables,
+        });
+      },
+      [],
+    );
+
+    expect(maxClock).toBe("0000000030-0001-local");
+    expect(changesets).toHaveLength(1);
+    expect(changesets[0]!.data).toHaveLength(1);
+    expect(changesets[0]!.data[0]!.change.entityId).toBe("remote-change");
   });
 });

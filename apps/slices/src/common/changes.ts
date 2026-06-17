@@ -94,6 +94,7 @@ export const getChangesetAfter = selector({
   name: "getChangesetAfter",
   args: {
     after: v.string(),
+    requesterClientId: v.optional(v.string()),
     registeredSyncableTableNameMap: v.record(
       v.string(),
       tableDefinitionArgSchema,
@@ -101,20 +102,26 @@ export const getChangesetAfter = selector({
   },
   handler: function* getChangesetAfter({
     after,
+    requesterClientId,
     registeredSyncableTableNameMap,
   }) {
-    const changesToSend = yield* allChangesAfter({ after });
+    const allChangesToSend = yield* allChangesAfter({ after });
     const changesets: ChangesetArrayType = [];
     let maxClock = "";
 
-    if (changesToSend.length === 0) {
-      return { changesets: [], maxClock };
-    }
-
-    for (const c of changesToSend) {
+    for (const c of allChangesToSend) {
       if (c.updatedAt > maxClock) {
         maxClock = c.updatedAt;
       }
+    }
+
+    const changesToSend =
+      requesterClientId == null
+        ? allChangesToSend
+        : allChangesToSend.filter((c) => c.clientId !== requesterClientId);
+
+    if (changesToSend.length === 0) {
+      return { changesets: [], maxClock };
     }
 
     const groupedChanges = groupBy(changesToSend, (c) => c.tableName);
@@ -326,7 +333,6 @@ export const mergeChanges = action({
   handler: function* mergeChanges({
     input,
     nextClock,
-    clientId,
     registeredSyncableTableNameMap,
   }) {
     const allChanges: Change[] = [];
@@ -426,7 +432,7 @@ export const mergeChanges = action({
               : incomingChange.createdAt,
             updatedAt: currentClock,
             deletedAt: null,
-            clientId: clientId,
+            clientId: incomingChange.clientId,
             changes: fcwMergedChanges,
           });
 
@@ -476,7 +482,7 @@ export const mergeChanges = action({
           createdAt: currentChanges?.createdAt ?? currentClock,
           updatedAt: currentClock,
           deletedAt: lastDeletedAt,
-          clientId: clientId,
+          clientId: incomingChange.clientId,
           changes: mergedChanges,
         });
       }

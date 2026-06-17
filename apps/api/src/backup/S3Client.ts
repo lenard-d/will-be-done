@@ -42,7 +42,8 @@ export class S3Client {
       const err = error as Record<string, unknown>;
       console.error(`[S3Client] ✗ Bucket access failed:`, err?.message);
       throw new Error(
-        `Cannot access S3 bucket "${this.bucketName}": ${err?.message || String(error)}`
+        `Cannot access S3 bucket "${this.bucketName}": ${err?.message || String(error)}`,
+        { cause: error },
       );
     }
   }
@@ -86,7 +87,7 @@ export class S3Client {
       const errorMsg = `S3 upload failed for ${s3Key}: ${
         (err?.message as string) || String(error)
       }`;
-      throw new Error(errorMsg);
+      throw new Error(errorMsg, { cause: error });
     }
 
     return s3Key;

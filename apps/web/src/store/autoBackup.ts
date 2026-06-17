@@ -1,7 +1,5 @@
 import { syncDispatch, SubscribableDB } from "@will-be-done/hyperdb-lib";
-import {
-  getSpaceBackup,
-} from "@will-be-done/slices/space";
+import { getSpaceBackup } from "@will-be-done/slices/space";
 
 // --- IndexedDB helpers ---
 

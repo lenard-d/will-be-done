@@ -1,0 +1,130 @@
+import { deleteRows, upsert, v } from "@will-be-done/hyperdb-lib";
+import {
+  changesTable,
+  type Change,
+  getChangesetAfter,
+  getSyncStateOrDefault,
+  updateSyncState,
+} from "@will-be-done/slices/common";
+import { action } from "./builders";
+import {
+  changesetArraySchema,
+  syncableTableNameMapSchema,
+} from "./syncValidators";
+
+export const createApplyServerChangesIfNoClientChanges = (
+  nextClock: () => string,
+) =>
+  action({
+    name: "applyServerChangesIfNoClientChanges",
+    args: {
+      registeredSyncableTableNameMap: syncableTableNameMapSchema,
+      syncState: v.object({
+        lastSentClock: v.string(),
+      }),
+      serverChanges: v.object({
+        changesets: changesetArraySchema,
+        maxClock: v.string(),
+      }),
+      clientId: v.string(),
+    },
+    handler: function* applyServerChangesIfNoClientChanges({
+      registeredSyncableTableNameMap,
+      syncState,
+      serverChanges,
+      clientId,
+    }) {
+      const { changesets } = yield* getChangesetAfter({
+        after: syncState.lastSentClock,
+        registeredSyncableTableNameMap,
+      });
+      if (changesets.length !== 0) {
+        console.log(
+          "some new client changes appeared, skipping server changes apply",
+        );
+
+        return;
+      }
+
+      const allChanges: Change[] = [];
+
+      let maxNewClientClock = "";
+
+      for (const changeset of serverChanges.changesets) {
+        const toDeleteRows: string[] = [];
+        const toUpsertRows: { id: string; [key: string]: unknown }[] = [];
+
+        const table = registeredSyncableTableNameMap[changeset.tableName];
+        if (!table) {
+          throw new Error("Unknown table: " + changeset.tableName);
+        }
+
+        for (const { change, row } of changeset.data) {
+          if (change.deletedAt != null) {
+            toDeleteRows.push(change.entityId);
+          } else if (row) {
+            toUpsertRows.push(row);
+          }
+
+          const currentClock = nextClock();
+
+          if (currentClock > maxNewClientClock) {
+            maxNewClientClock = currentClock;
+          }
+
+          allChanges.push({
+            id: change.id,
+            entityId: change.entityId,
+            tableName: table.tableName,
+            // TODO: use local createdAt value. Or maybe not?
+            createdAt: change.createdAt,
+            updatedAt: currentClock,
+            deletedAt: change.deletedAt,
+            clientId,
+            changes: change.changes,
+          });
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        yield* upsert(table, toUpsertRows as any);
+        yield* deleteRows(table, toDeleteRows);
+      }
+
+      yield* upsert(changesTable, allChanges);
+      console.log("set clock", serverChanges.maxClock, maxNewClientClock);
+
+      yield* updateSyncState({
+        updates: {
+          lastServerAppliedClock: serverChanges.maxClock,
+          lastSentClock: maxNewClientClock,
+        },
+      });
+    },
+  });
+
+export const getChangesToSendToServer = action({
+  name: "getChangesToSendToServer",
+  args: {
+    registeredSyncableTableNameMap: syncableTableNameMapSchema,
+  },
+  handler: function* getChangesToSendToServer({
+    registeredSyncableTableNameMap,
+  }) {
+    const currentSyncState = yield* getSyncStateOrDefault({});
+
+    console.log(
+      "get clock",
+      currentSyncState.lastServerAppliedClock,
+      currentSyncState.lastSentClock,
+    );
+
+    const { changesets, maxClock } = yield* getChangesetAfter({
+      after: currentSyncState.lastSentClock,
+      registeredSyncableTableNameMap,
+    });
+
+    console.log("new client changes", changesets, maxClock);
+
+    return { changesets, maxClock };
+  },
+});

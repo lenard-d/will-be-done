@@ -13,7 +13,7 @@ import {
   registeredUserSyncableTableNameMap,
   registeredUserSyncableTables,
 } from "@will-be-done/slices/user";
-import { SyncConfig } from "./load";
+import type { SyncConfig } from "./syncTypes";
 import { generateDemoBackup } from "@/lib/demoData";
 
 const demoDbId = "e89b6c8f-1d6c-4bf4-9d27-478339773fc9";
@@ -33,9 +33,9 @@ export const spaceDBConfig = (dbId: string) => {
     afterInit: (db: HyperDB) => {
       syncDispatch(db, createInboxIfNotExists({}));
 
-      syncDispatch(db, generateTasksFromTemplates({}));
+      syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       setInterval(() => {
-        syncDispatch(db, generateTasksFromTemplates({}));
+        syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       }, 60 * 1000);
     },
   } satisfies SyncConfig;
@@ -59,9 +59,9 @@ export const demoSpaceDBConfig = () => {
         syncDispatch(db, loadSpaceBackup({ backup: generateDemoBackup() }));
       }
 
-      syncDispatch(db, generateTasksFromTemplates({}));
+      syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       setInterval(() => {
-        syncDispatch(db, generateTasksFromTemplates({}));
+        syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       }, 60 * 1000);
     },
   } satisfies SyncConfig;

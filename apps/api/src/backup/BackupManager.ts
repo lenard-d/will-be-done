@@ -353,6 +353,7 @@ export class BackupManager {
     } catch (error) {
       throw new Error(
         `VACUUM failed for ${dbPath}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }
@@ -422,6 +423,7 @@ export class BackupManager {
         `Compression failed for ${inputPath}: ${
           error instanceof Error ? error.message : String(error)
         }`,
+        { cause: error },
       );
     }
   }

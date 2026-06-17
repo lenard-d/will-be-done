@@ -145,6 +145,7 @@ export function TaskBody({
         const template = dispatch(
           createTaskTemplateFromTask({
             task: task,
+            now: Date.now(),
             data: {
               repeatRule: ruleString,
             },
