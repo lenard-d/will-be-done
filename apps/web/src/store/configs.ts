@@ -33,9 +33,9 @@ export const spaceDBConfig = (dbId: string) => {
     afterInit: (db: HyperDB) => {
       syncDispatch(db, createInboxIfNotExists({}));
 
-      syncDispatch(db, generateTasksFromTemplates({}));
+      syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       setInterval(() => {
-        syncDispatch(db, generateTasksFromTemplates({}));
+        syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       }, 60 * 1000);
     },
   } satisfies SyncConfig;
@@ -59,9 +59,9 @@ export const demoSpaceDBConfig = () => {
         syncDispatch(db, loadSpaceBackup({ backup: generateDemoBackup() }));
       }
 
-      syncDispatch(db, generateTasksFromTemplates({}));
+      syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       setInterval(() => {
-        syncDispatch(db, generateTasksFromTemplates({}));
+        syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
       }, 60 * 1000);
     },
   } satisfies SyncConfig;

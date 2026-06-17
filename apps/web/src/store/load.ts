@@ -7,13 +7,16 @@ import {
   execAsync,
   execSync,
   HyperDB,
+  insert,
   Row,
   runSelectorAsync,
   selectFrom,
+  v,
   type Op,
   SubscribableDB,
   syncDispatch,
-  TableDefinition,
+  type TableDefinition,
+  type Validator,
   upsert,
 } from "@will-be-done/hyperdb-lib";
 import { action } from "./builders";
@@ -91,6 +94,45 @@ const initedDbs: Record<string, SubscribableDB> = {};
 const SYNC_POLL_INTERVAL_MS = 5000;
 const SYNC_REQUEST_TIMEOUT_MS = 30_000;
 
+const primitiveValueSchema = v.union(
+  v.string(),
+  v.number(),
+  v.boolean(),
+  v.null(),
+);
+const primitiveRowSchema = v.record(
+  v.string(),
+  primitiveValueSchema,
+) as Validator<PrimitiveRow>;
+const tableDefinitionArgSchema = v.object({
+  tableName: v.string(),
+});
+const syncableTableNameMapSchema = v.record(
+  v.string(),
+  tableDefinitionArgSchema,
+) as Validator<Record<string, TableDefinition>>;
+const changeSchema = v.object({
+  id: v.string(),
+  entityId: v.string(),
+  tableName: v.string(),
+  deletedAt: v.union(v.string(), v.null()),
+  clientId: v.string(),
+  changes: v.record(v.string(), v.string()),
+  createdAt: v.string(),
+  updatedAt: v.string(),
+});
+const changesetArraySchema = v.array(
+  v.object({
+    tableName: v.string(),
+    data: v.array(
+      v.object({
+        row: v.optional(primitiveRowSchema),
+        change: changeSchema,
+      }),
+    ),
+  }),
+);
+
 class SyncRequestTimeoutError extends Error {
   constructor(label: string) {
     super(`${label} timed out after ${SYNC_REQUEST_TIMEOUT_MS}ms`);
@@ -113,6 +155,19 @@ const withSyncRequestTimeout = async <T>(
     window.clearTimeout(timeoutId);
   }
 };
+
+const createLoadRowsIntoSyncDb = <TTable extends TableDefinition>(
+  table: TTable,
+) =>
+  action({
+    name: `loadRowsIntoSyncDb:${table.tableName}`,
+    args: {
+      rows: v.array(table.v()),
+    },
+    handler: function* loadRowsIntoSyncDb({ rows }) {
+      yield* insert(table, rows);
+    },
+  });
 
 export const initDbStore = async (
   syncConfig: SyncConfig,
@@ -228,9 +283,8 @@ export const initDbStore = async (
         return yield* selectFrom(table, "byIds");
       });
 
-      // TODO: call with action
       // no need to broadcast to sub db
-      execSync(syncDB.insert(table, res));
+      syncDispatch(syncDB, createLoadRowsIntoSyncDb(table)({ rows: res }));
     }
 
     const bc = new BroadcastChannel(`changes-${getClientId(dbName)}`);
@@ -551,101 +605,126 @@ type ChangePersistedEvent = {
   changeset: ChangesetArrayType;
 };
 
-const applyServerChangesIfNoClientChanges = action(
-  function* applyServerChangesIfNoClientChanges(
-    syncConfig: SyncConfig,
-    syncState: { lastSentClock: string },
-    serverChanges: { changesets: ChangesetArrayType; maxClock: string },
-    nextClock: () => string,
-    clientId: string,
-  ) {
-    const { changesets } = yield* getChangesetAfter({
-      after: syncState.lastSentClock,
-      registeredSyncableTableNameMap: syncConfig.tableNameMap,
-    });
-    if (changesets.length !== 0) {
-      console.log(
-        "some new client changes appeared, skipping server changes apply",
-      );
+const createApplyServerChangesIfNoClientChanges = (nextClock: () => string) =>
+  action({
+    name: "applyServerChangesIfNoClientChanges",
+    args: {
+      registeredSyncableTableNameMap: syncableTableNameMapSchema,
+      syncState: v.object({
+        lastSentClock: v.string(),
+      }),
+      serverChanges: v.object({
+        changesets: changesetArraySchema,
+        maxClock: v.string(),
+      }),
+      clientId: v.string(),
+    },
+    handler: function* applyServerChangesIfNoClientChanges({
+      registeredSyncableTableNameMap,
+      syncState,
+      serverChanges,
+      clientId,
+    }: {
+      registeredSyncableTableNameMap: Record<string, TableDefinition>;
+      syncState: { lastSentClock: string };
+      serverChanges: { changesets: ChangesetArrayType; maxClock: string };
+      clientId: string;
+    }) {
+      const { changesets } = yield* getChangesetAfter({
+        after: syncState.lastSentClock,
+        registeredSyncableTableNameMap,
+      });
+      if (changesets.length !== 0) {
+        console.log(
+          "some new client changes appeared, skipping server changes apply",
+        );
 
-      return;
-    }
-
-    const allChanges: Change[] = [];
-
-    let maxNewClientClock = "";
-
-    for (const changeset of serverChanges.changesets) {
-      const toDeleteRows: string[] = [];
-      const toUpsertRows: { id: string; [key: string]: unknown }[] = [];
-
-      const table = syncConfig.tableNameMap[changeset.tableName];
-      if (!table) {
-        throw new Error("Unknown table: " + changeset.tableName);
+        return;
       }
 
-      for (const { change, row } of changeset.data) {
-        if (change.deletedAt != null) {
-          toDeleteRows.push(change.entityId);
-        } else if (row) {
-          toUpsertRows.push(row);
+      const allChanges: Change[] = [];
+
+      let maxNewClientClock = "";
+
+      for (const changeset of serverChanges.changesets) {
+        const toDeleteRows: string[] = [];
+        const toUpsertRows: { id: string; [key: string]: unknown }[] = [];
+
+        const table = registeredSyncableTableNameMap[changeset.tableName];
+        if (!table) {
+          throw new Error("Unknown table: " + changeset.tableName);
         }
 
-        const currentClock = nextClock();
+        for (const { change, row } of changeset.data) {
+          if (change.deletedAt != null) {
+            toDeleteRows.push(change.entityId);
+          } else if (row) {
+            toUpsertRows.push(row);
+          }
 
-        if (currentClock > maxNewClientClock) {
-          maxNewClientClock = currentClock;
+          const currentClock = nextClock();
+
+          if (currentClock > maxNewClientClock) {
+            maxNewClientClock = currentClock;
+          }
+
+          allChanges.push({
+            id: change.id,
+            entityId: change.entityId,
+            tableName: table.tableName,
+            // TODO: use local createdAt value. Or maybe not?
+            createdAt: change?.createdAt,
+            updatedAt: currentClock,
+            deletedAt: change?.deletedAt,
+            clientId,
+            changes: change.changes,
+          });
         }
 
-        allChanges.push({
-          id: change.id,
-          entityId: change.entityId,
-          tableName: table.tableName,
-          // TODO: use local createdAt value. Or maybe not?
-          createdAt: change?.createdAt,
-          updatedAt: currentClock,
-          deletedAt: change?.deletedAt,
-          clientId,
-          changes: change.changes,
-        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        yield* upsert(table, toUpsertRows as any);
+        yield* deleteRows(table, toDeleteRows);
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      yield* upsert(table, toUpsertRows as any);
-      yield* deleteRows(table, toDeleteRows);
-    }
+      yield* upsert(changesTable, allChanges);
+      console.log("set clock", serverChanges.maxClock, maxNewClientClock);
 
-    yield* upsert(changesTable, allChanges);
-    console.log("set clock", serverChanges.maxClock, maxNewClientClock);
-
-    yield* updateSyncState({
-      updates: {
-        lastServerAppliedClock: serverChanges.maxClock,
-        lastSentClock: maxNewClientClock,
-      },
-    });
-  },
-);
-
-const getChangesToSendToServer = action(function* getChangesToSendToServer(
-  syncConfig: SyncConfig,
-) {
-  const currentSyncState = yield* getSyncStateOrDefault({});
-
-  console.log(
-    "get clock",
-    currentSyncState.lastServerAppliedClock,
-    currentSyncState.lastSentClock,
-  );
-
-  const { changesets, maxClock } = yield* getChangesetAfter({
-    after: currentSyncState.lastSentClock,
-    registeredSyncableTableNameMap: syncConfig.tableNameMap,
+      yield* updateSyncState({
+        updates: {
+          lastServerAppliedClock: serverChanges.maxClock,
+          lastSentClock: maxNewClientClock,
+        },
+      });
+    },
   });
 
-  console.log("new client changes", changesets, maxClock);
+const getChangesToSendToServer = action({
+  name: "getChangesToSendToServer",
+  args: {
+    registeredSyncableTableNameMap: syncableTableNameMapSchema,
+  },
+  handler: function* getChangesToSendToServer({
+    registeredSyncableTableNameMap,
+  }: {
+    registeredSyncableTableNameMap: Record<string, TableDefinition>;
+  }) {
+    const currentSyncState = yield* getSyncStateOrDefault({});
 
-  return { changesets, maxClock };
+    console.log(
+      "get clock",
+      currentSyncState.lastServerAppliedClock,
+      currentSyncState.lastSentClock,
+    );
+
+    const { changesets, maxClock } = yield* getChangesetAfter({
+      after: currentSyncState.lastSentClock,
+      registeredSyncableTableNameMap,
+    });
+
+    console.log("new client changes", changesets, maxClock);
+
+    return { changesets, maxClock };
+  },
 });
 
 class Syncer {
@@ -655,6 +734,9 @@ class Syncer {
   private clientId: string;
   private syncConfig: SyncConfig;
   private wsUnsubscribe: (() => void) | null = null;
+  private applyServerChangesIfNoClientChanges: ReturnType<
+    typeof createApplyServerChangesIfNoClientChanges
+  >;
 
   // State-based sync triggers - emit to wake up the sync loop
   private wsNotification = new State<number>(0);
@@ -674,6 +756,8 @@ class Syncer {
     this.syncConfig = syncConfig;
     this.electionChannel = new BroadcastChannel("election-" + clientId);
     this.elector = createLeaderElection(this.electionChannel);
+    this.applyServerChangesIfNoClientChanges =
+      createApplyServerChangesIfNoClientChanges(nextClock);
 
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
@@ -829,13 +913,12 @@ class Syncer {
 
     await asyncDispatch(
       this.persistentDB,
-      applyServerChangesIfNoClientChanges(
-        this.syncConfig,
+      this.applyServerChangesIfNoClientChanges({
+        registeredSyncableTableNameMap: this.syncConfig.tableNameMap,
         syncState,
         serverChanges,
-        this.nextClock,
-        this.clientId,
-      ),
+        clientId: this.clientId,
+      }),
     );
 
     try {
@@ -848,7 +931,9 @@ class Syncer {
   private async sendChangesToServer() {
     const { changesets, maxClock } = await asyncDispatch(
       this.persistentDB,
-      getChangesToSendToServer(this.syncConfig),
+      getChangesToSendToServer({
+        registeredSyncableTableNameMap: this.syncConfig.tableNameMap,
+      }),
     );
 
     if (changesets.length === 0) {

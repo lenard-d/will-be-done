@@ -5,7 +5,7 @@ import {
   syncDispatch,
   runSelector,
   insert,
-  action,
+  createAction,
   selectFrom,
   BptreeInmemDriver,
 } from "@will-be-done/hyperdb-lib";
@@ -27,6 +27,8 @@ import {
   taskTemplatesTable,
 } from "./tables";
 
+const action = createAction();
+
 function createDB(timezoneOffsetMinutes: number) {
   // Mock timezone before creating DB/running selectors
   vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(
@@ -35,7 +37,7 @@ function createDB(timezoneOffsetMinutes: number) {
 
   const driver = new BptreeInmemDriver();
   const spaceId = "a0000000-0000-4000-8000-000000000001";
-  const db = new DB(driver, [], [dbIdTrait("space", spaceId)]);
+  const db = new DB(driver, { traits: [dbIdTrait("space", spaceId)] });
   execSync(
     db.loadTables([
       checklistItemsTable,
@@ -448,10 +450,8 @@ describe("cardsTaskTemplates timezone consistency", () => {
   });
 
   it("immediately generates today's task when converting a task to a template", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-03-04T17:05:00Z"));
-
-    const now = Date.now();
+    const db = createDB(0);
+    const now = new Date("2026-03-04T17:05:00Z").getTime();
     const task: Task = {
       type: "task",
       id: "task-to-template",
@@ -467,7 +467,6 @@ describe("cardsTaskTemplates timezone consistency", () => {
       templateDate: null,
     };
 
-    const db = createDB(0);
     const template = syncDispatch(
       db,
       action({
@@ -475,7 +474,7 @@ describe("cardsTaskTemplates timezone consistency", () => {
         args: {},
         handler: function* anonymousAction() {
           yield* insert(tasksTable, [task]);
-          return yield* createTaskTemplateFromTask({ task, data: {} });
+          return yield* createTaskTemplateFromTask({ task, data: {}, now });
         },
       })({}),
     ) as TaskTemplate;

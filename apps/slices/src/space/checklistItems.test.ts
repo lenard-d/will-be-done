@@ -17,7 +17,7 @@ import { ChecklistItem, checklistItemsTable } from "./tables";
 function createDB() {
   const driver = new BptreeInmemDriver();
   const spaceId = "a0000000-0000-4000-8000-000000000001";
-  const db = new DB(driver, [], [dbIdTrait("space", spaceId)]);
+  const db = new DB(driver, { traits: [dbIdTrait("space", spaceId)] });
 
   execSync(db.loadTables([checklistItemsTable]));
 

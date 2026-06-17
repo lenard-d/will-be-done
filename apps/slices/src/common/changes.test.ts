@@ -5,8 +5,8 @@ import {
   syncDispatch,
   runSelector,
   insert,
-  action,
-  selector,
+  createAction,
+  createSelector,
   selectFrom,
   defineTable,
   Row,
@@ -21,6 +21,9 @@ import {
   type ChangesetArrayType,
 } from "./changes";
 
+const action = createAction();
+const selector = createSelector();
+
 // A simple test table
 const testTable = defineTable("testItems", {
   type: v.string(),
@@ -32,7 +35,7 @@ const testTable = defineTable("testItems", {
 
 function createDB() {
   const driver = new BptreeInmemDriver();
-  const db = new DB(driver, [], []);
+  const db = new DB(driver);
   execSync(db.loadTables([testTable, changesTable]));
   return db;
 }

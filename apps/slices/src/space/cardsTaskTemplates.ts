@@ -423,15 +423,15 @@ export const taskTemplateCanDrop = selector({
 export const createTaskTemplate = action({
   name: "createTaskTemplate",
   args: {
+    now: v.number(),
     template: v.required(v.partial(taskTemplatesTable.v()), [
       "orderToken",
       "projectCategoryId",
     ]),
   },
-  handler: function* createTaskTemplate({ template }) {
+  handler: function* createTaskTemplate({ now, template }) {
     const id = template.id || uuidv7();
 
-    const now = Date.now();
     const newTemplate: TaskTemplate = {
       type: taskTemplateType,
       id,
@@ -491,8 +491,9 @@ export const createTaskTemplateFromTask = action({
   args: {
     task: tasksTable.v(),
     data: v.partial(taskTemplatesTable.v()),
+    now: v.number(),
   },
-  handler: function* createTaskTemplateFromTask({ task, data }) {
+  handler: function* createTaskTemplateFromTask({ task, data, now }) {
     const newId = uuidv7();
     yield* copyItems({
       fromParentId: task.id,
@@ -502,7 +503,6 @@ export const createTaskTemplateFromTask = action({
     });
     yield* deleteTasks({ ids: [task.id] });
 
-    const now = Date.now();
     const template: TaskTemplate = {
       id: newId,
       type: taskTemplateType,
@@ -518,7 +518,7 @@ export const createTaskTemplateFromTask = action({
     };
 
     yield* insert(taskTemplatesTable, [template]);
-    yield* generateTasksFromTemplates({});
+    yield* generateTasksFromTemplates({ toDate: now });
     return template;
   },
 });
@@ -609,12 +609,12 @@ export const taskTemplateHandleDrop = action({
 
 export const generateTasksFromTemplates = action({
   name: "generateTasksFromTemplates",
-  args: {},
-  handler: function* generateTasksFromTemplates() {
-    const toDate = new Date();
-
+  args: {
+    toDate: v.number(),
+  },
+  handler: function* generateTasksFromTemplates({ toDate }) {
     const newTasks = yield* newTasksToGenForTaskTemplates({
-      toDate: toDate.getTime(),
+      toDate,
     });
 
     for (const task of newTasks) {
@@ -651,7 +651,7 @@ export const generateTasksFromTemplates = action({
     for (const templateId of templateIdsToUpdate) {
       yield* updateTemplate({
         id: templateId,
-        template: { lastGeneratedAt: toDate.getTime() },
+        template: { lastGeneratedAt: toDate },
       });
     }
   },
