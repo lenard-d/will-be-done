@@ -17,9 +17,7 @@ const primitiveRowSchema = v.record(
   primitiveValueSchema,
 ) as Validator<PrimitiveRow>;
 
-const tableDefinitionArgSchema = v.object({
-  tableName: v.string(),
-});
+const tableDefinitionArgSchema = v.pass<TableDefinition>();
 
 export const syncableTableNameMapSchema = v.record(
   v.string(),

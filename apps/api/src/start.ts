@@ -74,6 +74,7 @@ const appRouter = router({
         lastServerUpdatedAt: z.string(),
         dbId: z.string(),
         dbType: z.union([z.literal("user"), z.literal("space")]),
+        clientId: z.string(),
       }),
     )
     .query(async (opts) => {
@@ -92,7 +93,11 @@ const appRouter = router({
 
       return select(
         db,
-        getChangesetAfter({ after: opts.input.lastServerUpdatedAt, registeredSyncableTableNameMap: config.tableNameMap }),
+        getChangesetAfter({
+          after: opts.input.lastServerUpdatedAt,
+          requesterClientId: opts.input.clientId,
+          registeredSyncableTableNameMap: config.tableNameMap,
+        }),
       );
     }),
   handleChanges: protectedProcedure

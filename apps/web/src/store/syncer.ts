@@ -182,15 +182,22 @@ export class Syncer {
             lastServerUpdatedAt: syncState.lastServerAppliedClock,
             dbId: this.syncConfig.dbId,
             dbType: this.syncConfig.dbType,
+            clientId: this.clientId,
           },
           { signal },
         ),
     );
-    // TODO: make server to not return changes of current client, otherwise
-    // it will ruin real time editing experience.
 
     if (serverChanges.changesets.length === 0) {
       console.log("no changes from server");
+      if (serverChanges.maxClock !== "") {
+        await asyncDispatch(
+          this.persistentDB,
+          updateSyncState({
+            updates: { lastServerAppliedClock: serverChanges.maxClock },
+          }),
+        );
+      }
 
       return;
     }

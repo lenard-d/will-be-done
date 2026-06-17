@@ -77,9 +77,9 @@ export const createApplyServerChangesIfNoClientChanges = (
             entityId: change.entityId,
             tableName: table.tableName,
             // TODO: use local createdAt value. Or maybe not?
-            createdAt: change?.createdAt,
+            createdAt: change.createdAt,
             updatedAt: currentClock,
-            deletedAt: change?.deletedAt,
+            deletedAt: change.deletedAt,
             clientId,
             changes: change.changes,
           });

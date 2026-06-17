@@ -17,6 +17,9 @@ export const initClock = (clientId: string) => {
     } else if (newNow > now) {
       now = newNow;
       n = 0;
+    } else {
+      now = newNow;
+      n = 0;
     }
 
     return `${now}-${n.toString().padStart(4, "0")}-${clientId}`;
@@ -26,12 +29,21 @@ export const initClock = (clientId: string) => {
 export const getClientId = (dbName: string) => {
   const key = "clientId-" + dbName;
 
-  const id = localStorage.getItem(key);
+  let id: string | null = null;
+  try {
+    id = localStorage.getItem(key);
+  } catch (e) {
+    console.warn("Failed to read client id from localStorage", e);
+  }
 
   if (id) return id;
 
   const newId = nanoid();
-  localStorage.setItem(key, newId);
+  try {
+    localStorage.setItem(key, newId);
+  } catch (e) {
+    console.warn("Failed to save client id to localStorage", e);
+  }
 
   return newId;
 };
