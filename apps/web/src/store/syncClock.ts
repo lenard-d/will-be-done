@@ -14,12 +14,11 @@ export const initClock = (clientId: string) => {
 
     if (newNow === now) {
       n++;
-    } else if (newNow > now) {
-      now = newNow;
-      n = 0;
     } else {
-      now = newNow;
-      n = 0;
+      // Clock went backwards — keep `now` at its current high-water mark
+      // and increment the counter to preserve strict monotonicity.
+      n++;
+    }
     }
 
     return `${now}-${n.toString().padStart(4, "0")}-${clientId}`;
