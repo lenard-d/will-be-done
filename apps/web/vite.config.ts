@@ -1,10 +1,10 @@
 import path from "path";
-import { defineConfig } from "vite";
 import type { PluginOption } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { configDefaults, defineConfig } from "vitest/config";
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -60,5 +60,8 @@ export default defineConfig({
         ws: true, // Enable WebSocket proxying
       },
     },
+  },
+  test: {
+    exclude: [...configDefaults.exclude, "e2e/**", "**/*.browser.test.ts"],
   },
 });

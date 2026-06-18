@@ -101,7 +101,7 @@ export function usePersistentDriverKind(): PersistentDriverKind {
 }
 
 export async function openPersistentDriver(dbName: string) {
-  if (getPersistentDriverKind() === "indexeddb") {
+  if (getPersistentDriverKind(dbName) === "indexeddb") {
     return openIndexedDBDriver(dbName);
   }
 

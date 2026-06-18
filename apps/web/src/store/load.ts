@@ -21,7 +21,7 @@ export const initDbStore = async (
   syncConfig: SyncConfig,
 ): Promise<SubscribableDB> => {
   const dbName = getDbName(syncConfig);
-  const cacheKey = `${dbName}:${getPersistentDriverKind()}`;
+  const cacheKey = `${dbName}:${getPersistentDriverKind(dbName)}`;
 
   await lock.acquireAsync();
   try {

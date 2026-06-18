@@ -29,7 +29,7 @@ export const initClock = (clientId: string) => {
 };
 
 export const getClientId = (dbName: string) => {
-  const driverKind = getPersistentDriverKind();
+  const driverKind = getPersistentDriverKind(dbName);
   const key =
     driverKind === "wa-sqlite"
       ? "clientId-" + dbName
