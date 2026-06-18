@@ -4,23 +4,26 @@ import { TRPCProvider, trpcClient } from "@/lib/trpc";
 import { queryClient } from "@/lib/query";
 import { PromptDialogHost } from "@/components/ui/prompt-dialog";
 import { HyperDBDevtools } from "@will-be-done/hyperdb-lib/devtool";
+import { useDevtoolsEnabled } from "@/lib/devtools";
 
 export const Route = createRootRoute({
   component: RouteComponent,
 });
 
 function RouteComponent() {
+  const devtoolsEnabled = useDevtoolsEnabled();
+
   return (
     <QueryClientProvider client={queryClient}>
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
         <HeadContent />
         <Outlet />
         <PromptDialogHost />
-        {process.env.NODE_ENV === "development" && (
+        {devtoolsEnabled && (
           <HyperDBDevtools
             position="bottom"
             buttonPosition="bottom-right"
-            maxTraces={2000}
+            maxTraces={1000}
           />
         )}
 

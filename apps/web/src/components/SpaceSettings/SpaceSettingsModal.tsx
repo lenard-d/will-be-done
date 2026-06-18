@@ -1,13 +1,19 @@
 import { useState } from "react";
 import { Dialog, DialogPanel } from "@headlessui/react";
-import { HardDrive, X, ArrowDownToLine } from "lucide-react";
+import { HardDrive, X, ArrowDownToLine, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BackupSection } from "./BackupSection";
+import { GeneralSection } from "./GeneralSection";
 import { ImportSection } from "./ImportSection";
 
-type Section = "data" | "import";
+type Section = "general" | "data" | "import";
 
 const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
+  {
+    id: "general",
+    label: "General",
+    icon: <SlidersHorizontal className="h-5 w-5" />,
+  },
   {
     id: "data",
     label: "Backup",
@@ -27,7 +33,7 @@ interface Props {
 }
 
 export function SpaceSettingsModal({ open, onClose, spaceName }: Props) {
-  const [activeSection, setActiveSection] = useState<Section>("data");
+  const [activeSection, setActiveSection] = useState<Section>("general");
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
@@ -84,6 +90,7 @@ export function SpaceSettingsModal({ open, onClose, spaceName }: Props) {
 
           {/* Content — fills remaining height, scrollable */}
           <div className="flex-1 overflow-y-auto min-h-0">
+            {activeSection === "general" && <GeneralSection />}
             {activeSection === "data" && <BackupSection />}
             {activeSection === "import" && <ImportSection />}
           </div>
