@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package.json ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/api/package.json ./apps/api/
-COPY apps/hyperdb/package.json ./apps/hyperdb/
+COPY apps/hyperdb-lib/package.json ./apps/hyperdb-lib/
 COPY apps/slices/package.json ./apps/slices/
 # Copy lockfile if it exists
 COPY bun.lockb* ./
@@ -25,7 +25,7 @@ FROM oven/bun:alpine AS runner
 WORKDIR /app
 
 # Copy the API files
-COPY --from=builder /app/apps/hyperdb /app/apps/hyperdb
+COPY --from=builder /app/apps/hyperdb-lib /app/apps/hyperdb-lib
 COPY --from=builder /app/apps/slices /app/apps/slices
 COPY --from=builder /app/apps/api /app/apps/api
 # Copy the built static files to the public directory
