@@ -23,7 +23,6 @@ function spawnService(
     ...options.env,
   };
   delete env.FORCE_COLOR;
-  delete env.NO_COLOR;
 
   const child = spawn(command, args, {
     cwd: options.cwd,
@@ -51,7 +50,7 @@ function spawnService(
     console.error(
       `[${name}] exited with ${signal ? `signal ${signal}` : `code ${code}`}`,
     );
-    shutdown(code ?? 1);
+    shutdown(1);
   });
 
   return child;
@@ -76,8 +75,26 @@ function shutdown(code = 0) {
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
+async function waitForReady(name: string, url: string, timeoutMs: number) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // Keep polling until the service accepts connections.
+    }
+
+    await Bun.sleep(250);
+  }
+
+  throw new Error(`Timed out waiting for ${name} at ${url}`);
+}
+
 console.log(`Starting API on http://127.0.0.1:${apiPort}`);
-console.log(`Starting web on http://127.0.0.1:${webPort}`);
 console.log(`Using E2E DB path: ${e2eDbPath}`);
 
 spawnService("api", "bun", ["run", "src/start.ts"], {
@@ -89,6 +106,17 @@ spawnService("api", "bun", ["run", "src/start.ts"], {
     WBD_BACKUP_S3_ENABLED: "false",
   },
 });
+
+try {
+  await waitForReady("api", `http://127.0.0.1:${apiPort}/api/health`, 120_000);
+} catch (error) {
+  console.error(error);
+  shutdown(1);
+  await Bun.sleep(300);
+  process.exit(1);
+}
+
+console.log(`Starting web on http://127.0.0.1:${webPort}`);
 
 spawnService(
   "web",

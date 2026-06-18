@@ -298,6 +298,8 @@ server.register(fastifyTRPCPlugin, {
   } satisfies FastifyTRPCPluginOptions<AppRouter>["trpcOptions"],
 });
 
+server.get("/api/health", async () => ({ ok: true }));
+
 // Register a not found handler that serves index.html for non-API routes
 server.setNotFoundHandler((request, reply) => {
   const url = request.url;
