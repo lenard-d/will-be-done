@@ -1,5 +1,10 @@
 import { nanoid } from "nanoid";
-import { asyncDispatch, DB, execAsync } from "@will-be-done/hyperdb-lib";
+import {
+  asyncDispatch,
+  DB,
+  execAsync,
+  openIndexedDBDriver,
+} from "@will-be-done/hyperdb-lib";
 import {
   insertChangeFromInsert,
   changesTable,
@@ -15,7 +20,6 @@ import {
   tasksTable,
 } from "@will-be-done/slices/space";
 import { BroadcastChannel } from "broadcast-channel";
-import { initAsyncDriver } from "./asyncDriver";
 import { authUtils } from "@/lib/auth";
 
 const getClientId = (dbName: string) => {
@@ -53,8 +57,8 @@ export async function initPopupStore(spaceId: string) {
     syncStateTable,
   ];
 
-  const asyncDriver = await initAsyncDriver(dbName);
-  const asyncDB = new DB(asyncDriver, {
+  const idbDriver = await openIndexedDBDriver(dbName);
+  const asyncDB = new DB(idbDriver, {
     traits: [dbIdTrait("space", spaceId)],
   });
 

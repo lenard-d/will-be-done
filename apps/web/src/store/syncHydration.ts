@@ -22,6 +22,15 @@ const createLoadRowsIntoSyncDb = <TTable extends TableDefinition>(
     },
   });
 
+const loadTablesFromDB = <TTable extends TableDefinition>(table: TTable) =>
+  action({
+    name: `loadTablesFromDB:${table.tableName}`,
+    args: {},
+    handler: function* loadRowsIntoSyncDb() {
+      return yield* selectFrom(table, "byIds");
+    },
+  });
+
 type HydrateSyncDbArgs = {
   persistentDB: HyperDB;
   syncDB: HyperDB;
@@ -34,9 +43,9 @@ export const hydrateSyncDb = async ({
   syncableDBTables,
 }: HydrateSyncDbArgs) => {
   for (const table of syncableDBTables) {
-    const res = await runSelectorAsync(persistentDB, function* () {
-      return yield* selectFrom(table, "byIds");
-    });
+    const res = await runSelectorAsync(persistentDB, () =>
+      loadTablesFromDB(table)({}),
+    );
 
     syncDispatch(syncDB, createLoadRowsIntoSyncDb(table)({ rows: res }));
   }

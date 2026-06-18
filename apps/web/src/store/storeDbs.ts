@@ -3,18 +3,18 @@ import {
   DB,
   execAsync,
   execSync,
+  openIndexedDBDriver,
   SubscribableDB,
 } from "@will-be-done/hyperdb-lib";
 import { dbIdTrait } from "@will-be-done/slices/traits";
-import { initAsyncDriver } from "./asyncDriver";
 import type { SyncConfig } from "./syncTypes";
 
 export const createStoreDbs = async (
   dbName: string,
   syncConfig: SyncConfig,
 ) => {
-  const asyncDriver = await initAsyncDriver(dbName);
-  const persistentDB = new DB(asyncDriver, {
+  const idbDriver = await openIndexedDBDriver(dbName);
+  const persistentDB = new DB(idbDriver, {
     traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
     tracer: process.env.NODE_ENV === "development" ? undefined : null,
     runtimeValidation: process.env.NODE_ENV === "development",
