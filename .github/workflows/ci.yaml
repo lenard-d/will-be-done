@@ -37,3 +37,32 @@ jobs:
       - name: Check import cycles @apps/${{ matrix.package }}
         if: matrix.package == 'hyperdb-lib'
         run: cd apps/${{ matrix.package }} && bun run lint:cycles
+
+  web-e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install Playwright browsers
+        run: cd apps/web && bun run playwright install --with-deps chromium
+
+      - name: Run web e2e tests
+        run: cd apps/web && bun run test:e2e
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          if-no-files-found: ignore

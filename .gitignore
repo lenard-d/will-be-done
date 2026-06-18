@@ -30,6 +30,8 @@ dist-ssr
 *.sqlite
 
 __screenshots__
+playwright-report/
+test-results/
 
 # Environment variables
 .env
