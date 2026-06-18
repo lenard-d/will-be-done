@@ -1,5 +1,8 @@
-import { nanoid } from "nanoid";
-import { asyncDispatch, DB, execAsync } from "@will-be-done/hyperdb-lib";
+import {
+  asyncDispatch,
+  DB,
+  execAsync,
+} from "@will-be-done/hyperdb-lib";
 import {
   insertChangeFromInsert,
   changesTable,
@@ -15,32 +18,9 @@ import {
   tasksTable,
 } from "@will-be-done/slices/space";
 import { BroadcastChannel } from "broadcast-channel";
-import { initAsyncDriver } from "./asyncDriver";
 import { authUtils } from "@/lib/auth";
-
-const getClientId = (dbName: string) => {
-  const key = "clientId-" + dbName;
-  const id = localStorage.getItem(key);
-  if (id) return id;
-  const newId = nanoid();
-  localStorage.setItem(key, newId);
-  return newId;
-};
-
-const initClock = (clientId: string) => {
-  let now = Date.now();
-  let n = 0;
-  return () => {
-    const newNow = Date.now();
-    if (newNow === now) {
-      n++;
-    } else if (newNow > now) {
-      now = newNow;
-      n = 0;
-    }
-    return `${now}-${n.toString().padStart(4, "0")}-${clientId}`;
-  };
-};
+import { openPersistentDriver } from "./persistentDriver";
+import { getClientId, initClock } from "./syncClock";
 
 export async function initPopupStore(spaceId: string) {
   const dbName = "space-" + spaceId;
@@ -53,8 +33,8 @@ export async function initPopupStore(spaceId: string) {
     syncStateTable,
   ];
 
-  const asyncDriver = await initAsyncDriver(dbName);
-  const asyncDB = new DB(asyncDriver, {
+  const persistentDriver = await openPersistentDriver(dbName);
+  const asyncDB = new DB(persistentDriver, {
     traits: [dbIdTrait("space", spaceId)],
   });
 

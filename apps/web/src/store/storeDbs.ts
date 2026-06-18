@@ -1,20 +1,15 @@
-import {
-  BptreeInmemDriver,
-  DB,
-  execAsync,
-  execSync,
-  SubscribableDB,
-} from "@will-be-done/hyperdb-lib";
+import { BptreeInmemDriver } from "@will-be-done/hyperdb-lib/drivers/inmemory";
+import { DB, execAsync, execSync, SubscribableDB } from "@will-be-done/hyperdb-lib";
 import { dbIdTrait } from "@will-be-done/slices/traits";
-import { initAsyncDriver } from "./asyncDriver";
+import { openPersistentDriver } from "./persistentDriver";
 import type { SyncConfig } from "./syncTypes";
 
 export const createStoreDbs = async (
   dbName: string,
   syncConfig: SyncConfig,
 ) => {
-  const asyncDriver = await initAsyncDriver(dbName);
-  const persistentDB = new DB(asyncDriver, {
+  const persistentDriver = await openPersistentDriver(dbName);
+  const persistentDB = new DB(persistentDriver, {
     traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
     tracer: process.env.NODE_ENV === "development" ? undefined : null,
     runtimeValidation: process.env.NODE_ENV === "development",

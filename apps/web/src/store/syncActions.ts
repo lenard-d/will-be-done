@@ -1,4 +1,9 @@
-import { deleteRows, upsert, v } from "@will-be-done/hyperdb-lib";
+import {
+  deleteRows,
+  selectFrom,
+  upsert,
+  v,
+} from "@will-be-done/hyperdb-lib";
 import {
   changesTable,
   type Change,
@@ -126,5 +131,35 @@ export const getChangesToSendToServer = action({
     console.log("new client changes", changesets, maxClock);
 
     return { changesets, maxClock };
+  },
+});
+
+export const resetEmptyPersistedSyncCursor = action({
+  name: "resetEmptyPersistedSyncCursor",
+  args: {},
+  handler: function* resetEmptyPersistedSyncCursor() {
+    const currentSyncState = yield* getSyncStateOrDefault({});
+    if (
+      currentSyncState.lastServerAppliedClock === "" &&
+      currentSyncState.lastSentClock === ""
+    ) {
+      return false;
+    }
+
+    const persistedChanges = yield* selectFrom(changesTable, "byUpdatedAt").limit(
+      1,
+    );
+    if (persistedChanges.length !== 0) {
+      return false;
+    }
+
+    yield* updateSyncState({
+      updates: {
+        lastServerAppliedClock: "",
+        lastSentClock: "",
+      },
+    });
+
+    return true;
   },
 });

@@ -7,7 +7,11 @@ import {
 } from "./trpc";
 import { syncDispatch, select } from "@will-be-done/hyperdb-lib";
 import * as dotenv from "dotenv";
-import { ChangesetArray, getChangesetAfter, mergeChanges } from "@will-be-done/slices/common";
+import {
+  ChangesetArray,
+  getChangesetAfter,
+  mergeChanges,
+} from "@will-be-done/slices/common";
 import fastify from "fastify";
 import staticPlugin from "@fastify/static";
 import multipart from "@fastify/multipart";
@@ -19,7 +23,12 @@ import {
   type FastifyTRPCPluginOptions,
 } from "@trpc/server/adapters/fastify";
 import { getHyperDB, getMainHyperDB } from "./db/db";
-import { revokeToken, register, getUserByEmail, generateToken } from "./slices/authSlice";
+import {
+  revokeToken,
+  register,
+  getUserByEmail,
+  generateToken,
+} from "./slices/authSlice";
 import { TRPCError } from "@trpc/server";
 import { getDbByIdOrCreate } from "./slices/dbSlice";
 import { assertUnreachable } from "./utils";
@@ -125,7 +134,12 @@ const appRouter = router({
 
       syncDispatch(
         db.withTraits({ type: "skip-sync" }),
-        mergeChanges({ input: opts.input.changeset, nextClock: nextClock(), clientId: clientId, registeredSyncableTableNameMap: config.tableNameMap }),
+        mergeChanges({
+          input: opts.input.changeset,
+          nextClock: nextClock(),
+          clientId: clientId,
+          registeredSyncableTableNameMap: config.tableNameMap,
+        }),
       );
 
       // Notify all subscribed clients that changes are available
@@ -235,10 +249,7 @@ const appRouter = router({
 
       // Hash password before storing
       const hashedPassword = await Bun.password.hash(password);
-      const result = syncDispatch(
-        mainDB,
-        register({ email, hashedPassword }),
-      );
+      const result = syncDispatch(mainDB, register({ email, hashedPassword }));
       return result;
     }),
   importTodoist: protectedProcedure

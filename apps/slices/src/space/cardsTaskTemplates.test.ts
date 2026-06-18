@@ -7,8 +7,8 @@ import {
   insert,
   createAction,
   selectFrom,
-  BptreeInmemDriver,
 } from "@will-be-done/hyperdb-lib";
+import { BptreeInmemDriver } from "@will-be-done/hyperdb-lib/drivers/inmemory";
 import {
   taskTemplateNewTasksInRange,
   newTasksToGenForTaskTemplate,

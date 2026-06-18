@@ -32,6 +32,10 @@ jobs:
       - name: TypeCheck @apps/${{ matrix.package }}
         run: cd apps/${{ matrix.package }} && bun run ts
 
+      - name: Install Playwright browsers @apps/${{ matrix.package }}
+        if: matrix.package == 'hyperdb-lib'
+        run: cd apps/${{ matrix.package }} && bun run playwright install --with-deps chromium
+
       - name: Test @apps/${{ matrix.package }}
         if: matrix.package == 'hyperdb-lib' || matrix.package == 'api'
         run: cd apps/${{ matrix.package }} && bun run test

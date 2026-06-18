@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
+import { SqlDriver } from "@will-be-done/hyperdb-lib/drivers/sqlite";
 import {
   DB,
   execSync,
-  SqlDriver,
   SubscribableDB,
   syncDispatch,
   TableDefinition,
