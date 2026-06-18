@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { openIndexedDBDriver } from "@will-be-done/hyperdb-lib";
+import { openIndexedDBDriver } from "@will-be-done/hyperdb-lib/drivers/idb";
 import { initAsyncDriver } from "./asyncDriver";
 
 export type PersistentDriverKind = "wa-sqlite" | "indexeddb";

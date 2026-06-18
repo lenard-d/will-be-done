@@ -12,9 +12,9 @@ import {
   selectFrom,
   defineTable,
   Row,
-  BptreeInmemDriver,
   v,
 } from "@will-be-done/hyperdb-lib";
+import { BptreeInmemDriver } from "@will-be-done/hyperdb-lib/drivers/inmemory";
 import {
   mergeChanges,
   getChangesetAfter,

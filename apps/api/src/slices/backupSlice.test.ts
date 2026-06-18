@@ -1,12 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import {
-  DB,
-  SqlDriver,
-  syncDispatch,
-  execSync,
-  select,
-} from "@will-be-done/hyperdb-lib";
+import { SqlDriver } from "@will-be-done/hyperdb-lib/drivers/sqlite";
+import { DB, syncDispatch, execSync, select } from "@will-be-done/hyperdb-lib";
 import {
   backupStateTable,
   backupTierStateTable,

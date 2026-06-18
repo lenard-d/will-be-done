@@ -4,8 +4,8 @@ import {
   execSync,
   runSelector,
   syncDispatch,
-  BptreeInmemDriver,
 } from "@will-be-done/hyperdb-lib";
+import { BptreeInmemDriver } from "@will-be-done/hyperdb-lib/drivers/inmemory";
 import { dbIdTrait } from "../traits";
 import { addToDailyList } from "./dailyListsProjections";
 import { addToStash } from "./stashProjections";

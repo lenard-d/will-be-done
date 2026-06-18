@@ -1,10 +1,5 @@
-import {
-  BptreeInmemDriver,
-  DB,
-  execAsync,
-  execSync,
-  SubscribableDB,
-} from "@will-be-done/hyperdb-lib";
+import { BptreeInmemDriver } from "@will-be-done/hyperdb-lib/drivers/inmemory";
+import { DB, execAsync, execSync, SubscribableDB } from "@will-be-done/hyperdb-lib";
 import { dbIdTrait } from "@will-be-done/slices/traits";
 import { openPersistentDriver } from "./persistentDriver";
 import type { SyncConfig } from "./syncTypes";
