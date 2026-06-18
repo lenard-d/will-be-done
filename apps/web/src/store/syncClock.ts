@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid";
+import { getPersistentDriverKind } from "./persistentDriver";
 import type { SyncConfig } from "./syncTypes";
 
 export const getDbName = (syncConfig: Pick<SyncConfig, "dbType" | "dbId">) => {
@@ -28,7 +29,11 @@ export const initClock = (clientId: string) => {
 };
 
 export const getClientId = (dbName: string) => {
-  const key = "clientId-" + dbName;
+  const driverKind = getPersistentDriverKind();
+  const key =
+    driverKind === "wa-sqlite"
+      ? "clientId-" + dbName
+      : `clientId-${dbName}-${driverKind}`;
 
   let id: string | null = null;
   try {

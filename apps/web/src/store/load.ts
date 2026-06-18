@@ -1,5 +1,5 @@
 import AwaitLock from "await-lock";
-import { type SubscribableDB } from "@will-be-done/hyperdb-lib";
+import { asyncDispatch, type SubscribableDB } from "@will-be-done/hyperdb-lib";
 import { AutoBackuper } from "./autoBackup.ts";
 import { createCrossTabChanges } from "./crossTabChanges";
 import { createLocalPersistQueue } from "./localPersistQueue";
@@ -7,6 +7,8 @@ import { getClientId, getDbName, initClock } from "./syncClock";
 import { registerSyncChangeHooks } from "./syncChangeHooks";
 import { hydrateSyncDb } from "./syncHydration";
 import { Syncer } from "./syncer";
+import { getPersistentDriverKind } from "./persistentDriver";
+import { resetEmptyPersistedSyncCursor } from "./syncActions";
 import { createStoreDbs } from "./storeDbs";
 import type { SyncConfig } from "./syncTypes";
 
@@ -19,11 +21,12 @@ export const initDbStore = async (
   syncConfig: SyncConfig,
 ): Promise<SubscribableDB> => {
   const dbName = getDbName(syncConfig);
+  const cacheKey = `${dbName}:${getPersistentDriverKind()}`;
 
   await lock.acquireAsync();
   try {
-    if (initedDbs[dbName]) {
-      return initedDbs[dbName];
+    if (initedDbs[cacheKey]) {
+      return initedDbs[cacheKey];
     }
 
     const clientId = getClientId(dbName);
@@ -32,6 +35,7 @@ export const initDbStore = async (
       dbName,
       syncConfig,
     );
+    await asyncDispatch(persistentDB, resetEmptyPersistedSyncCursor({}));
 
     registerSyncChangeHooks({
       syncSubDb,
@@ -79,7 +83,7 @@ export const initDbStore = async (
 
     await syncConfig.afterInit(syncSubDb);
 
-    initedDbs[dbName] = syncSubDb;
+    initedDbs[cacheKey] = syncSubDb;
 
     return syncSubDb;
   } finally {

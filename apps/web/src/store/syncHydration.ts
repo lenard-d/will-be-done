@@ -4,10 +4,16 @@ import {
   selectFrom,
   syncDispatch,
   v,
+  type ExtractIndexes,
   type HyperDB,
   type TableDefinition,
 } from "@will-be-done/hyperdb-lib";
 import { action } from "./builders";
+
+type TableIndexName<TTable extends TableDefinition> = Extract<
+  keyof ExtractIndexes<TTable>,
+  string | number
+>;
 
 const createLoadRowsIntoSyncDb = <TTable extends TableDefinition>(
   table: TTable,
@@ -27,7 +33,7 @@ const loadTablesFromDB = <TTable extends TableDefinition>(table: TTable) =>
     name: `loadTablesFromDB:${table.tableName}`,
     args: {},
     handler: function* loadRowsIntoSyncDb() {
-      return yield* selectFrom(table, "byIds");
+      return yield* selectFrom(table, "byIds" as TableIndexName<TTable>);
     },
   });
 
