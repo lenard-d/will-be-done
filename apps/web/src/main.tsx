@@ -4,6 +4,15 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { RouterProvider } from "@tanstack/react-router";
+import {
+  action as slicesAction,
+  selector as slicesSelector,
+} from "@will-be-done/slices";
+import { getDevtoolsEnabled } from "@/lib/devtools";
+import {
+  action as webAction,
+  selector as webSelector,
+} from "@/store/builders";
 // import "temporal-polyfill/global";
 
 // Import the generated route tree
@@ -14,6 +23,12 @@ import { getRouter } from "./router.tsx";
 // scan({
 //   enabled: true,
 // });
+
+const traceStartOn = getDevtoolsEnabled() ? "load" : "devtoolOpen";
+slicesSelector.configure({ trace: { startOn: traceStartOn } });
+slicesAction.configure({ trace: { startOn: traceStartOn } });
+webSelector.configure({ trace: { startOn: traceStartOn } });
+webAction.configure({ trace: { startOn: traceStartOn } });
 
 // Create a new router instance
 const router = getRouter();
