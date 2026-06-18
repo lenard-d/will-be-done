@@ -396,6 +396,7 @@ export const mergeChanges = action({
           currentRow != null &&
           incomingRow != null &&
           incomingChange.deletedAt == null &&
+          currentChanges.deletedAt == null &&
           currentChanges.createdAt !== incomingChange.createdAt
         ) {
           const currentCreatedFirst =
@@ -446,8 +447,12 @@ export const mergeChanges = action({
           incomingRow ?? { id: incomingChange.entityId },
         );
 
-        // Delete always wins, no conflict resolution needed actually
-        if (incomingChange.deletedAt != null) {
+        const currentIsDeleted = currentChanges?.deletedAt != null;
+        const incomingIsDeleted = incomingChange.deletedAt != null;
+        const isDeleted = currentIsDeleted || incomingIsDeleted;
+
+        // Delete always wins, whether the tombstone is local or incoming.
+        if (isDeleted) {
           if (currentRow) {
             toDeleteRows.push(currentRow.id);
           }
@@ -459,21 +464,19 @@ export const mergeChanges = action({
 
         const currentClock = nextClock;
         const lastDeletedAt = (function () {
-          // TODO: maybe compare time too instead of reussrection?
-          if (incomingChange.deletedAt == null) {
-            return null; // resurrection!
-          }
-
-          if (currentChanges && currentChanges.deletedAt) {
+          if (currentChanges?.deletedAt) {
             return currentChanges.deletedAt;
           }
 
-          if (incomingChange.deletedAt != null) {
+          if (incomingIsDeleted) {
             return currentClock;
           }
 
           return null;
         })();
+        const winnerClientId = currentIsDeleted
+          ? currentChanges.clientId
+          : incomingChange.clientId;
 
         allChanges.push({
           id: `${table.tableName}:${incomingChange.entityId}`,
@@ -482,7 +485,7 @@ export const mergeChanges = action({
           createdAt: currentChanges?.createdAt ?? currentClock,
           updatedAt: currentClock,
           deletedAt: lastDeletedAt,
-          clientId: incomingChange.clientId,
+          clientId: winnerClientId,
           changes: mergedChanges,
         });
       }

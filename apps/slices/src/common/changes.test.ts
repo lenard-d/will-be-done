@@ -4,7 +4,9 @@ import {
   execSync,
   syncDispatch,
   runSelector,
+  deleteRows,
   insert,
+  upsert,
   createAction,
   createSelector,
   selectFrom,
@@ -84,6 +86,50 @@ function localCreate(
             createdAt: createdAtClock,
             updatedAt: createdAtClock,
             deletedAt: null,
+            clientId,
+            changes: {
+              type: createdAtClock,
+              id: createdAtClock,
+              title: createdAtClock,
+              orderToken: createdAtClock,
+              createdAt: createdAtClock,
+            },
+          } satisfies Change,
+        ]);
+      },
+    })({}),
+  );
+}
+
+/** Delete a local row + keep its tombstone change record. */
+function localDelete(
+  db: DB,
+  row: {
+    type: string;
+    id: string;
+    title: string;
+    orderToken: string;
+    createdAt: number;
+  },
+  createdAtClock: string,
+  deletedAtClock: string,
+  clientId = "local",
+) {
+  syncDispatch(
+    db,
+    action({
+      name: "anonymousDeleteAction",
+      args: {},
+      handler: function* anonymousDeleteAction() {
+        yield* deleteRows(testTable, [row.id]);
+        yield* upsert(changesTable, [
+          {
+            id: `testItems:${row.id}`,
+            entityId: row.id,
+            tableName: "testItems",
+            createdAt: createdAtClock,
+            updatedAt: deletedAtClock,
+            deletedAt: deletedAtClock,
             clientId,
             changes: {
               type: createdAtClock,
@@ -395,6 +441,72 @@ describe("first-creator-wins merge", () => {
     const change = getChange(db, entityId);
     expect(change).toBeDefined();
     expect(change!.deletedAt).not.toBeNull();
+  });
+
+  it("local delete tombstone wins over incoming stale update", () => {
+    resetClock();
+    const db = createDB();
+    const entityId = "entity-local-delete";
+    const row = {
+      type: "task",
+      id: entityId,
+      title: "deleted-title",
+      orderToken: "a",
+      createdAt: 100,
+    };
+    const createdAtClock = "0000000010-0001-client1";
+    const deletedAtClock = "0000000025-0001-client1";
+
+    localCreate(db, row, createdAtClock, "client1");
+    localDelete(db, row, createdAtClock, deletedAtClock, "client1");
+
+    const incoming: ChangesetArrayType = [
+      {
+        tableName: "testItems",
+        data: [
+          {
+            row: {
+              ...row,
+              title: "stale-remote-update",
+            },
+            change: {
+              id: `testItems:${entityId}`,
+              entityId,
+              tableName: "testItems",
+              createdAt: createdAtClock,
+              updatedAt: "0000000030-0001-client2",
+              deletedAt: null,
+              clientId: "client2",
+              changes: {
+                type: createdAtClock,
+                id: createdAtClock,
+                title: "0000000030-0001-client2",
+                orderToken: createdAtClock,
+                createdAt: createdAtClock,
+              },
+            },
+          },
+        ],
+      },
+    ];
+
+    syncDispatch(
+      db,
+      mergeChanges({
+        input: incoming,
+        nextClock: makeClockFn("0000000040")(),
+        clientId: "local",
+        registeredSyncableTableNameMap: registeredTables,
+      }),
+    );
+
+    const mergedRow = getRow(db, entityId);
+    expect(mergedRow).toBeUndefined();
+
+    const change = getChange(db, entityId);
+    expect(change).toBeDefined();
+    expect(change!.deletedAt).toBe(deletedAtClock);
+    expect(change!.clientId).toBe("client1");
   });
 
   it("new entity from remote inserts normally when no local record exists", () => {
