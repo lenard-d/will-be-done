@@ -9,10 +9,7 @@ import {
   selector as slicesSelector,
 } from "@will-be-done/slices";
 import { getDevtoolsEnabled } from "@/lib/devtools";
-import {
-  action as webAction,
-  selector as webSelector,
-} from "@/store/builders";
+import { action as webAction, selector as webSelector } from "@/store/builders";
 // import "temporal-polyfill/global";
 
 // Import the generated route tree
@@ -24,11 +21,14 @@ import { getRouter } from "./router.tsx";
 //   enabled: true,
 // });
 
-const traceStartOn = getDevtoolsEnabled() ? "load" : "devtoolOpen";
-slicesSelector.configure({ trace: { startOn: traceStartOn } });
-slicesAction.configure({ trace: { startOn: traceStartOn } });
-webSelector.configure({ trace: { startOn: traceStartOn } });
-webAction.configure({ trace: { startOn: traceStartOn } });
+const traceStartOn =
+  getDevtoolsEnabled() || process.env.NODE_ENV === "development"
+    ? "load"
+    : "devtoolOpen";
+slicesSelector.configure({ trace: { enabled: true, startOn: traceStartOn } });
+slicesAction.configure({ trace: { enabled: true, startOn: traceStartOn } });
+webSelector.configure({ trace: { enabled: true, startOn: traceStartOn } });
+webAction.configure({ trace: { enabled: true, startOn: traceStartOn } });
 
 // Create a new router instance
 const router = getRouter();
