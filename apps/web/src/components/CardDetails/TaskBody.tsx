@@ -36,6 +36,7 @@ import {
   CategoryDetailRow,
   EditableDescription,
 } from "./shared.tsx";
+import { useOpenProject } from "@/hooks/useOpenProject.ts";
 
 export function TaskBody({
   task,
@@ -54,6 +55,7 @@ export function TaskBody({
 }) {
   const dispatch = useDispatch();
   const taskId = task.id;
+  const openProject = useOpenProject();
 
   const project = useSyncSelector({
     selector: projectOfCategoryOrDefault,
@@ -187,6 +189,7 @@ export function TaskBody({
       <div className="space-y-2 text-xs">
         <ProjectDetailRow
           project={project}
+          onOpenClick={() => openProject(project.id)}
           onEditClick={() => setIsMoveProjectModalOpen(true)}
         />
 

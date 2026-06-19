@@ -96,6 +96,7 @@ import {
   useCardDetailsEditRequest,
   useCardDetailsOpen,
 } from "@/components/CardDetails/CardDetailsStore.ts";
+import { useOpenProject } from "@/hooks/useOpenProject.ts";
 
 export const DropTaskIndicator = ({
   direction,
@@ -194,6 +195,7 @@ export const PreloadedTaskComp = ({
     (s) => !s.isFocusDisabled && s.editItemKey === focusableItemKey,
   );
   const select = useSelect();
+  const openProject = useOpenProject();
 
   const persistTaskTitle = useCallback(
     (title: string) => {
@@ -457,6 +459,14 @@ export const PreloadedTaskComp = ({
     ref.current?.focus();
     setIsMoveModalOpen(true);
   }, []);
+
+  const handleOpenProject = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      openProject(project.id);
+    },
+    [openProject, project.id],
+  );
 
   const handleOpenDatePicker = useCallback(() => {
     ref.current?.focus();
@@ -1344,7 +1354,7 @@ export const PreloadedTaskComp = ({
                     ? "text-right justify-self-end"
                     : "text-right",
                 )}
-                onClick={handleOpenMoveModal}
+                onClick={handleOpenProject}
               >
                 {project.icon || "🟡"} {project.title}
               </button>

@@ -24,6 +24,7 @@ import {
 } from "./shared.tsx";
 import { SquareCheckboxIcon } from "@/components/ui/icons.tsx";
 import { ChecklistItems } from "@/components/Checklist/Checklist";
+import { useOpenProject } from "@/hooks/useOpenProject.ts";
 
 export function TemplateBody({
   template,
@@ -42,6 +43,7 @@ export function TemplateBody({
 }) {
   const dispatch = useDispatch();
   const templateId = template.id;
+  const openProject = useOpenProject();
 
   const project = useSyncSelector({
     selector: projectOfCategoryOrDefault,
@@ -141,6 +143,7 @@ export function TemplateBody({
       <div className="space-y-2 text-xs">
         <ProjectDetailRow
           project={project}
+          onOpenClick={() => openProject(project.id)}
           onEditClick={() => setIsMoveProjectModalOpen(true)}
         />
 
