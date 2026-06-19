@@ -5,6 +5,8 @@ import { queryClient } from "@/lib/query";
 import { PromptDialogHost } from "@/components/ui/prompt-dialog";
 import { HyperDBDevtools } from "@will-be-done/hyperdb-lib/devtool";
 import { useDevtoolsEnabled } from "@/lib/devtools";
+import { Toaster } from "@/components/ui/sonner";
+import { PwaUpdateController } from "@/components/PwaUpdateController";
 
 export const Route = createRootRoute({
   component: RouteComponent,
@@ -18,6 +20,8 @@ function RouteComponent() {
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
         <HeadContent />
         <Outlet />
+        <PwaUpdateController />
+        <Toaster />
         <PromptDialogHost />
         {devtoolsEnabled && (
           <HyperDBDevtools
