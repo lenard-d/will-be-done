@@ -1,5 +1,9 @@
 import SQLiteAsyncESMFactory from "wa-sqlite/dist/wa-sqlite-async.mjs";
-import { AsyncSqlDriver } from "@will-be-done/hyperdb-lib/drivers/sqlite";
+import {
+  AsyncSqlDriver,
+  type AsyncSQLiteDB,
+  type SqlValue,
+} from "@will-be-done/hyperdb-lib/drivers/sqlite";
 import asyncSqlWasmUrl from "wa-sqlite/dist/wa-sqlite-async.wasm?url";
 //@ts-expect-error no declarations
 import { IDBBatchAtomicVFS } from "wa-sqlite/src/examples/IDBBatchAtomicVFS.js";
@@ -22,6 +26,35 @@ export async function initAsyncDriver(dbName: string) {
   await sqlite3.exec(db, `PRAGMA cache_size=5000;`);
   await sqlite3.exec(db, `PRAGMA journal_mode=DELETE;`);
 
+  const sqliteDb: AsyncSQLiteDB = {
+    async exec(sql: string, params?: SqlValue[] | null): Promise<void> {
+      for await (const stmt of sqlite3.statements(db, sql)) {
+        if (params) sqlite3.bind_collection(stmt, params);
+        await sqlite3.step(stmt);
+      }
+    },
+    async prepare(sql: string) {
+      return {
+        async values(values: SqlValue[]): Promise<SqlValue[][]> {
+          const rows: SqlValue[][] = [];
+
+          for await (const stmt of sqlite3.statements(db, sql)) {
+            sqlite3.bind_collection(stmt, values);
+
+            while ((await sqlite3.step(stmt)) === SQLite.SQLITE_ROW) {
+              rows.push(sqlite3.row(stmt) as SqlValue[]);
+            }
+          }
+
+          return rows;
+        },
+        finalize(): void {
+          // wa-sqlite finalizes scoped statements after iteration.
+        },
+      };
+    },
+  };
+
   // @ts-expect-error it's ok
   window.execQuery = async (q: string) => {
     const res: unknown[] = [];
@@ -36,5 +69,5 @@ export async function initAsyncDriver(dbName: string) {
     return res;
   };
 
-  return new AsyncSqlDriver(sqlite3, db);
+  return new AsyncSqlDriver(sqliteDb);
 }
