@@ -1,5 +1,11 @@
+<p align="center">
+  <h2 align="center"><p>Will Be Done</p></h2>
+  <p align="center">Task managers collect tasks but don't help you plan your week. Will Be Done gives you a visual weekly timeline to stay focused.
+  </p>
+</p>
 
-**Note on AI ussage:** I’ve been developing this project for a year+, and this is my third attempt in three yeas; the first two failed because the technology for fast, offline-first apps wasn't ready. This time, I created my own method for local-first development and built a database that works for both the frontend and backend, so I can write one code for both of them. Also, I have over 10 years of experience as a developer and 4 years specializing in offline-first apps. Building these reliably requires specific expertise. I use Claude Code to help, but I review every line of code manually to ensure quality.
+<img width="3002" height="1908" alt="image" src="https://github.com/user-attachments/assets/b36b1797-83f5-4eca-92c3-75dd7b42a2ac" />
+
 
 ## Download & installation
 
@@ -229,3 +235,5 @@ Separate apps:
 1. Multi users per space/project
 1. Sharing tasks/projects/spaces
 1. No time schedules for tasks
+
+**Note on AI ussage:** I’ve been developing this project for a year+, and this is my third attempt in three yeas; the first two failed because the technology for fast, offline-first apps wasn't ready. This time, I created my own method for local-first development and built a database that works for both the frontend and backend, so I can write one code for both of them. Also, I have over 10 years of experience as a developer and 4 years specializing in offline-first apps. Building these reliably requires specific expertise. I use Claude Code to help, but I review every line of code manually to ensure quality.
