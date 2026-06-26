@@ -20,11 +20,10 @@ import { DndModelData, isModelDNDData } from "@/lib/dnd/models.ts";
 import { cn } from "@/lib/utils.ts";
 import ReactDOM from "react-dom";
 import { isInputElement } from "@/utils/isInputElement.ts";
-import { select, v } from "@will-be-done/hyperdb";
+import { v } from "@will-be-done/hyperdb";
 import {
-  useDB,
-  useDispatch,
-  useSyncSelector,
+  useAsyncDispatch,
+  useAsyncSelector,
 } from "@will-be-done/hyperdb/react";
 import { selector } from "@/store/builders.ts";
 import {
@@ -35,7 +34,6 @@ import {
   notDoneTasksCountExceptDailiesAndStashCount,
   overdueTasksCountExceptDailiesAndStashCount,
   projectByIdOrDefault,
-  projectCanDrop,
   projectChildrenIdsWithoutInbox,
   updateProject,
 } from "@will-be-done/slices/space";
@@ -160,12 +158,13 @@ const ProjectItem = function ProjectItemComp({
     }>
   >;
 }) {
-  const db = useDB();
-  const project = useSyncSelector({
+  const { data: project } = useAsyncSelector({
     selector: projectByIdOrDefault,
     args: { id: projectId },
   });
-  const focusItemKey = buildFocusKey(project.id, project.type, "ProjectItem");
+  const focusItemKey = project
+    ? buildFocusKey(project.id, project.type, "ProjectItem")
+    : "";
   const [closestEdge, setClosestEdge] = useState<Edge | "whole" | null>(null);
   const [dndState, setDndState] = useState<State>(idleState);
 
@@ -176,7 +175,7 @@ const ProjectItem = function ProjectItemComp({
     (s) => !s.isFocusDisabled && s.focusItemKey === focusItemKey,
   );
 
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
 
   useGlobalListener("mousedown", (e: MouseEvent) => {
     const { isFocusDisabled } = useFocusStore.getState();
@@ -194,6 +193,7 @@ const ProjectItem = function ProjectItemComp({
 
   useGlobalListener("keydown", (e: KeyboardEvent) => {
     if (!isFocused) return;
+    if (!project) return;
     const { isFocusDisabled } = useFocusStore.getState();
 
     if (isFocusDisabled || e.defaultPrevented) return;
@@ -211,7 +211,8 @@ const ProjectItem = function ProjectItemComp({
 
       const [upKey, downKey] = getDOMSiblings(focusItemKey);
 
-      dispatch(deleteProjects({ ids: [project.id] }));
+      if (!project) return;
+      void dispatch(deleteProjects({ ids: [project.id] }));
 
       if (downKey) {
         useFocusStore.getState().focusByKey(downKey);
@@ -223,7 +224,9 @@ const ProjectItem = function ProjectItemComp({
     } else if (e.code === "KeyI" && noModifiers) {
       e.preventDefault();
 
-      useFocusStore.getState().editByKey(focusItemKey);
+      useFocusStore
+        .getState()
+        .editByKey(buildFocusKey(project.id, project.type, "ProjectItem"));
     } else if (isAddAfter || isAddBefore) {
       e.preventDefault();
 
@@ -238,6 +241,7 @@ const ProjectItem = function ProjectItemComp({
   });
 
   useEffect(() => {
+    if (!project) return;
     const element = ref.current;
     invariant(element);
 
@@ -279,14 +283,7 @@ const ProjectItem = function ProjectItemComp({
           const data = source.data;
           if (!isModelDNDData(data)) return false;
 
-          return select(
-            db,
-            projectCanDrop({
-              projectId: project.id,
-              dropItemId: data.modelId,
-              dropModelType: data.modelType,
-            }),
-          );
+          return true;
         },
         getIsSticky: () => true,
         getData: ({ input, element }) => {
@@ -331,24 +328,31 @@ const ProjectItem = function ProjectItemComp({
         },
       }),
     );
-  }, [db, project.id, project.type]);
+  }, [project]);
 
   const currentDate = useCurrentDate();
 
-  const overdueTasksCount = useSyncSelector({
+  const { data: overdueTasksCount = 0 } = useAsyncSelector({
     selector: overdueTasksCountExceptDailiesAndStashCount,
     args: {
-      projectId: project.id,
+      projectId: project?.id ?? "",
       exceptDailyListIds: exceptDailyListIds,
       currentDate: currentDate.getTime(),
     },
+    enabled: !!project,
+    defaultValue: 0,
   });
-  const notDoneTasksCount = useSyncSelector({
+  const { data: notDoneTasksCount = 0 } = useAsyncSelector({
     selector: notDoneTasksCountExceptDailiesAndStashCount,
-    args: { projectId: project.id, exceptDailyListIds: exceptDailyListIds },
+    args: {
+      projectId: project?.id ?? "",
+      exceptDailyListIds: exceptDailyListIds,
+    },
+    enabled: !!project,
+    defaultValue: 0,
   });
   //
-  // const overdueTasksCount = useSyncSelector(
+  // const overdueTasksCount = useAsyncSelector(
   //   () =>
   //     projectItemsSlice2.overdueTaskCountExceptDailiesCount(
   //       project.id,
@@ -359,6 +363,7 @@ const ProjectItem = function ProjectItemComp({
   // );
 
   const handleEditClick = async () => {
+    if (!project) return;
     const newTitle = await promptDialog(
       "Enter new project title",
       project.title,
@@ -368,7 +373,7 @@ const ProjectItem = function ProjectItemComp({
       return;
     }
 
-    dispatch(
+    await dispatch(
       updateProject({
         id: project.id,
         project: {
@@ -379,18 +384,21 @@ const ProjectItem = function ProjectItemComp({
   };
 
   const handleDeleteClick = () => {
+    if (!project) return;
     const shouldDelete = confirm(
       "Are you sure you want to delete this project?",
     );
     if (shouldDelete) {
-      dispatch(deleteProjects({ ids: [project.id] }));
+      void dispatch(deleteProjects({ ids: [project.id] }));
     }
   };
 
-  const inboxProjectId = useSyncSelector({
+  const { data: inboxProjectId = "" } = useAsyncSelector({
     selector: getInboxProjectId,
     args: {},
   });
+
+  if (!project) return null;
 
   return (
     <div className="relative">
@@ -425,7 +433,7 @@ const ProjectItem = function ProjectItemComp({
             <EmojiPicker
               className="h-[326px] rounded-lg shadow-md"
               onEmojiSelect={({ emoji }) => {
-                dispatch(
+                void dispatch(
                   updateProject({
                     id: project.id,
                     project: {
@@ -558,15 +566,15 @@ export const ProjectView = ({
   const projectsListRef = useRef<HTMLDivElement>(null);
   // const [selectedProjectId, setSelectedProjectId] = useState(inboxId);
 
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
   const projectsListWidth = useProjectsListSize((s) => s.width);
   const setProjectsListWidth = useProjectsListSize((s) => s.setWidth);
-  const project = useSyncSelector({
+  const { data: project } = useAsyncSelector({
     selector: selectedProject,
     args: { selectedProjectId },
   });
 
-  // const taskIds = useSyncSelector(
+  // const taskIds = useAsyncSelector(
   //   () =>
   //     dailyListsSlice2.allTaskIdsExceptDailies(
   //       project.id,
@@ -576,11 +584,11 @@ export const ProjectView = ({
   //   [exceptDailyListIds, project.id],
   // );
 
-  const inboxProjectId = useSyncSelector({
+  const { data: inboxProjectId } = useAsyncSelector({
     selector: inboxProject,
     args: {},
   });
-  const projectIdsWithoutInbox = useSyncSelector({
+  const { data: projectIdsWithoutInbox = [] } = useAsyncSelector({
     selector: projectChildrenIdsWithoutInbox,
     args: {},
   });
@@ -589,7 +597,7 @@ export const ProjectView = ({
     const title = await promptDialog("Enter project title");
 
     if (title) {
-      dispatch(createProject({ project: { title }, position: "append" }));
+      await dispatch(createProject({ project: { title }, position: "append" }));
     }
   };
 
@@ -603,7 +611,7 @@ export const ProjectView = ({
     [setProjectsListWidth],
   );
 
-  if (!project) {
+  if (!project || !inboxProjectId) {
     return <div>Project not found</div>;
   }
 

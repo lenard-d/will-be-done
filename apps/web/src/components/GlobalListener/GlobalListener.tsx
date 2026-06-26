@@ -22,7 +22,7 @@ import {
   taskType,
 } from "@will-be-done/slices/space";
 import { select } from "@will-be-done/hyperdb";
-import { useDB, useDispatch } from "@will-be-done/hyperdb/react";
+import { useDB, useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { FocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   getDOMSiblings,
@@ -30,7 +30,7 @@ import {
 } from "@/components/Focus/domNavigation.ts";
 
 export function GlobalListener() {
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
   const db = useDB();
 
   useEffect(() => {
@@ -246,7 +246,7 @@ export function GlobalListener() {
             return;
           }
 
-          dispatch(
+          void dispatch(
             appHandleDrop({
               id: targetItemInfo[1].id,
               modelType: targetItemInfo[1].type,

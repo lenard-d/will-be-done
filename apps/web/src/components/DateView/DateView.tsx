@@ -1,10 +1,8 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { addDays, format, startOfDay, subDays } from "date-fns";
-import { useDispatch } from "@will-be-done/hyperdb/react";
-import { useSyncSelector, useSelect } from "@will-be-done/hyperdb/react";
-import { flushSync } from "react-dom";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
-  appCanDrop,
   createManyDailyListsIfNotPresent,
   createTaskInList,
   type DailyList,
@@ -90,31 +88,29 @@ const SingleDayColumn = ({
   const spaceId = Route.useParams().spaceId;
   const navigate = useNavigate();
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const dailyList = useSyncSelector({
+  const { data: dailyList } = useAsyncSelector({
     selector: dailyListByIdOrDefault,
     args: { id: dailyListId },
   });
   const currentDate = useCurrentDMY();
-  const isToday = useMemo(() => {
-    return currentDate === dailyList.date;
-  }, [currentDate, dailyList.date]);
+  const isToday = dailyList ? currentDate === dailyList.date : false;
 
-  const cardsForDisplay = useSyncSelector({
+  const { data: cardsForDisplay = [] } = useAsyncSelector({
     selector: dailyProjectionChildrenForDisplay,
     args: { dailyListId: dailyListId },
   });
 
-  const doneCardsForDisplay = useSyncSelector({
+  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
     selector: doneDailyProjectionChildrenForDisplay,
     args: { dailyListId: dailyListId },
   });
 
-  const select = useSelect();
   const columnRef = useRef<HTMLDivElement>(null);
   const scrollableRef = useRef<HTMLDivElement>(null);
   const [_isOver, setIsOver] = useState(false);
 
   useEffect(() => {
+    if (!dailyList) return;
     invariant(columnRef.current);
     invariant(scrollableRef.current);
     return combine(
@@ -128,14 +124,7 @@ const SingleDayColumn = ({
           const data = source.data;
           if (!isModelDNDData(data)) return false;
 
-          return select(
-            appCanDrop({
-              id: dailyList.id,
-              modelType: dailyList.type,
-              dropId: data.modelId,
-              dropModelType: data.modelType,
-            }),
-          );
+          return true;
         },
         getIsSticky: () => true,
         onDragEnter: () => setIsOver(true),
@@ -148,7 +137,9 @@ const SingleDayColumn = ({
         canScroll: ({ source }) => isModelDNDData(source.data),
       }),
     );
-  }, [dailyList.id, dailyList.type, select]);
+  }, [dailyList]);
+
+  if (!dailyList) return null;
 
   return (
     <div
@@ -298,19 +289,19 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
     [startingDate],
   );
 
-  const dailyListsIds = useSyncSelector({
+  const { data: dailyListsIds = [] } = useAsyncSelector({
     selector: dailyListIdsByDates,
     args: { dates: [startingDate.getTime()] },
   });
-  const dispatch = useDispatch();
-  const inboxId = useSyncSelector({
+  const dispatch = useAsyncDispatch();
+  const { data: inboxId = "" } = useAsyncSelector({
     selector: inboxProjectId,
     args: {},
   });
   const stashOffset = useStashDesktopOffset();
 
   useEffect(() => {
-    dispatch(
+    void dispatch(
       createManyDailyListsIfNotPresent({ dates: [startingDate.getTime()] }),
     );
   }, [dispatch, startingDate]);
@@ -319,11 +310,8 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
     (dailyList: DailyList) => {
       prepareTextInputFocus();
 
-      let focusKey: ReturnType<typeof buildFocusKey> | undefined;
-
-      // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
-      flushSync(() => {
-        const task = dispatch(
+      void (async () => {
+        const task = await dispatch(
           createTaskInList({
             dailyListId: dailyList.id,
             projectId: inboxId,
@@ -332,18 +320,15 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
           }),
         );
 
-        focusKey = buildFocusKey(task.id, "projection");
+        const focusKey = buildFocusKey(task.id, "projection");
         useFocusStore.getState().editByKey(focusKey);
-      });
 
-      if (!focusKey) return;
+        if (focusTaskTitleTextareaByKey(focusKey)) return;
 
-      const key = focusKey;
-      if (focusTaskTitleTextareaByKey(key)) return;
-
-      window.requestAnimationFrame(() => {
-        focusTaskTitleTextareaByKey(key);
-      });
+        window.requestAnimationFrame(() => {
+          focusTaskTitleTextareaByKey(focusKey);
+        });
+      })();
     },
     [dispatch, inboxId],
   );

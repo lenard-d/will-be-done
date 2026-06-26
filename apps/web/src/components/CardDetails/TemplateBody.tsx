@@ -1,8 +1,8 @@
 import { useState, useCallback } from "react";
 import { CalendarDays, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
-import { useDispatch } from "@will-be-done/hyperdb/react";
-import { useSyncSelector } from "@will-be-done/hyperdb/react";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   createTaskFromTemplate,
@@ -42,19 +42,21 @@ export function TemplateBody({
   setIsEditingDescription: (v: boolean) => void;
   onCardIdChange?: (cardId: string) => void;
 }) {
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
   const templateId = template.id;
   const openProject = useOpenProject();
 
-  const project = useSyncSelector({
+  const { data: project } = useAsyncSelector({
     selector: projectOfCategoryOrDefault,
     args: { categoryId: template.projectCategoryId },
   });
-  const projectCategories = useSyncSelector({
+  const { data: projectCategories = [] } = useAsyncSelector({
     selector: projectCategoriesByProjectId,
-    args: { projectId: project.id },
+    args: { projectId: project?.id ?? "" },
+    enabled: !!project,
+    defaultValue: [],
   });
-  const ruleText = useSyncSelector({
+  const { data: ruleText = "" } = useAsyncSelector({
     selector: taskTemplateRuleText,
     args: { id: templateId },
   });
@@ -73,7 +75,7 @@ export function TemplateBody({
     setIsEditingTitle,
     onSave: useCallback(
       (trimmed: string) =>
-        dispatch(
+        void dispatch(
           updateTemplate({
             id: templateId,
             template: {
@@ -97,21 +99,27 @@ export function TemplateBody({
     setIsEditingDescription,
     onSave: useCallback(
       (content: string) =>
-        dispatch(updateTemplate({ id: templateId, template: { content } })),
+        void dispatch(
+          updateTemplate({ id: templateId, template: { content } }),
+        ),
       [dispatch, templateId],
     ),
   });
 
   const handleConvertToTask = useCallback(() => {
-    const task = dispatch(createTaskFromTemplate({ taskTemplate: template }));
-    useFocusStore.getState().focusByKey(buildFocusKey(task.id, task.type));
-    onCardIdChange?.(task.id);
+    void (async () => {
+      const task = await dispatch(
+        createTaskFromTemplate({ taskTemplate: template }),
+      );
+      useFocusStore.getState().focusByKey(buildFocusKey(task.id, task.type));
+      onCardIdChange?.(task.id);
+    })();
   }, [template, dispatch, onCardIdChange]);
 
   const handleRepeatConfirm = useCallback(
     (ruleString: string) => {
       setIsRepeatModalOpen(false);
-      dispatch(
+      void dispatch(
         updateTemplate({
           id: templateId,
           template: {
@@ -122,6 +130,8 @@ export function TemplateBody({
     },
     [dispatch, templateId],
   );
+
+  if (!project) return null;
 
   return (
     <div className="px-3 py-3 space-y-3">
@@ -152,7 +162,7 @@ export function TemplateBody({
           projectCategoryId={template.projectCategoryId}
           projectCategories={projectCategories}
           onChange={(categoryId) =>
-            dispatch(
+            void dispatch(
               updateTemplate({
                 id: templateId,
                 template: {
@@ -215,7 +225,7 @@ export function TemplateBody({
         <MoveModal
           setIsOpen={setIsMoveProjectModalOpen}
           handleMove={(projectId) => {
-            dispatch(
+            void dispatch(
               moveTemplateToProject({
                 templateId: templateId,
                 projectId: projectId,

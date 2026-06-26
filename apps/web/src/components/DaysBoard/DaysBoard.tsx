@@ -1,8 +1,8 @@
 import { useEffect, useCallback, useRef, useState } from "react";
 import { useMemo } from "react";
 import { addDays, format, startOfDay, subDays } from "date-fns";
-import { useDispatch } from "@will-be-done/hyperdb/react";
-import { useSyncSelector } from "@will-be-done/hyperdb/react";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
   createManyDailyListsIfNotPresent,
   createTaskInList,
@@ -42,21 +42,19 @@ const ColumnView = ({
   dailyListId: string;
   onTaskAdd: (dailyList: DailyList) => void;
 }) => {
-  const dailyList = useSyncSelector({
+  const { data: dailyList } = useAsyncSelector({
     selector: dailyListByIdOrDefault,
     args: { id: dailyListId },
   });
   const currentDate = useCurrentDMY();
-  const isToday = useMemo(() => {
-    return currentDate === dailyList.date;
-  }, [currentDate, dailyList.date]);
+  const isToday = dailyList ? currentDate === dailyList.date : false;
 
-  const cardsForDisplay = useSyncSelector({
+  const { data: cardsForDisplay = [] } = useAsyncSelector({
     selector: dailyProjectionChildrenForDisplay,
     args: { dailyListId: dailyListId },
   });
 
-  const doneCardsForDisplay = useSyncSelector({
+  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
     selector: doneDailyProjectionChildrenForDisplay,
     args: { dailyListId: dailyListId },
   });
@@ -74,12 +72,15 @@ const ColumnView = ({
   const handleHideClick = () => toggleIsHidden(dailyListId);
 
   const handleAddClick = () => {
+    if (!dailyList) return;
     if (isHidden) {
       setIsHidden(dailyListId, false);
     }
 
     onTaskAdd(dailyList);
   };
+
+  if (!dailyList) return null;
 
   return (
     <TasksColumn
@@ -189,8 +190,8 @@ const BoardView = ({
   selectedProjectId: string;
 }) => {
   const rootRef = useRef<HTMLDivElement>(null);
-  const dispatch = useDispatch();
-  const inboxId = useSyncSelector({
+  const dispatch = useAsyncDispatch();
+  const { data: inboxId = "" } = useAsyncSelector({
     selector: inboxProjectId,
     args: {},
   });
@@ -202,16 +203,20 @@ const BoardView = ({
 
   const handleAddTask = useCallback(
     (dailyList: DailyList) => {
-      const task = dispatch(
-        createTaskInList({
-          dailyListId: dailyList.id,
-          projectId: inboxId,
-          listPosition: "prepend",
-          categoryPosition: "prepend",
-        }),
-      );
+      void (async () => {
+        const task = await dispatch(
+          createTaskInList({
+            dailyListId: dailyList.id,
+            projectId: inboxId,
+            listPosition: "prepend",
+            categoryPosition: "prepend",
+          }),
+        );
 
-      useFocusStore.getState().editByKey(buildFocusKey(task.id, "projection"));
+        useFocusStore
+          .getState()
+          .editByKey(buildFocusKey(task.id, "projection"));
+      })();
     },
     [dispatch, inboxId],
   );
@@ -404,14 +409,14 @@ export const Board = ({
     [startingDate],
   );
 
-  const dailyListsIds = useSyncSelector({
+  const { data: dailyListsIds = [] } = useAsyncSelector({
     selector: dailyListIdsByDates,
     args: { dates: weekDays.map((date) => date.getTime()) },
   });
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
 
   useEffect(() => {
-    dispatch(
+    void dispatch(
       createManyDailyListsIfNotPresent({
         dates: weekDays.map((date) => date.getTime()),
       }),

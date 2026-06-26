@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useSyncSelector } from "@will-be-done/hyperdb/react";
-import { useDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import {
   createProject,
   inboxProject,
@@ -138,7 +138,7 @@ const InboxNavItem = ({ inboxId }: { inboxId: string }) => {
   const spaceId = Route.useParams().spaceId;
   const closeMobile = useCloseMobileOnNav();
 
-  const notDoneCount = useSyncSelector({
+  const { data: notDoneCount = 0 } = useAsyncSelector({
     selector: notDoneTasksCountExceptDailiesCount,
     args: { projectId: inboxId, exceptDailyListIds: [] },
   });
@@ -188,12 +188,12 @@ const NavStrip = () => {
 };
 
 export const AppSidebar = () => {
-  const dispatch = useDispatch();
-  const inbox = useSyncSelector({
+  const dispatch = useAsyncDispatch();
+  const { data: inbox } = useAsyncSelector({
     selector: inboxProject,
     args: {},
   });
-  const projectIdsWithoutInbox = useSyncSelector({
+  const { data: projectIdsWithoutInbox = [] } = useAsyncSelector({
     selector: projectChildrenIdsWithoutInbox,
     args: {},
   });
@@ -201,7 +201,7 @@ export const AppSidebar = () => {
   const handleAddProjectClick = async () => {
     const title = await promptDialog("Enter project title");
     if (title) {
-      dispatch(createProject({ project: { title }, position: "append" }));
+      await dispatch(createProject({ project: { title }, position: "append" }));
     }
   };
 
@@ -217,7 +217,7 @@ export const AppSidebar = () => {
         {/* Today + Inbox */}
         <div className="grid grid-cols-2 gap-1.5">
           <TodayNavItem />
-          <InboxNavItem inboxId={inbox.id} />
+          {inbox && <InboxNavItem inboxId={inbox.id} />}
         </div>
 
         {/* Divider + Projects label */}
@@ -253,7 +253,7 @@ export const AppSidebar = () => {
 };
 
 const GenerateTestDataButton = () => {
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
   const [open, setOpen] = useState(false);
   const [projects, setProjects] = useState("5");
   const [categories, setCategories] = useState("3");
@@ -267,7 +267,7 @@ const GenerateTestDataButton = () => {
     const l = parseInt(todo, 10) || 0;
 
     const backup = generateTestBackup(n, m, k, l);
-    dispatch(loadSpaceBackup({ backup: backup }));
+    void dispatch(loadSpaceBackup({ backup: backup }));
     setOpen(false);
   };
 

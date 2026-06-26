@@ -5,7 +5,6 @@ import { createCrossTabChanges } from "./crossTabChanges";
 import { createLocalPersistQueue } from "./localPersistQueue";
 import { getClientId, getDbName, initClock } from "./syncClock";
 import { registerSyncChangeHooks } from "./syncChangeHooks";
-import { hydrateSyncDb } from "./syncHydration";
 import { Syncer } from "./syncer";
 import { getPersistentDriverKind } from "./persistentDriver";
 import { resetEmptyPersistedSyncCursor } from "./syncActions";
@@ -31,7 +30,7 @@ export const initDbStore = async (
 
     const clientId = getClientId(dbName);
     const nextClock = initClock(clientId);
-    const { persistentDB, syncDB, syncSubDb } = await createStoreDbs(
+    const { persistentDB, syncSubDb } = await createStoreDbs(
       dbName,
       syncConfig,
     );
@@ -39,14 +38,9 @@ export const initDbStore = async (
 
     registerSyncChangeHooks({
       syncSubDb,
+      syncableDBTables: syncConfig.syncableDBTables,
       clientId,
       nextClock,
-    });
-
-    await hydrateSyncDb({
-      persistentDB,
-      syncDB,
-      syncableDBTables: syncConfig.syncableDBTables,
     });
 
     const crossTabChanges = createCrossTabChanges({
@@ -56,19 +50,10 @@ export const initDbStore = async (
       nextClock,
     });
 
-    const syncer = new Syncer(
-      persistentDB,
-      clientId,
-      syncConfig,
-      nextClock,
-      crossTabChanges.applyChanges,
-    );
+    const syncer = new Syncer(syncSubDb, clientId, syncConfig, nextClock);
 
     const localPersistQueue = createLocalPersistQueue({
-      clientId,
-      persistentDB,
       syncSubDb,
-      nextClock,
       postChanges: crossTabChanges.postChanges,
       onPersisted: () => syncer.forceSync(),
     });

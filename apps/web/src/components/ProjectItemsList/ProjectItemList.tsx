@@ -2,8 +2,8 @@ import { PreloadedTaskComp } from "../Task/Task.tsx";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import { useMemo, useState } from "react";
 import { v } from "@will-be-done/hyperdb";
-import { useDispatch } from "@will-be-done/hyperdb/react";
-import { useSyncSelector } from "@will-be-done/hyperdb/react";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { selector } from "@/store/builders.ts";
 import {
   createCategory,
@@ -67,13 +67,13 @@ const ProjectTasksColumn = ({
   category: ProjectCategory;
   exceptTaskIds?: Set<string>;
 }) => {
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
 
-  const cardsForDisplay = useSyncSelector({
+  const { data: cardsForDisplay = [] } = useAsyncSelector({
     selector: projectCategoryCardsForDisplayChildren,
     args: { projectCategoryId: category.id },
   });
-  const doneCardsForDisplay = useSyncSelector({
+  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
     selector: doneProjectCategoryCardsForDisplay,
     args: { projectCategoryId: category.id },
   });
@@ -86,14 +86,16 @@ const ProjectTasksColumn = ({
       setIsHiddenClicked(false);
     }
 
-    const task = dispatch(
-      createProjectCategoryTask({
-        categoryId: category.id,
-        position: "prepend",
-      }),
-    );
+    void (async () => {
+      const task = await dispatch(
+        createProjectCategoryTask({
+          categoryId: category.id,
+          position: "prepend",
+        }),
+      );
 
-    useFocusStore.getState().editByKey(buildFocusKey(task.id, task.type));
+      useFocusStore.getState().editByKey(buildFocusKey(task.id, task.type));
+    })();
   };
   const handleHideClick = () => setIsHiddenClicked((v) => !v);
 
@@ -137,11 +139,11 @@ const ProjectTasksColumn = ({
                 const title = await promptDialog("Enter new name");
                 if (!title) return;
 
-                const [left, _right] = dispatch(
+                const [left, _right] = await dispatch(
                   projectCategorySiblings({ categoryId: category.id }),
                 );
 
-                dispatch(
+                await dispatch(
                   createCategory({
                     categoryDraft: {
                       projectId: category.projectId,
@@ -164,11 +166,11 @@ const ProjectTasksColumn = ({
                 const title = await promptDialog("Enter new name");
                 if (!title) return;
 
-                const [_left, right] = dispatch(
+                const [_left, right] = await dispatch(
                   projectCategorySiblings({ categoryId: category.id }),
                 );
 
-                dispatch(
+                await dispatch(
                   createCategory({
                     categoryDraft: {
                       projectId: category.projectId,
@@ -187,7 +189,7 @@ const ProjectTasksColumn = ({
             type="button"
             title="Move column to the left"
             onClick={() => {
-              dispatch(moveLeft({ categoryId: category.id }));
+              void dispatch(moveLeft({ categoryId: category.id }));
             }}
           >
             <MoveLeftIcon className="rotate-180" />
@@ -197,7 +199,7 @@ const ProjectTasksColumn = ({
             type="button"
             title="Move column to the right"
             onClick={() => {
-              dispatch(moveRight({ categoryId: category.id }));
+              void dispatch(moveRight({ categoryId: category.id }));
             }}
           >
             <MoveRightIcon className="rotate-180" />
@@ -212,7 +214,7 @@ const ProjectTasksColumn = ({
               );
               if (!confirmed) return;
 
-              dispatch(deleteCategories({ ids: [category.id] }));
+              void dispatch(deleteCategories({ ids: [category.id] }));
             }}
           >
             <TrashIcon className="rotate-180" />
@@ -229,7 +231,7 @@ const ProjectTasksColumn = ({
                 );
                 if (!newTitle) return;
 
-                dispatch(
+                await dispatch(
                   updateCategory({
                     categoryId: category.id,
                     category: {
@@ -304,11 +306,11 @@ export const ProjectItemsList = ({
   exceptDailyListIds?: string[];
   exceptStash?: boolean;
 }) => {
-  const categories = useSyncSelector({
+  const { data: categories = [] } = useAsyncSelector({
     selector: projectCategoriesByProjectId,
     args: { projectId: project.id },
   });
-  const exceptTaskIds = useSyncSelector({
+  const { data: exceptTaskIds = new Set<string>() } = useAsyncSelector({
     selector: projectItemsExceptTaskIds,
     args: { exceptDailyListIds: exceptDailyListIds ?? [], exceptStash },
   });

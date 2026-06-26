@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback } from "react";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSyncSelector } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { useFocusStore, parseColumnKey } from "@/store/focusSlice.ts";
 import {
   cardExists,
@@ -32,7 +32,7 @@ export function CardDetails() {
     parsed?.type === "projection" ||
     parsed?.type === "template";
   const cardId = isCardFocused ? parsed.id : null;
-  const isVisible = useSyncSelector({
+  const { data: isVisible = false } = useAsyncSelector({
     selector: cardExists,
     args: { id: cardId ?? "" },
     enabled: !!cardId,
@@ -203,7 +203,7 @@ export function CardDetailsPage({
   onBack: () => void;
   onCardIdChange?: (cardId: string) => void;
 }) {
-  const isVisible = useSyncSelector({
+  const { data: isVisible = false } = useAsyncSelector({
     selector: cardExists,
     args: { id: cardId },
   });
@@ -317,7 +317,7 @@ function CardDetailsBody({
   setIsEditingDescription: (v: boolean) => void;
   onCardIdChange?: (cardId: string) => void;
 }) {
-  const card = useSyncSelector({
+  const { data: card } = useAsyncSelector({
     selector: projectCategoryCardById,
     args: { id: cardId },
   });

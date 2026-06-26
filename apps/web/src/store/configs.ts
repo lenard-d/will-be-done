@@ -8,7 +8,11 @@ import {
   registeredSpaceSyncableTables,
   type Task,
 } from "@will-be-done/slices/space";
-import { HyperDB, runSelector, syncDispatch } from "@will-be-done/hyperdb";
+import {
+  asyncDispatch,
+  HyperDB,
+  runSelectorAsync,
+} from "@will-be-done/hyperdb";
 import {
   registeredUserSyncableTableNameMap,
   registeredUserSyncableTables,
@@ -30,12 +34,18 @@ export const spaceDBConfig = (dbId: string) => {
     inmemDBTables: [...registeredSpaceSyncableTables, changesTable],
     syncableDBTables: registeredSpaceSyncableTables,
     tableNameMap: registeredSpaceSyncableTableNameMap,
-    afterInit: (db: HyperDB) => {
-      syncDispatch(db, createInboxIfNotExists({}));
+    afterInit: async (db: HyperDB) => {
+      await asyncDispatch(db, createInboxIfNotExists({}));
 
-      syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
+      await asyncDispatch(
+        db,
+        generateTasksFromTemplates({ toDate: Date.now() }),
+      );
       setInterval(() => {
-        syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
+        void asyncDispatch(
+          db,
+          generateTasksFromTemplates({ toDate: Date.now() }),
+        );
       }, 60 * 1000);
     },
   } satisfies SyncConfig;
@@ -46,8 +56,8 @@ export const demoSpaceDBConfig = () => {
     ...spaceDBConfig(demoDbId),
     disableSync: true,
     afterInit: async (db: HyperDB) => {
-      syncDispatch(db, createInboxIfNotExists({}));
-      const tasks = runSelector<Task[]>(
+      await asyncDispatch(db, createInboxIfNotExists({}));
+      const tasks = await runSelectorAsync<Task[]>(
         db,
         function* () {
           return yield* allTasks({});
@@ -56,12 +66,21 @@ export const demoSpaceDBConfig = () => {
       );
 
       if (tasks.length === 0) {
-        syncDispatch(db, loadSpaceBackup({ backup: generateDemoBackup() }));
+        await asyncDispatch(
+          db,
+          loadSpaceBackup({ backup: generateDemoBackup() }),
+        );
       }
 
-      syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
+      await asyncDispatch(
+        db,
+        generateTasksFromTemplates({ toDate: Date.now() }),
+      );
       setInterval(() => {
-        syncDispatch(db, generateTasksFromTemplates({ toDate: Date.now() }));
+        void asyncDispatch(
+          db,
+          generateTasksFromTemplates({ toDate: Date.now() }),
+        );
       }, 60 * 1000);
     },
   } satisfies SyncConfig;

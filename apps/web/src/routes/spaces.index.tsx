@@ -12,7 +12,10 @@ import { Pencil, Plus, Trash2, LogOut } from "lucide-react";
 import { initDbStore } from "@/store/load";
 import { type SubscribableDB } from "@will-be-done/hyperdb";
 import { DBProvider } from "@will-be-done/hyperdb/react";
-import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb/react";
+import {
+  useAsyncDispatch,
+  useAsyncSelector,
+} from "@will-be-done/hyperdb/react";
 import {
   listSpaces,
   createSpace,
@@ -104,11 +107,11 @@ function Logo({ size = 32 }: { size?: number }) {
 function SpacePageComponent() {
   const navigate = useNavigate();
 
-  const spaces = useSyncSelector({
+  const { data: spaces = [] } = useAsyncSelector({
     selector: listSpaces,
     args: {},
   });
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
 
   useEffect(() => {
     authUtils.setSpaceNames(
@@ -125,7 +128,7 @@ function SpacePageComponent() {
     const name = await promptDialog("Enter space name:");
     if (!name?.trim()) return;
 
-    const space = dispatch(createSpace({ name: name }));
+    const space = await dispatch(createSpace({ name: name }));
     authUtils.setSpaceNames([{ spaceId: space.id, name: space.name }]);
   };
 
@@ -139,12 +142,12 @@ function SpacePageComponent() {
 
     const name = await promptDialog("Enter new space name:", currentName);
     if (name?.trim() && name !== currentName) {
-      dispatch(updateSpace({ id: spaceId, name: name }));
+      await dispatch(updateSpace({ id: spaceId, name: name }));
       authUtils.setSpaceNames([{ spaceId, name }]);
     }
   };
 
-  const handleDeleteSpace = (
+  const handleDeleteSpace = async (
     spaceId: string,
     spaceName: string,
     e: React.MouseEvent,
@@ -158,7 +161,7 @@ function SpacePageComponent() {
 
     if (!ok) return;
 
-    dispatch(deleteSpace({ id: spaceId }));
+    await dispatch(deleteSpace({ id: spaceId }));
   };
 
   return (
@@ -242,7 +245,7 @@ function SpacePageComponent() {
                       </button>
                       <button
                         onClick={(e) =>
-                          handleDeleteSpace(space.id, space.name, e)
+                          void handleDeleteSpace(space.id, space.name, e)
                         }
                         className="cursor-pointer rounded-md p-1 mr-1.5 text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-red-400"
                         aria-label="Delete space"

@@ -15,7 +15,7 @@ import {
   getChangesToSendToServer,
 } from "./syncActions";
 import { withSyncRequestTimeout } from "./syncRequestTimeout";
-import type { ChangePersistedEvent, SyncConfig } from "./syncTypes";
+import type { SyncConfig } from "./syncTypes";
 
 const SYNC_POLL_INTERVAL_MS = 5000;
 
@@ -37,11 +37,10 @@ export class Syncer {
   };
 
   constructor(
-    private persistentDB: HyperDB,
+    private syncDB: HyperDB,
     clientId: string,
     syncConfig: SyncConfig,
     private nextClock: () => string,
-    private afterChangesPersisted: (e: ChangePersistedEvent) => void,
   ) {
     this.clientId = clientId;
     this.syncConfig = syncConfig;
@@ -171,7 +170,7 @@ export class Syncer {
 
   private async getAndApplyChanges() {
     const syncState = await asyncDispatch(
-      this.persistentDB,
+      this.syncDB.withTraits({ type: "skip-sync" }),
       getSyncStateOrDefault({}),
     );
     const serverChanges = await withSyncRequestTimeout(
@@ -192,7 +191,7 @@ export class Syncer {
       console.log("no changes from server");
       if (serverChanges.maxClock !== "") {
         await asyncDispatch(
-          this.persistentDB,
+          this.syncDB.withTraits({ type: "skip-sync" }),
           updateSyncState({
             updates: { lastServerAppliedClock: serverChanges.maxClock },
           }),
@@ -203,7 +202,7 @@ export class Syncer {
     }
 
     await asyncDispatch(
-      this.persistentDB,
+      this.syncDB.withTraits({ type: "skip-sync" }),
       this.applyServerChangesIfNoClientChanges({
         registeredSyncableTableNameMap: this.syncConfig.tableNameMap,
         syncState,
@@ -211,17 +210,11 @@ export class Syncer {
         clientId: this.clientId,
       }),
     );
-
-    try {
-      this.afterChangesPersisted({ changeset: serverChanges.changesets });
-    } catch (e) {
-      console.error(e);
-    }
   }
 
   private async sendChangesToServer() {
     const { changesets, maxClock } = await asyncDispatch(
-      this.persistentDB,
+      this.syncDB,
       getChangesToSendToServer({
         registeredSyncableTableNameMap: this.syncConfig.tableNameMap,
       }),
@@ -242,7 +235,7 @@ export class Syncer {
       ),
     );
     await asyncDispatch(
-      this.persistentDB,
+      this.syncDB.withTraits({ type: "skip-sync" }),
       updateSyncState({ updates: { lastSentClock: maxClock } }),
     );
   }

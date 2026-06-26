@@ -1,4 +1,8 @@
-import { noop, type SubscribableDB, syncDispatch } from "@will-be-done/hyperdb";
+import {
+  noop,
+  type SubscribableDB,
+  type TableDefinition,
+} from "@will-be-done/hyperdb";
 import {
   changesTable,
   insertChangeFromDelete,
@@ -9,87 +13,80 @@ import {
 
 type RegisterSyncChangeHooksArgs = {
   syncSubDb: SubscribableDB;
+  syncableDBTables: TableDefinition[];
   clientId: string;
   nextClock: () => string;
 };
 
 export const registerSyncChangeHooks = ({
   syncSubDb,
+  syncableDBTables,
   clientId,
   nextClock,
 }: RegisterSyncChangeHooksArgs) => {
+  const syncableTables = new Set(syncableDBTables);
+  const shouldTrack = (table: TableDefinition, traits: { type: string }[]) =>
+    table !== changesTable &&
+    syncableTables.has(table) &&
+    !traits.some((t) => t.type === "skip-sync");
+
   syncSubDb.afterInsert(function* (db, table, traits, ops) {
-    if (table === changesTable) return;
-    if (traits.some((t) => t.type === "skip-sync")) {
+    if (!shouldTrack(table, traits)) {
       return;
     }
 
     for (const op of ops) {
-      syncDispatch(
-        db,
-        insertChangeFromInsert({
-          tableDef: op.table,
-          row: op.newValue as PrimitiveRow,
-          clientId,
-          nextClock: nextClock(),
-        }),
-      );
+      yield* insertChangeFromInsert({
+        tableDef: op.table,
+        row: op.newValue as PrimitiveRow,
+        clientId,
+        nextClock: nextClock(),
+      });
     }
 
     yield* noop();
   });
 
   syncSubDb.afterUpsert(function* (db, table, traits, ops) {
-    if (table === changesTable) return;
-    if (traits.some((t) => t.type === "skip-sync")) {
+    if (!shouldTrack(table, traits)) {
       return;
     }
 
     for (const op of ops) {
       if (!op.oldValue) {
-        syncDispatch(
-          db,
-          insertChangeFromInsert({
-            tableDef: op.table,
-            row: op.newValue as PrimitiveRow,
-            clientId,
-            nextClock: nextClock(),
-          }),
-        );
+        yield* insertChangeFromInsert({
+          tableDef: op.table,
+          row: op.newValue as PrimitiveRow,
+          clientId,
+          nextClock: nextClock(),
+        });
         continue;
       }
 
-      syncDispatch(
-        db,
-        insertChangeFromUpdate({
-          tableDef: op.table,
-          oldRow: op.oldValue as PrimitiveRow,
-          newRow: op.newValue as PrimitiveRow,
-          clientId,
-          nextClock: nextClock(),
-        }),
-      );
+      yield* insertChangeFromUpdate({
+        tableDef: op.table,
+        oldRow: op.oldValue as PrimitiveRow,
+        newRow: op.newValue as PrimitiveRow,
+        clientId,
+        nextClock: nextClock(),
+      });
     }
 
     yield* noop();
   });
 
   syncSubDb.afterDelete(function* (db, table, traits, ops) {
-    if (table === changesTable) return;
-    if (traits.some((t) => t.type === "skip-sync")) {
+    if (!shouldTrack(table, traits)) {
       return;
     }
 
     for (const op of ops) {
-      syncDispatch(
-        db,
-        insertChangeFromDelete({
-          tableDef: op.table,
-          row: op.oldValue as PrimitiveRow,
-          clientId,
-          nextClock: nextClock(),
-        }),
-      );
+      yield* insertChangeFromDelete({
+        tableDef: op.table,
+        row: op.oldValue as PrimitiveRow,
+        clientId,
+        nextClock: nextClock(),
+      });
     }
 
     yield* noop();

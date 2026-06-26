@@ -1,5 +1,5 @@
 import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
-import { DB, execAsync, execSync, SubscribableDB } from "@will-be-done/hyperdb";
+import { DB, execAsync, HybridDB, SubscribableDB } from "@will-be-done/hyperdb";
 import { dbIdTrait } from "@will-be-done/slices/traits";
 import { getDevtoolsEnabled } from "@/lib/devtools";
 import { openPersistentDriver } from "./persistentDriver";
@@ -25,15 +25,16 @@ export const createStoreDbs = async (
 
   await execAsync(persistentDB.loadTables(syncConfig.persistDBTables));
 
-  const syncDB = new DB(new BptreeInmemDriver(), {
+  const cacheDB = new DB(new BptreeInmemDriver(), {
     traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
     tracer,
-    dbName: "in-mem",
+    dbName: "hybrid-cache",
   });
 
-  execSync(syncDB.loadTables(syncConfig.inmemDBTables));
+  const syncDB = new HybridDB(persistentDB, cacheDB);
 
   const syncSubDb = new SubscribableDB(syncDB);
+  await execAsync(syncSubDb.loadTables(syncConfig.persistDBTables));
 
-  return { persistentDB, syncDB, syncSubDb };
+  return { persistentDB, syncSubDb };
 };

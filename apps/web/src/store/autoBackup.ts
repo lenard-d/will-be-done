@@ -1,4 +1,4 @@
-import { syncDispatch, SubscribableDB } from "@will-be-done/hyperdb";
+import { asyncDispatch, SubscribableDB } from "@will-be-done/hyperdb";
 import { getSpaceBackup } from "@will-be-done/slices/space";
 
 // --- IndexedDB helpers ---
@@ -156,7 +156,7 @@ export class AutoBackuper {
         return;
       }
 
-      const backup = syncDispatch(this.syncSubDb, getSpaceBackup({}));
+      const backup = await asyncDispatch(this.syncSubDb, getSpaceBackup({}));
       await saveBackup(this.dbName, backup);
       await cleanOldBackups(this.dbName, 7);
 

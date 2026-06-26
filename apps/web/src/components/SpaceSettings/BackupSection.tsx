@@ -1,27 +1,29 @@
 import { useState, useRef } from "react";
-import { useDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { getSpaceBackup, loadSpaceBackup } from "@will-be-done/slices/space";
 import { Download, Upload, AlertTriangle, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 
 export function BackupSection() {
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState(false);
 
   const handleExport = () => {
-    const backup = dispatch(getSpaceBackup({}));
-    const json = JSON.stringify(backup, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const dateStr = format(new Date(), "yyyy-MM-dd");
-    a.href = url;
-    a.download = `backup-${dateStr}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    void (async () => {
+      const backup = await dispatch(getSpaceBackup({}));
+      const json = JSON.stringify(backup, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const dateStr = format(new Date(), "yyyy-MM-dd");
+      a.href = url;
+      a.download = `backup-${dateStr}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    })();
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,7 +48,7 @@ export function BackupSection() {
         const parsed = JSON.parse(text) as Parameters<
           typeof loadSpaceBackup
         >[0]["backup"];
-        dispatch(loadSpaceBackup({ backup: parsed }));
+        await dispatch(loadSpaceBackup({ backup: parsed }));
         setImportSuccess(true);
       } catch {
         setImportError(

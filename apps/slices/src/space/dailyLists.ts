@@ -58,6 +58,7 @@ export const dailyListsByIds = selector({
   name: "dailyListsByIds",
   args: { ids: v.array(v.string()) },
   handler: function* dailyListsByIds({ ids }) {
+    if (ids.length === 0) return [];
     const dailyLists = yield* selectFrom(dailyListsTable, "byId").where((q) =>
       ids.map((id) => q.eq("id", id)),
     );

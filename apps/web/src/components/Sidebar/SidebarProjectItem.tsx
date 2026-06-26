@@ -1,12 +1,9 @@
 import { CSSProperties, useEffect, useRef, useState } from "react";
-import { select } from "@will-be-done/hyperdb";
-import { useSyncSelector } from "@will-be-done/hyperdb/react";
-import { useDB } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
   notDoneTasksCountExceptDailiesCount,
   overdueTasksCountExceptDailiesCount,
   projectByIdOrDefault,
-  projectCanDrop,
 } from "@will-be-done/slices/space";
 import { cn } from "@/lib/utils.ts";
 import { Link, useRouterState } from "@tanstack/react-router";
@@ -69,22 +66,21 @@ const DragPreview = ({
 
 export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
   const spaceId = Route.useParams().spaceId;
-  const db = useDB();
   const { isMobile, setOpenMobile } = useSidebar();
 
-  const project = useSyncSelector({
+  const { data: project } = useAsyncSelector({
     selector: projectByIdOrDefault,
     args: { id: projectId },
   });
 
   const currentDate = useCurrentDate();
 
-  const notDoneCount = useSyncSelector({
+  const { data: notDoneCount = 0 } = useAsyncSelector({
     selector: notDoneTasksCountExceptDailiesCount,
     args: { projectId: projectId, exceptDailyListIds: [] },
   });
 
-  const overdueCount = useSyncSelector({
+  const { data: overdueCount = 0 } = useAsyncSelector({
     selector: overdueTasksCountExceptDailiesCount,
     args: {
       projectId: projectId,
@@ -106,6 +102,7 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!project) return;
     const element = ref.current;
     invariant(element);
 
@@ -138,14 +135,7 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
         canDrop: ({ source }) => {
           const data = source.data;
           if (!isModelDNDData(data)) return false;
-          return select(
-            db,
-            projectCanDrop({
-              projectId: project.id,
-              dropItemId: data.modelId,
-              dropModelType: data.modelType,
-            }),
-          );
+          return true;
         },
         getIsSticky: () => true,
         getData: ({ input, element: el }) => {
@@ -185,7 +175,9 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
         },
       }),
     );
-  }, [db, project.id, project.type]);
+  }, [project]);
+
+  if (!project) return null;
 
   return (
     <div ref={ref} className="relative">
