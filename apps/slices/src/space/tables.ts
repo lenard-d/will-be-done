@@ -30,6 +30,11 @@ export const tasksTable = defineTable("tasks", {
     "state",
     "orderToken",
   ])
+  .index("byCategoryIdStatesToggledAt", [
+    "projectCategoryId",
+    "state",
+    "lastToggledAt",
+  ])
   .index("byTemplateId", ["templateId"], { type: "hash" });
 registerSpaceSyncableTable(tasksTable, taskType);
 

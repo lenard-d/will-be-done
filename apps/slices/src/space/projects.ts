@@ -149,66 +149,67 @@ export const overdueTasksCountExceptDailiesCount = selector({
     exceptDailyListIds,
     currentDate,
   }): Generator<unknown, number, unknown> {
-    const currentDay = startOfDay(new Date(currentDate));
-
-    const categories = yield* projectCategoriesByProjectId({ projectId });
-
-    const taskIds = yield* dailyListAllTaskIds({
-      dailyListIds: exceptDailyListIds,
-    });
-    const exceptCardIds: Set<string> = new Set(taskIds);
-    const exceptDailyListSet = new Set(exceptDailyListIds);
-
-    // First pass: collect all unique dailyListIds that we need to check
-    const dailyListIdsToFetch = new Set<string>();
-    for (const category of categories) {
-      const childrenIds = yield* projectCategoryCardIds({
-        projectCategoryId: category.id,
-      });
-
-      for (const taskId of childrenIds) {
-        if (exceptCardIds.has(taskId)) continue;
-
-        const projection = yield* dailyProjectionByTaskId({ taskId });
-        if (!projection) continue;
-        if (exceptDailyListSet.has(projection.dailyListId)) continue;
-
-        dailyListIdsToFetch.add(projection.dailyListId);
-      }
-    }
-
-    // Batch fetch all daily lists at once
-    const dailyLists = yield* dailyListsByIds({
-      ids: Array.from(dailyListIdsToFetch),
-    });
-    const dailyListMap = new Map(dailyLists.map((dl) => [dl.id, dl]));
-
-    // Second pass: count overdue tasks
-    let overdueCount = 0;
-    for (const category of categories) {
-      const childrenIds = yield* projectCategoryCardIds({
-        projectCategoryId: category.id,
-      });
-
-      for (const taskId of childrenIds) {
-        if (exceptCardIds.has(taskId)) continue;
-
-        const projection = yield* dailyProjectionByTaskId({ taskId });
-        if (!projection) continue;
-        if (exceptDailyListSet.has(projection.dailyListId)) continue;
-
-        const dailyList = dailyListMap.get(projection.dailyListId);
-        if (!dailyList) continue;
-
-        // Parse the date and check if it's before currentDate
-        const listDate = new Date(dailyList.date);
-        if (listDate < currentDay) {
-          overdueCount++;
-        }
-      }
-    }
-
-    return overdueCount;
+    // const currentDay = startOfDay(new Date(currentDate));
+    //
+    // const categories = yield* projectCategoriesByProjectId({ projectId });
+    //
+    // const taskIds = yield* dailyListAllTaskIds({
+    //   dailyListIds: exceptDailyListIds,
+    // });
+    // const exceptCardIds: Set<string> = new Set(taskIds);
+    // const exceptDailyListSet = new Set(exceptDailyListIds);
+    //
+    // // First pass: collect all unique dailyListIds that we need to check
+    // const dailyListIdsToFetch = new Set<string>();
+    // for (const category of categories) {
+    //   const childrenIds = yield* projectCategoryCardIds({
+    //     projectCategoryId: category.id,
+    //   });
+    //
+    //   for (const taskId of childrenIds) {
+    //     if (exceptCardIds.has(taskId)) continue;
+    //
+    //     const projection = yield* dailyProjectionByTaskId({ taskId });
+    //     if (!projection) continue;
+    //     if (exceptDailyListSet.has(projection.dailyListId)) continue;
+    //
+    //     dailyListIdsToFetch.add(projection.dailyListId);
+    //   }
+    // }
+    //
+    // // Batch fetch all daily lists at once
+    // const dailyLists = yield* dailyListsByIds({
+    //   ids: Array.from(dailyListIdsToFetch),
+    // });
+    // const dailyListMap = new Map(dailyLists.map((dl) => [dl.id, dl]));
+    //
+    // // Second pass: count overdue tasks
+    // let overdueCount = 0;
+    // for (const category of categories) {
+    //   const childrenIds = yield* projectCategoryCardIds({
+    //     projectCategoryId: category.id,
+    //   });
+    //
+    //   for (const taskId of childrenIds) {
+    //     if (exceptCardIds.has(taskId)) continue;
+    //
+    //     const projection = yield* dailyProjectionByTaskId({ taskId });
+    //     if (!projection) continue;
+    //     if (exceptDailyListSet.has(projection.dailyListId)) continue;
+    //
+    //     const dailyList = dailyListMap.get(projection.dailyListId);
+    //     if (!dailyList) continue;
+    //
+    //     // Parse the date and check if it's before currentDate
+    //     const listDate = new Date(dailyList.date);
+    //     if (listDate < currentDay) {
+    //       overdueCount++;
+    //     }
+    //   }
+    // }
+    //
+    // return overdueCount;
+    return 0;
   },
 });
 
@@ -222,23 +223,24 @@ export const notDoneTasksCountExceptDailiesCount = selector({
     projectId,
     exceptDailyListIds,
   }): Generator<unknown, number, unknown> {
-    const categories = yield* projectCategoriesByProjectId({ projectId });
-
-    const taskIds = yield* dailyListAllTaskIds({
-      dailyListIds: exceptDailyListIds,
-    });
-    const exceptCardIds: Set<string> = new Set(taskIds);
-
-    const finalChildrenIds: string[] = [];
-    for (const category of categories) {
-      const childrenIds = yield* projectCategoryCardIds({
-        projectCategoryId: category.id,
-      });
-
-      finalChildrenIds.push(...childrenIds);
-    }
-
-    return finalChildrenIds.filter((id) => !exceptCardIds.has(id)).length;
+    // const categories = yield* projectCategoriesByProjectId({ projectId });
+    //
+    // const taskIds = yield* dailyListAllTaskIds({
+    //   dailyListIds: exceptDailyListIds,
+    // });
+    // const exceptCardIds: Set<string> = new Set(taskIds);
+    //
+    // const finalChildrenIds: string[] = [];
+    // for (const category of categories) {
+    //   const childrenIds = yield* projectCategoryCardIds({
+    //     projectCategoryId: category.id,
+    //   });
+    //
+    //   finalChildrenIds.push(...childrenIds);
+    // }
+    //
+    // return finalChildrenIds.filter((id) => !exceptCardIds.has(id)).length;
+    return 0;
   },
 });
 

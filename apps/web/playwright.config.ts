@@ -15,7 +15,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "bun run ../../scripts/e2e-web-server.ts",
+    command: "pnpm exec tsx ../../scripts/e2e-web-server.ts",
     url: `http://127.0.0.1:${webPort}`,
     reuseExistingServer: false,
     timeout: 120_000,

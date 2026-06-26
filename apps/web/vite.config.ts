@@ -6,6 +6,12 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { configDefaults, defineConfig } from "vitest/config";
 
+const hyperdbRoot = path.resolve(__dirname, "../../../hyperdb/packages/hyperdb");
+const hyperdbDevtoolRoot = path.resolve(
+  __dirname,
+  "../../../hyperdb/packages/hyperdb-devtool",
+);
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -47,9 +53,49 @@ export default defineConfig({
   ],
   resolve: {
     dedupe: ["react", "react-dom"],
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
+    alias: [
+      {
+        find: /^@will-be-done\/hyperdb\/drivers\/inmemory$/,
+        replacement: path.resolve(
+          hyperdbRoot,
+          "src/hyperdb/drivers/inmemory/bptree-inmem-driver.ts",
+        ),
+      },
+      {
+        find: /^@will-be-done\/hyperdb\/drivers\/sqlite$/,
+        replacement: path.resolve(
+          hyperdbRoot,
+          "src/hyperdb/drivers/sqlite/index.ts",
+        ),
+      },
+      {
+        find: /^@will-be-done\/hyperdb\/drivers\/idb$/,
+        replacement: path.resolve(
+          hyperdbRoot,
+          "src/hyperdb/drivers/idb/idb-driver.ts",
+        ),
+      },
+      {
+        find: /^@will-be-done\/hyperdb\/tracing$/,
+        replacement: path.resolve(hyperdbRoot, "src/hyperdb/tracing/index.ts"),
+      },
+      {
+        find: /^@will-be-done\/hyperdb\/react$/,
+        replacement: path.resolve(hyperdbRoot, "src/react.ts"),
+      },
+      {
+        find: /^@will-be-done\/hyperdb$/,
+        replacement: path.resolve(hyperdbRoot, "src/index.ts"),
+      },
+      {
+        find: /^@will-be-done\/hyperdb-devtool\/react$/,
+        replacement: path.resolve(hyperdbDevtoolRoot, "src/react.ts"),
+      },
+      {
+        find: "@",
+        replacement: path.resolve(__dirname, "./src"),
+      },
+    ],
   },
   server: {
     proxy: {

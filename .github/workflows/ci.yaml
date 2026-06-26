@@ -19,30 +19,39 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: latest
 
       - name: Install dependencies
-        run: bun install
+        run: pnpm install --frozen-lockfile
 
       - name: Lint @apps/${{ matrix.package }}
-        run: cd apps/${{ matrix.package }} && bun run lint
+        run: pnpm -C apps/${{ matrix.package }} lint
 
       - name: TypeCheck @apps/${{ matrix.package }}
-        run: cd apps/${{ matrix.package }} && bun run ts
+        run: pnpm -C apps/${{ matrix.package }} ts
 
       - name: Install Playwright browsers @apps/${{ matrix.package }}
         if: matrix.package == 'hyperdb-lib'
-        run: cd apps/${{ matrix.package }} && bun run playwright install --with-deps chromium
+        run: pnpm -C apps/${{ matrix.package }} exec playwright install --with-deps chromium
 
       - name: Test @apps/${{ matrix.package }}
         if: matrix.package == 'hyperdb-lib' || matrix.package == 'api'
-        run: cd apps/${{ matrix.package }} && bun run test
+        run: pnpm -C apps/${{ matrix.package }} test
 
       - name: Check import cycles @apps/${{ matrix.package }}
         if: matrix.package == 'hyperdb-lib'
-        run: cd apps/${{ matrix.package }} && bun run lint:cycles
+        run: pnpm -C apps/${{ matrix.package }} lint:cycles
 
   web-e2e:
     runs-on: ubuntu-latest
@@ -52,18 +61,27 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: latest
 
       - name: Install dependencies
-        run: bun install
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: cd apps/web && bun run playwright install --with-deps chromium
+        run: pnpm -C apps/web exec playwright install --with-deps chromium
 
       - name: Run web e2e tests
-        run: cd apps/web && bun run test:e2e
+        run: pnpm -C apps/web test:e2e
 
       - name: Upload Playwright artifacts
         if: failure()

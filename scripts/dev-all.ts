@@ -119,12 +119,12 @@ async function main() {
   tui.appendLog(0, `Starting API server on port ${apiPort}...`);
   tui.appendLog(1, `Starting Web client (proxying to API port ${apiPort})...`);
 
-  const apiProc = spawn("bun", ["run", "--cwd", "apps/api", "dev"], {
+  const apiProc = spawn("pnpm", ["-C", "apps/api", "dev"], {
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, PORT: String(apiPort), FORCE_COLOR: "1" },
   });
 
-  const webProc = spawn("bun", ["run", "--cwd", "apps/web", "dev"], {
+  const webProc = spawn("pnpm", ["-C", "apps/web", "dev"], {
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, VITE_API_PORT: String(apiPort), FORCE_COLOR: "1" },
   });

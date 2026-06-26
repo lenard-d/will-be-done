@@ -69,15 +69,19 @@ const ProjectTasksColumn = ({
 }) => {
   const dispatch = useAsyncDispatch();
 
-  const { data: cardsForDisplay = [] } = useAsyncSelector({
+  const { data: cardsForDisplay = [], isLoading } = useAsyncSelector({
     selector: projectCategoryCardsForDisplayChildren,
     args: { projectCategoryId: category.id },
   });
+  const [isHiddenClicked, setIsHiddenClicked] = useState(false);
+  const handleHideClick = () => setIsHiddenClicked((v) => !v);
+
+  const [isShowMore, setIsShowMore] = useState(false);
   const { data: doneCardsForDisplay = [] } = useAsyncSelector({
     selector: doneProjectCategoryCardsForDisplay,
-    args: { projectCategoryId: category.id },
+    args: { projectCategoryId: category.id, limited: !isShowMore },
   });
-  const [isHiddenClicked, setIsHiddenClicked] = useState(false);
+
   const isHidden =
     isHiddenClicked ||
     (doneCardsForDisplay.length == 0 && cardsForDisplay.length == 0);
@@ -97,9 +101,6 @@ const ProjectTasksColumn = ({
       useFocusStore.getState().editByKey(buildFocusKey(task.id, task.type));
     })();
   };
-  const handleHideClick = () => setIsHiddenClicked((v) => !v);
-
-  const [isShowMore, setIsShowMore] = useState(false);
 
   const finalDoneIds = useMemo(() => {
     const ids = (() => {

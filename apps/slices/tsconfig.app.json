@@ -3,12 +3,13 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable", "ES2021.WeakRef"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "ES2021.WeakRef"],
     "module": "ESNext",
     "skipLibCheck": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
+    "types": ["node"],
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
@@ -23,6 +24,24 @@
     "noUncheckedSideEffectImports": true,
     "noUncheckedIndexedAccess": false,
     "paths": {
+      "@will-be-done/hyperdb": [
+        "../../../hyperdb/packages/hyperdb/src/index.ts"
+      ],
+      "@will-be-done/hyperdb/react": [
+        "../../../hyperdb/packages/hyperdb/src/react.ts"
+      ],
+      "@will-be-done/hyperdb/tracing": [
+        "../../../hyperdb/packages/hyperdb/src/hyperdb/tracing/index.ts"
+      ],
+      "@will-be-done/hyperdb/drivers/inmemory": [
+        "../../../hyperdb/packages/hyperdb/src/hyperdb/drivers/inmemory/bptree-inmem-driver.ts"
+      ],
+      "@will-be-done/hyperdb/drivers/sqlite": [
+        "../../../hyperdb/packages/hyperdb/src/hyperdb/drivers/sqlite/index.ts"
+      ],
+      "@will-be-done/hyperdb/drivers/idb": [
+        "../../../hyperdb/packages/hyperdb/src/hyperdb/drivers/idb/idb-driver.ts"
+      ],
       "@/*": ["./src/*"]
     }
   },

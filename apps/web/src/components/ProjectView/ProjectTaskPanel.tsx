@@ -85,12 +85,11 @@ const CategorySection = ({
     args: { projectCategoryId: category?.id ?? categoryId },
   });
 
+  const [isShowMore, setIsShowMore] = useState(false);
   const { data: doneCardsForDisplay = [] } = useAsyncSelector({
     selector: doneProjectCategoryCardsForDisplay,
-    args: { projectCategoryId: categoryId },
+    args: { projectCategoryId: categoryId, limited: !isShowMore },
   });
-
-  const [isShowMore, setIsShowMore] = useState(false);
 
   useEffect(() => {
     if (!category) return;

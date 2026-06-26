@@ -21,11 +21,12 @@ import type { SyncConfig } from "./syncTypes";
 import { generateDemoBackup } from "@/lib/demoData";
 
 const demoDbId = "e89b6c8f-1d6c-4bf4-9d27-478339773fc9";
+export const spaceDbType = "space";
 
 export const spaceDBConfig = (dbId: string) => {
   return {
     dbId,
-    dbType: "space",
+    dbType: spaceDbType,
     persistDBTables: [
       ...registeredSpaceSyncableTables,
       changesTable,
@@ -37,10 +38,13 @@ export const spaceDBConfig = (dbId: string) => {
     afterInit: async (db: HyperDB) => {
       await asyncDispatch(db, createInboxIfNotExists({}));
 
-      await asyncDispatch(
-        db,
-        generateTasksFromTemplates({ toDate: Date.now() }),
-      );
+      // To make load faster
+      setTimeout(() => {
+        void asyncDispatch(
+          db,
+          generateTasksFromTemplates({ toDate: Date.now() }),
+        );
+      }, 2000);
       setInterval(() => {
         void asyncDispatch(
           db,

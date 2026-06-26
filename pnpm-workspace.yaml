@@ -1,0 +1,19 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+overrides:
+  "@will-be-done/hyperdb": "link:../hyperdb/packages/hyperdb"
+  "@types/react": "19.2.17"
+  "@types/react-dom": "19.2.3"
+  react: "19.2.7"
+  react-dom: "19.2.7"
+  zod-validation-error: "^4.0.0"
+allowBuilds:
+  core-js: true
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  sharp: true
+minimumReleaseAgeExclude:
+  - '@will-be-done/hyperdb-devtool@0.1.0'
+  - '@will-be-done/hyperdb@0.1.0'
