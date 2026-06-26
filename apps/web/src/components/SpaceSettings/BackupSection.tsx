@@ -1,9 +1,6 @@
 import { useState, useRef } from "react";
-import { useDispatch } from "@will-be-done/hyperdb-lib";
-import {
-  getSpaceBackup,
-  loadSpaceBackup,
-} from "@will-be-done/slices/space";
+import { useDispatch } from "@will-be-done/hyperdb/react";
+import { getSpaceBackup, loadSpaceBackup } from "@will-be-done/slices/space";
 import { Download, Upload, AlertTriangle, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 

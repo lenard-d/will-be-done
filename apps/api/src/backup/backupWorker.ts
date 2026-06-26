@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
-import { SqlDriver } from "@will-be-done/hyperdb-lib/drivers/sqlite";
-import { DB, execSync } from "@will-be-done/hyperdb-lib";
+import { SqlDriver } from "@will-be-done/hyperdb/drivers/sqlite";
+import { DB, execSync } from "@will-be-done/hyperdb";
 import path from "path";
 import fs from "fs";
 import {
@@ -70,7 +70,7 @@ function createMainDB(dbsPath: string): DB {
       backupStateTable,
       backupTierStateTable,
       backupFileTable,
-    ])
+    ]),
   );
 
   return db;
@@ -105,7 +105,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         const backupManager = new BackupManager(mainDB, config, dbsPath);
 
         console.log(
-          "[BackupWorker] Skipping bucket verification (will verify on first upload)"
+          "[BackupWorker] Skipping bucket verification (will verify on first upload)",
         );
 
         backupScheduler = new BackupScheduler(mainDB, backupManager, config);
@@ -135,7 +135,9 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
 
         console.log("[BackupWorker] Shutdown complete");
 
-        self.postMessage({ type: "shutdown-complete" } satisfies WorkerResponse);
+        self.postMessage({
+          type: "shutdown-complete",
+        } satisfies WorkerResponse);
       } catch (error) {
         console.error("[BackupWorker] Shutdown error:", error);
         self.postMessage({

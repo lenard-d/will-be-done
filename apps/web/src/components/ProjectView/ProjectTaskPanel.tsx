@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  useDispatch,
-  useSelect,
-  useSyncSelector,
-} from "@will-be-done/hyperdb-lib";
+import { useDispatch } from "@will-be-done/hyperdb/react";
+import { useSelect, useSyncSelector } from "@will-be-done/hyperdb/react";
 import { flushSync } from "react-dom";
 import {
   appCanDrop,

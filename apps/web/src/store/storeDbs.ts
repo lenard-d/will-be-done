@@ -1,10 +1,5 @@
-import { BptreeInmemDriver } from "@will-be-done/hyperdb-lib/drivers/inmemory";
-import {
-  DB,
-  execAsync,
-  execSync,
-  SubscribableDB,
-} from "@will-be-done/hyperdb-lib";
+import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
+import { DB, execAsync, execSync, SubscribableDB } from "@will-be-done/hyperdb";
 import { dbIdTrait } from "@will-be-done/slices/traits";
 import { getDevtoolsEnabled } from "@/lib/devtools";
 import { openPersistentDriver } from "./persistentDriver";
@@ -22,7 +17,7 @@ export const createStoreDbs = async (
   const persistentDB = new DB(persistentDriver, {
     traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
     tracer,
-    runtimeValidation: process.env.NODE_ENV === "development",
+    runtimeRowsValidation: process.env.NODE_ENV === "development",
     freezeArgs: process.env.NODE_ENV === "development",
     freezeRows: process.env.NODE_ENV === "development",
     dbName: "persistent",

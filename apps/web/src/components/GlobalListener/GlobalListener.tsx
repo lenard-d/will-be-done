@@ -21,7 +21,8 @@ import {
   taskTemplateType,
   taskType,
 } from "@will-be-done/slices/space";
-import { select, useDB, useDispatch } from "@will-be-done/hyperdb-lib";
+import { select } from "@will-be-done/hyperdb";
+import { useDB, useDispatch } from "@will-be-done/hyperdb/react";
 import { FocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   getDOMSiblings,
@@ -35,7 +36,8 @@ export function GlobalListener() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const focusState = useFocusStore.getState();
-      const isSomethingFocused = !focusState.isFocusDisabled && !!focusState.focusItemKey;
+      const isSomethingFocused =
+        !focusState.isFocusDisabled && !!focusState.focusItemKey;
 
       if (focusState.isFocusDisabled || e.defaultPrevented) return;
 
@@ -199,7 +201,9 @@ export function GlobalListener() {
             );
             if (!entity) {
               // Virtual models (e.g. stash) have no DB row — use DnD data directly
-              return [[t, { id: t.data.modelId, type: t.data.modelType }] as const];
+              return [
+                [t, { id: t.data.modelId, type: t.data.modelType }] as const,
+              ];
             }
             return [[t, entity] as const];
           });
@@ -243,7 +247,13 @@ export function GlobalListener() {
           }
 
           dispatch(
-            appHandleDrop({ id: targetItemInfo[1].id, modelType: targetItemInfo[1].type, dropId: source.data.modelId, dropModelType: source.data.modelType, edge: closestEdgeOfTarget || "top" }),
+            appHandleDrop({
+              id: targetItemInfo[1].id,
+              modelType: targetItemInfo[1].type,
+              dropId: source.data.modelId,
+              dropModelType: source.data.modelType,
+              edge: closestEdgeOfTarget || "top",
+            }),
           );
         },
       }),

@@ -7,7 +7,7 @@ import {
   type ExtractIndexes,
   type HyperDB,
   type TableDefinition,
-} from "@will-be-done/hyperdb-lib";
+} from "@will-be-done/hyperdb";
 import { action } from "./builders";
 
 type TableIndexName<TTable extends TableDefinition> = Extract<

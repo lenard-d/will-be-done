@@ -1,8 +1,4 @@
-import {
-  selectFrom,
-  upsert,
-  v,
-} from "@will-be-done/hyperdb-lib";
+import { selectFrom, upsert, v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { syncStateTable, syncStateId, type SyncState } from "./tables";
 

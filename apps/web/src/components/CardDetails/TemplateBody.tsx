@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import { CalendarDays, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
-import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb-lib";
+import { useDispatch } from "@will-be-done/hyperdb/react";
+import { useSyncSelector } from "@will-be-done/hyperdb/react";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   createTaskFromTemplate,

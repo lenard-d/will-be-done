@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
-import {
-  useDispatch,
-  useSelect,
-  useSyncSelector,
-} from "@will-be-done/hyperdb-lib";
+import { useDispatch } from "@will-be-done/hyperdb/react";
+import { useSelect, useSyncSelector } from "@will-be-done/hyperdb/react";
 import { flushSync } from "react-dom";
 import {
   appCanDrop,

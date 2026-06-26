@@ -76,11 +76,8 @@ import {
   updateTask,
   updateTemplate,
 } from "@will-be-done/slices/space";
-import {
-  useDispatch,
-  useSelect,
-  useSyncSelector,
-} from "@will-be-done/hyperdb-lib";
+import { useDispatch } from "@will-be-done/hyperdb/react";
+import { useSelect, useSyncSelector } from "@will-be-done/hyperdb/react";
 import {
   buildFocusKey,
   focusTextareaAtEnd,

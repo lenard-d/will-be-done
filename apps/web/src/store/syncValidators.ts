@@ -1,8 +1,4 @@
-import {
-  v,
-  type TableDefinition,
-  type Validator,
-} from "@will-be-done/hyperdb-lib";
+import { v, type TableDefinition, type Validator } from "@will-be-done/hyperdb";
 import type { PrimitiveRow } from "@will-be-done/slices/common";
 
 const primitiveValueSchema = v.union(

@@ -1,9 +1,4 @@
-import {
-  deleteRows,
-  insert,
-  selectFrom,
-  v,
-} from "@will-be-done/hyperdb-lib";
+import { deleteRows, insert, selectFrom, v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { uuidv7 } from "uuidv7";
 import { tokensTable, usersTable, type Token, type User } from "./tables";
@@ -129,4 +124,3 @@ export const revokeAllUserTokens = action({
     }
   },
 });
-

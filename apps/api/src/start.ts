@@ -5,7 +5,7 @@ import {
   router,
   createContext,
 } from "./trpc";
-import { syncDispatch, select } from "@will-be-done/hyperdb-lib";
+import { syncDispatch, select } from "@will-be-done/hyperdb";
 import * as dotenv from "dotenv";
 import {
   ChangesetArray,

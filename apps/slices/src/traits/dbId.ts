@@ -1,4 +1,4 @@
-import { getCurrentTraits } from "@will-be-done/hyperdb-lib";
+import { getCurrentTraits } from "@will-be-done/hyperdb";
 import { v5 as uuidv5 } from "uuid";
 
 const dbIdTraitType = "dbIdType";

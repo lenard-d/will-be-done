@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import { useDispatch } from "@will-be-done/hyperdb-lib";
+import { useDispatch } from "@will-be-done/hyperdb/react";
 import {
   addToDailyList,
   createDailyListIfNotPresent,
@@ -47,11 +47,17 @@ export function TaskDatePicker({
     const dateString = getDMY(date);
 
     // Create daily list if it doesn't exist
-    const dailyList = dispatch(createDailyListIfNotPresent({ date: dateString }));
+    const dailyList = dispatch(
+      createDailyListIfNotPresent({ date: dateString }),
+    );
 
     // Add task to the daily list
     dispatch(
-      addToDailyList({ taskId: taskId, dailyListId: dailyList.id, position: "append" }),
+      addToDailyList({
+        taskId: taskId,
+        dailyListId: dailyList.id,
+        position: "append",
+      }),
     );
 
     // Close popover

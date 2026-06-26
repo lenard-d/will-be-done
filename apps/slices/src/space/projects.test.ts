@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  DB,
-  execSync,
-  runSelector,
-  syncDispatch,
-} from "@will-be-done/hyperdb-lib";
-import { BptreeInmemDriver } from "@will-be-done/hyperdb-lib/drivers/inmemory";
+import { DB, execSync, runSelector, syncDispatch } from "@will-be-done/hyperdb";
+import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
 import { dbIdTrait } from "../traits";
 import { addToDailyList } from "./dailyListsProjections";
 import { addToStash } from "./stashProjections";

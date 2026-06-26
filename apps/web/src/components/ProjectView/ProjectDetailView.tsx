@@ -1,4 +1,4 @@
-import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb-lib";
+import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb/react";
 import {
   deleteProjects,
   inboxProjectId as getInboxProjectId,

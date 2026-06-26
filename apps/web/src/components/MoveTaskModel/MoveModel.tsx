@@ -8,7 +8,7 @@ import {
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useUnmount } from "../../utils";
 import { useFocusStore } from "@/store/focusSlice.ts";
-import { useSyncSelector } from "@will-be-done/hyperdb-lib";
+import { useSyncSelector } from "@will-be-done/hyperdb/react";
 import { allProjectsSorted } from "@will-be-done/slices/space";
 
 export const MoveModal = ({

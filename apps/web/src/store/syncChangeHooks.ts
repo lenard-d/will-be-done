@@ -1,8 +1,4 @@
-import {
-  noop,
-  type SubscribableDB,
-  syncDispatch,
-} from "@will-be-done/hyperdb-lib";
+import { noop, type SubscribableDB, syncDispatch } from "@will-be-done/hyperdb";
 import {
   changesTable,
   insertChangeFromDelete,

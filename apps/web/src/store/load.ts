@@ -1,5 +1,5 @@
+import { asyncDispatch, type SubscribableDB } from "@will-be-done/hyperdb";
 import AwaitLock from "await-lock";
-import { asyncDispatch, type SubscribableDB } from "@will-be-done/hyperdb-lib";
 import { AutoBackuper } from "./autoBackup.ts";
 import { createCrossTabChanges } from "./crossTabChanges";
 import { createLocalPersistQueue } from "./localPersistQueue";

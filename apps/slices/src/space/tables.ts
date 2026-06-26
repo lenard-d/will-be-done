@@ -3,7 +3,7 @@ import {
   ExtractSchema,
   type Infer,
   v,
-} from "@will-be-done/hyperdb-lib";
+} from "@will-be-done/hyperdb";
 import { registerSpaceSyncableTable } from "./syncMap";
 import { isObjectType } from "..";
 

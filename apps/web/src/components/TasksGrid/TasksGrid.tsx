@@ -5,11 +5,8 @@ import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { DndModelData, isModelDNDData } from "@/lib/dnd/models";
-import { useSelect } from "@will-be-done/hyperdb-lib";
-import {
-  AnyModelType,
-  appCanDrop,
-} from "@will-be-done/slices/space";
+import { useSelect } from "@will-be-done/hyperdb/react";
+import { AnyModelType, appCanDrop } from "@will-be-done/slices/space";
 import { PlusIcon } from "@/components/ui/icons.tsx";
 import { buildFocusKey } from "@/store/focusSlice.ts";
 
@@ -99,7 +96,12 @@ export const TasksColumn = ({
           if (!isModelDNDData(data)) return false;
 
           return select(
-            appCanDrop({ id: columnModelId, modelType: columnModelType, dropId: data.modelId, dropModelType: data.modelType }),
+            appCanDrop({
+              id: columnModelId,
+              modelType: columnModelType,
+              dropId: data.modelId,
+              dropModelType: data.modelType,
+            }),
           );
         },
         getIsSticky: () => true,

@@ -1,4 +1,4 @@
-import type { HyperDB, TableDefinition } from "@will-be-done/hyperdb-lib";
+import { HyperDB, TableDefinition } from "@will-be-done/hyperdb";
 import type { ChangesetArrayType } from "@will-be-done/slices/common";
 
 export interface SyncConfig {

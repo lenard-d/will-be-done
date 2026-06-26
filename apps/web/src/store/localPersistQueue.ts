@@ -1,4 +1,3 @@
-import AwaitLock from "await-lock";
 import {
   asyncDispatch,
   execAsync,
@@ -7,7 +6,8 @@ import {
   type Row,
   type SubscribableDB,
   type TableDefinition,
-} from "@will-be-done/hyperdb-lib";
+} from "@will-be-done/hyperdb";
+import AwaitLock from "await-lock";
 import {
   changesTable,
   insertChangeFromDelete,

@@ -1,9 +1,4 @@
-import {
-  deleteRows,
-  insert,
-  selectFrom,
-  v,
-} from "@will-be-done/hyperdb-lib";
+import { deleteRows, insert, selectFrom, v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { getDMY, orderPositionArg } from "./utils";
 import { appById } from "./app";

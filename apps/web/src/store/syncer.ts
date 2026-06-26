@@ -1,4 +1,4 @@
-import { asyncDispatch, type HyperDB } from "@will-be-done/hyperdb-lib";
+import { asyncDispatch, type HyperDB } from "@will-be-done/hyperdb";
 import {
   getSyncStateOrDefault,
   updateSyncState,

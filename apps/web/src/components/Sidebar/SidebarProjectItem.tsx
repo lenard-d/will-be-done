@@ -1,5 +1,7 @@
 import { CSSProperties, useEffect, useRef, useState } from "react";
-import { useSyncSelector, useDB, select } from "@will-be-done/hyperdb-lib";
+import { select } from "@will-be-done/hyperdb";
+import { useSyncSelector } from "@will-be-done/hyperdb/react";
+import { useDB } from "@will-be-done/hyperdb/react";
 import {
   notDoneTasksCountExceptDailiesCount,
   overdueTasksCountExceptDailiesCount,

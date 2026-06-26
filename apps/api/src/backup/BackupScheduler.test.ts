@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
-import { SqlDriver } from "@will-be-done/hyperdb-lib/drivers/sqlite";
-import { DB, syncDispatch, execSync } from "@will-be-done/hyperdb-lib";
+import { SqlDriver } from "@will-be-done/hyperdb/drivers/sqlite";
+import { DB, syncDispatch, execSync } from "@will-be-done/hyperdb";
 import { BackupScheduler } from "./BackupScheduler";
 import type { BackupManager } from "./BackupManager";
 import type { BackupConfig } from "./types";
@@ -168,7 +168,8 @@ describe("BackupScheduler", () => {
 
     test("does not trigger backup when all tiers are current", async () => {
       const now = new Date();
-      const intervalMs = mockConfig.WBD_BACKUP_HOURLY_INTERVAL_HOURS * 60 * 60 * 1000;
+      const intervalMs =
+        mockConfig.WBD_BACKUP_HOURLY_INTERVAL_HOURS * 60 * 60 * 1000;
       const scheduledTime = new Date(
         Math.floor(now.getTime() / intervalMs) * intervalMs,
       );

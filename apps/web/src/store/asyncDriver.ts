@@ -3,7 +3,7 @@ import {
   AsyncSqlDriver,
   type AsyncSQLiteDB,
   type SqlValue,
-} from "@will-be-done/hyperdb-lib/drivers/sqlite";
+} from "@will-be-done/hyperdb/drivers/sqlite";
 import asyncSqlWasmUrl from "wa-sqlite/dist/wa-sqlite-async.wasm?url";
 //@ts-expect-error no declarations
 import { IDBBatchAtomicVFS } from "wa-sqlite/src/examples/IDBBatchAtomicVFS.js";

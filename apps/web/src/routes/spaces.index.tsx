@@ -10,12 +10,9 @@ import { promptDialog } from "@/components/ui/prompt-dialog-service";
 import { BackgroundOrbs } from "@/components/Layout/BackgroundOrbs.tsx";
 import { Pencil, Plus, Trash2, LogOut } from "lucide-react";
 import { initDbStore } from "@/store/load";
-import {
-  DBProvider,
-  type SubscribableDB,
-  useDispatch,
-  useSyncSelector,
-} from "@will-be-done/hyperdb-lib";
+import { type SubscribableDB } from "@will-be-done/hyperdb";
+import { DBProvider } from "@will-be-done/hyperdb/react";
+import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb/react";
 import {
   listSpaces,
   createSpace,

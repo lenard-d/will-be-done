@@ -20,13 +20,12 @@ import { DndModelData, isModelDNDData } from "@/lib/dnd/models.ts";
 import { cn } from "@/lib/utils.ts";
 import ReactDOM from "react-dom";
 import { isInputElement } from "@/utils/isInputElement.ts";
+import { select, v } from "@will-be-done/hyperdb";
 import {
-  select,
   useDB,
   useDispatch,
   useSyncSelector,
-  v,
-} from "@will-be-done/hyperdb-lib";
+} from "@will-be-done/hyperdb/react";
 import { selector } from "@/store/builders.ts";
 import {
   createProject,

@@ -2,8 +2,8 @@ import { Database } from "bun:sqlite";
 import { readdirSync, unlinkSync, existsSync, mkdirSync } from "fs";
 import { stat, readFile, writeFile } from "fs/promises";
 import path from "path";
-import type { DB } from "@will-be-done/hyperdb-lib";
-import { syncDispatch, select } from "@will-be-done/hyperdb-lib";
+import type { DB } from "@will-be-done/hyperdb";
+import { syncDispatch, select } from "@will-be-done/hyperdb";
 import { S3Client } from "./S3Client";
 import { RetentionPolicy } from "./RetentionPolicy";
 import { ScheduledTimeCalculator } from "./ScheduledTimeCalculator";
@@ -217,7 +217,11 @@ export class BackupManager {
 
         syncDispatch(
           this.mainDB,
-          completeBackup({ id: backupId, totalSizeBytes: totalSize, durationMs: totalDurationMs }),
+          completeBackup({
+            id: backupId,
+            totalSizeBytes: totalSize,
+            durationMs: totalDurationMs,
+          }),
         );
 
         syncDispatch(
@@ -282,10 +286,7 @@ export class BackupManager {
       console.log(`[Backup] Running cleanup for ${tier} backups`);
 
       // Get all completed backups for this tier
-      const backups = select(
-        this.mainDB,
-        getCompletedBackupsByTier({ tier }),
-      );
+      const backups = select(this.mainDB, getCompletedBackupsByTier({ tier }));
 
       const retentionCount = this.retentionPolicy.getRetentionCount(tier);
 
@@ -315,10 +316,7 @@ export class BackupManager {
             }
 
             // Delete backup record and all associated files from database
-            syncDispatch(
-              this.mainDB,
-              deleteBackupWithFiles({ id: backup.id }),
-            );
+            syncDispatch(this.mainDB, deleteBackupWithFiles({ id: backup.id }));
           } catch (error) {
             console.error(
               `[Backup] Failed to delete backup ${backup.id}:`,

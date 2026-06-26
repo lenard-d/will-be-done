@@ -1,4 +1,4 @@
-import { syncDispatch, type SubscribableDB } from "@will-be-done/hyperdb-lib";
+import { syncDispatch, type SubscribableDB } from "@will-be-done/hyperdb";
 import { mergeChanges } from "@will-be-done/slices/common";
 import { BroadcastChannel } from "broadcast-channel";
 import type { ChangePersistedEvent, SyncConfig } from "./syncTypes";

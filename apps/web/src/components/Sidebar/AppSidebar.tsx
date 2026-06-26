@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useSyncSelector, useDispatch } from "@will-be-done/hyperdb-lib";
+import { useSyncSelector } from "@will-be-done/hyperdb/react";
+import { useDispatch } from "@will-be-done/hyperdb/react";
 import {
   createProject,
   inboxProject,

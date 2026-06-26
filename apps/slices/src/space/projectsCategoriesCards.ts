@@ -1,4 +1,4 @@
-import { selectFrom, v } from "@will-be-done/hyperdb-lib";
+import { selectFrom, v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { dailyDateFormat, generateKeyPositionedBetween } from "./utils";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
