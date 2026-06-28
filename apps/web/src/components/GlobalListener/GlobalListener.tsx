@@ -21,13 +21,13 @@ import {
   taskTemplateType,
   taskType,
 } from "@will-be-done/slices/space";
-import { select } from "@will-be-done/hyperdb";
 import { useDB, useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { FocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   getDOMSiblings,
   getDOMColumnSiblingFirstItems,
 } from "@/components/Focus/domNavigation.ts";
+import { selectAsync } from "@will-be-done/hyperdb";
 
 export function GlobalListener() {
   const dispatch = useAsyncDispatch();
@@ -168,7 +168,7 @@ export function GlobalListener() {
   useEffect(() => {
     return combine(
       monitorForElements({
-        onDrop(args) {
+        onDrop: async function (args) {
           const { location, source } = args;
 
           if (!location.current.dropTargets.length) {
@@ -191,22 +191,26 @@ export function GlobalListener() {
             projectType,
           ];
 
-          const targetModels = location.current.dropTargets.flatMap((t) => {
-            if (!isModelDNDData(t.data)) {
-              return [] as const;
-            }
-            const entity = select(
-              db,
-              appById({ id: t.data.modelId, modelType: t.data.modelType }),
-            );
-            if (!entity) {
-              // Virtual models (e.g. stash) have no DB row — use DnD data directly
-              return [
-                [t, { id: t.data.modelId, type: t.data.modelType }] as const,
-              ];
-            }
-            return [[t, entity] as const];
-          });
+          const targetModelsArray = await Promise.all(
+            location.current.dropTargets.map(async (t) => {
+              if (!isModelDNDData(t.data)) {
+                return [] as const;
+              }
+              const entity = await selectAsync(
+                db,
+                appById({ id: t.data.modelId, modelType: t.data.modelType }),
+              );
+              if (!entity) {
+                // Virtual models (e.g. stash) have no DB row — use DnD data directly
+                return [
+                  [t, { id: t.data.modelId, type: t.data.modelType }] as const,
+                ];
+              }
+              return [[t, entity] as const];
+            }),
+          );
+
+          const targetModels = targetModelsArray.flatMap((t) => t);
 
           let targetItemInfo:
             | readonly [DropTargetRecord, { id: string; type: AnyModelType }]

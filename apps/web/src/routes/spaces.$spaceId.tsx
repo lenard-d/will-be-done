@@ -17,22 +17,31 @@ import { useEffect } from "react";
 
 export const Route = createFileRoute("/spaces/$spaceId")({
   component: RouteComponent,
-  loader: async (opts) => {
-    if (!isDemoMode() && !authUtils.isAuthenticated()) {
-      throw redirect({ to: "/login" });
-    }
-
-    if (!isDemoMode()) {
-      authUtils.setLastUsedSpaceId(opts.params.spaceId);
-    }
-
-    const config = isDemoMode()
-      ? demoSpaceDBConfig()
-      : spaceDBConfig(opts.params.spaceId);
-
-    return initDbStore(config);
+  beforeLoad: ({ params }) => {
+    return {
+      spaceDbPromise: loadSpaceDb(params.spaceId),
+    };
+  },
+  loader: ({ context }) => {
+    return context.spaceDbPromise;
   },
 });
+
+async function loadSpaceDb(spaceId: string) {
+  const isDemo = isDemoMode();
+
+  if (!isDemo && !authUtils.isAuthenticated()) {
+    throw redirect({ to: "/login" });
+  }
+
+  if (!isDemo) {
+    authUtils.setLastUsedSpaceId(spaceId);
+  }
+
+  const config = isDemo ? demoSpaceDBConfig() : spaceDBConfig(spaceId);
+
+  return initDbStore(config);
+}
 
 function RouteComponent() {
   const newStore = Route.useLoaderData();

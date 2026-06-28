@@ -1,13 +1,7 @@
 import { CSSProperties, useEffect, useRef, useState } from "react";
-import { useAsyncSelector } from "@will-be-done/hyperdb/react";
-import {
-  notDoneTasksCountExceptDailiesCount,
-  overdueTasksCountExceptDailiesCount,
-  projectByIdOrDefault,
-} from "@will-be-done/slices/space";
+import { type Project } from "@will-be-done/slices/space";
 import { cn } from "@/lib/utils.ts";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useCurrentDate } from "../DaysBoard/hooks.tsx";
 import { Route } from "@/routes/spaces.$spaceId.tsx";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -64,30 +58,26 @@ const DragPreview = ({
   </div>
 );
 
-export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
+export const SidebarProjectItem = ({ project }: { project: Project }) => {
   const spaceId = Route.useParams().spaceId;
   const { isMobile, setOpenMobile } = useSidebar();
+  const projectId = project.id;
 
-  const { data: project } = useAsyncSelector({
-    selector: projectByIdOrDefault,
-    args: { id: projectId },
-  });
+  const notDoneCount = 0;
+  // const { data: notDoneCount = 0 } = useAsyncSelector({
+  //   selector: notDoneTasksCountExceptDailiesCount,
+  //   args: { projectId: projectId, exceptDailyListIds: [] },
+  // });
 
-  const currentDate = useCurrentDate();
-
-  const { data: notDoneCount = 0 } = useAsyncSelector({
-    selector: notDoneTasksCountExceptDailiesCount,
-    args: { projectId: projectId, exceptDailyListIds: [] },
-  });
-
-  const { data: overdueCount = 0 } = useAsyncSelector({
-    selector: overdueTasksCountExceptDailiesCount,
-    args: {
-      projectId: projectId,
-      exceptDailyListIds: [],
-      currentDate: currentDate.getTime(),
-    },
-  });
+  const overdueCount = 0;
+  // const { data: overdueCount = 0 } = useAsyncSelector({
+  //   selector: overdueTasksCountExceptDailiesCount,
+  //   args: {
+  //     projectId: projectId,
+  //     exceptDailyListIds: [],
+  //     currentDate: currentDate.getTime(),
+  //   },
+  // });
 
   const isActive = useRouterState({
     select: (s) =>
@@ -176,8 +166,6 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
       }),
     );
   }, [project]);
-
-  if (!project) return null;
 
   return (
     <div ref={ref} className="relative">

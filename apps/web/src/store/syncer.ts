@@ -109,6 +109,9 @@ export class Syncer {
 
     this.setupWebSocketSubscription();
 
+    // let's delay so faster startup
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     while (true) {
       if (this.runId !== myRunId) {
         console.log("runId !== myRunId, stopping syncer loop");

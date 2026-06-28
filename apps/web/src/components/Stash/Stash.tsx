@@ -4,14 +4,15 @@ import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
+  CardForDisplay,
   createTaskInStash,
-  doneStashProjectionChildrenIds,
+  doneStashProjectionChildrenForDisplay,
   inboxProjectId,
   STASH_ID,
-  stashProjectionChildrenIds,
+  stashProjectionChildrenForDisplay,
   stashType,
 } from "@will-be-done/slices/space";
-import { TaskComp } from "@/components/Task/Task.tsx";
+import { PreloadedTaskComp } from "@/components/Task/Task.tsx";
 import { TasksColumn } from "@/components/TasksGrid/TasksGrid.tsx";
 import { useGlobalListener } from "@/components/GlobalListener/hooks.tsx";
 import { DndModelData, isModelDNDData } from "@/lib/dnd/models.ts";
@@ -30,14 +31,15 @@ import {
   useStashSize,
 } from "../DaysBoard/StashStore.ts";
 
-const StashColumnView = ({ onTaskAdd }: { onTaskAdd: () => void }) => {
-  const { data: taskIds = [] } = useAsyncSelector({
-    selector: stashProjectionChildrenIds,
-    args: {},
-  });
-
-  const { data: doneTaskIds = [] } = useAsyncSelector({
-    selector: doneStashProjectionChildrenIds,
+const StashColumnView = ({
+  onTaskAdd,
+  cardsForDisplay,
+}: {
+  onTaskAdd: () => void;
+  cardsForDisplay: CardForDisplay[];
+}) => {
+  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
+    selector: doneStashProjectionChildrenForDisplay,
     args: {},
   });
 
@@ -74,21 +76,27 @@ const StashColumnView = ({ onTaskAdd }: { onTaskAdd: () => void }) => {
           </span>
           <span>Add task</span>
         </button>
-        {taskIds.map((id) => (
-          <TaskComp
-            key={id}
-            taskId={id}
-            cardWrapperId={id}
-            cardWrapperType="stashProjection"
+        {cardsForDisplay.map((displayData) => (
+          <PreloadedTaskComp
+            key={displayData.cardWrapper.id}
+            card={displayData.card}
+            category={displayData.category}
+            cardWrapper={displayData.cardWrapper}
+            project={displayData.project}
+            lastScheduleTime={displayData.lastScheduleTime}
+            hasCheclistItems={displayData.hasChecklist}
             alwaysShowProject
           />
         ))}
-        {doneTaskIds.map((id) => (
-          <TaskComp
-            key={id}
-            taskId={id}
-            cardWrapperId={id}
-            cardWrapperType="stashProjection"
+        {doneCardsForDisplay.map((displayData) => (
+          <PreloadedTaskComp
+            key={displayData.cardWrapper.id}
+            card={displayData.card}
+            category={displayData.category}
+            cardWrapper={displayData.cardWrapper}
+            project={displayData.project}
+            lastScheduleTime={displayData.lastScheduleTime}
+            hasCheclistItems={displayData.hasChecklist}
             alwaysShowProject
           />
         ))}
@@ -105,11 +113,11 @@ export const Stash = () => {
     selector: inboxProjectId,
     args: {},
   });
-  const { data: stashTaskIds = [] } = useAsyncSelector({
-    selector: stashProjectionChildrenIds,
+  const { data: cardsForDisplay = [] } = useAsyncSelector({
+    selector: stashProjectionChildrenForDisplay,
     args: {},
   });
-  const stashTaskCount = stashTaskIds.length;
+  const stashTaskCount = cardsForDisplay.length;
   const { isOpen, toggle } = useStashOpen();
   const width = useStashSize((s) => s.width);
   const setWidth = useStashSize((s) => s.setWidth);
@@ -259,7 +267,10 @@ export const Stash = () => {
           )}
           style={{ width: `${width}px` }}
         >
-          <StashColumnView onTaskAdd={handleAddTask} />
+          <StashColumnView
+            onTaskAdd={handleAddTask}
+            cardsForDisplay={cardsForDisplay}
+          />
         </div>
       </div>
 

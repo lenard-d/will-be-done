@@ -3,11 +3,9 @@ import { addDays, format, startOfDay, subDays } from "date-fns";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
-  createManyDailyListsIfNotPresent,
   createTaskInList,
   type DailyList,
-  dailyListByIdOrDefault,
-  dailyListIdsByDates,
+  dailyListsByDates,
   dailyProjectionChildrenForDisplay,
   doneDailyProjectionChildrenForDisplay,
   inboxProjectId,
@@ -75,12 +73,12 @@ const ChevronRight = () => (
 );
 
 const SingleDayColumn = ({
-  dailyListId,
+  dailyList,
   onTaskAdd,
   previousDate,
   nextDate,
 }: {
-  dailyListId: string;
+  dailyList: DailyList;
   onTaskAdd: (dailyList: DailyList) => void;
   previousDate: Date;
   nextDate: Date;
@@ -88,21 +86,17 @@ const SingleDayColumn = ({
   const spaceId = Route.useParams().spaceId;
   const navigate = useNavigate();
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const { data: dailyList } = useAsyncSelector({
-    selector: dailyListByIdOrDefault,
-    args: { id: dailyListId },
-  });
   const currentDate = useCurrentDMY();
-  const isToday = dailyList ? currentDate === dailyList.date : false;
+  const isToday = currentDate === dailyList.date;
 
   const { data: cardsForDisplay = [] } = useAsyncSelector({
     selector: dailyProjectionChildrenForDisplay,
-    args: { dailyListId: dailyListId },
+    args: { dailyListId: dailyList.id },
   });
 
   const { data: doneCardsForDisplay = [] } = useAsyncSelector({
     selector: doneDailyProjectionChildrenForDisplay,
-    args: { dailyListId: dailyListId },
+    args: { dailyListId: dailyList.id },
   });
 
   const columnRef = useRef<HTMLDivElement>(null);
@@ -138,8 +132,6 @@ const SingleDayColumn = ({
       }),
     );
   }, [dailyList]);
-
-  if (!dailyList) return null;
 
   return (
     <div
@@ -289,8 +281,8 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
     [startingDate],
   );
 
-  const { data: dailyListsIds = [] } = useAsyncSelector({
-    selector: dailyListIdsByDates,
+  const { data: dailyLists = [] } = useAsyncSelector({
+    selector: dailyListsByDates,
     args: { dates: [startingDate.getTime()] },
   });
   const dispatch = useAsyncDispatch();
@@ -299,12 +291,6 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
     args: {},
   });
   const stashOffset = useStashDesktopOffset();
-
-  useEffect(() => {
-    void dispatch(
-      createManyDailyListsIfNotPresent({ dates: [startingDate.getTime()] }),
-    );
-  }, [dispatch, startingDate]);
 
   const handleAddTask = useCallback(
     (dailyList: DailyList) => {
@@ -345,9 +331,9 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
         }}
       >
         <div className="max-w-lg mx-auto px-4 py-4">
-          {dailyListsIds[0] && (
+          {dailyLists[0] && (
             <SingleDayColumn
-              dailyListId={dailyListsIds[0]}
+              dailyList={dailyLists[0]}
               onTaskAdd={handleAddTask}
               previousDate={previousDate}
               nextDate={nextDate}

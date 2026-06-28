@@ -15,6 +15,7 @@ import {
   dailyListsTable,
   checklistItemsTable,
   cardWrapper,
+  stashProjectionType,
   type CardWrapper,
   type Task,
   type TaskTemplate,
@@ -24,7 +25,6 @@ import {
   type TaskProjection,
   Card,
 } from "./tables";
-import { ta } from "date-fns/locale";
 
 export type CardForDisplay = {
   card: Card;
@@ -225,37 +225,40 @@ export const projectCategoryCardsForDisplay = selector({
       ]),
     );
 
-    return cards.map((card) => {
-      const category = categoryMap.get(card.projectCategoryId);
-      if (!category) throw new Error("failed to find project category");
+    return cards
+      .map((card) => {
+        const category = categoryMap.get(card.projectCategoryId);
+        if (!category) return;
 
-      const project = projectMap.get(category.projectId);
-      if (!project) throw new Error("failed to find project");
+        const project = projectMap.get(category.projectId);
+        if (!project) return;
 
-      const cardWrapper =
-        wrapperMap.get(`${card.type}:${card.id}`) ||
-        wrapperMap.get(`projection:${card.id}`);
-      if (!cardWrapper) throw new Error("failed to find card wrapper");
+        const cardWrapper =
+          wrapperMap.get(`${card.type}:${card.id}`) ||
+          wrapperMap.get(`projection:${card.id}`) ||
+          wrapperMap.get(`${stashProjectionType}:${card.id}`);
+        if (!cardWrapper) return;
 
-      const projection = projectionMap.get(card.id);
-      const dailyList = projection
-        ? dailyListMap.get(projection.dailyListId)
-        : undefined;
-      const dateOfTask = dailyList
-        ? parse(dailyList.date, dailyDateFormat, new Date())
-        : undefined;
+        const projection = projectionMap.get(card.id);
+        const dailyList = projection
+          ? dailyListMap.get(projection.dailyListId)
+          : undefined;
+        const dateOfTask = dailyList
+          ? parse(dailyList.date, dailyDateFormat, new Date())
+          : undefined;
 
-      return {
-        card,
-        category,
-        project,
-        cardWrapper,
-        dailyList,
-        dateOfTask,
-        lastScheduleTime: dateOfTask,
-        hasChecklist: hasChecklistMap.get(`${card.id}:${card.type}`) ?? false,
-      };
-    });
+        return {
+          card,
+          category,
+          project,
+          cardWrapper,
+          dailyList,
+          dateOfTask,
+          lastScheduleTime: dateOfTask,
+          hasChecklist: hasChecklistMap.get(`${card.id}:${card.type}`) ?? false,
+        };
+      })
+      .filter((card) => !!card);
   },
 });
 

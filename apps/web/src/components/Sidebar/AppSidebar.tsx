@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import {
+  allProjectsSorted,
   createProject,
   inboxProject,
   loadSpaceBackup,
   notDoneTasksCountExceptDailiesCount,
-  projectChildrenIdsWithoutInbox,
 } from "@will-be-done/slices/space";
 import { SidebarProjectItem } from "./SidebarProjectItem.tsx";
 import { SpaceBlock } from "./SpaceBlock.tsx";
@@ -193,8 +193,8 @@ export const AppSidebar = () => {
     selector: inboxProject,
     args: {},
   });
-  const { data: projectIdsWithoutInbox = [] } = useAsyncSelector({
-    selector: projectChildrenIdsWithoutInbox,
+  const { data: projects = [] } = useAsyncSelector({
+    selector: allProjectsSorted,
     args: {},
   });
 
@@ -230,9 +230,11 @@ export const AppSidebar = () => {
       </SidebarHeader>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-3 flex flex-col py-1 gap-1">
-        {projectIdsWithoutInbox.map((id) => (
-          <SidebarProjectItem key={id} projectId={id} />
-        ))}
+        {projects
+          .filter((project) => !project.isInbox)
+          .map((project) => (
+            <SidebarProjectItem key={project.id} project={project} />
+          ))}
       </div>
 
       <div className="flex items-center justify-center pb-3 pt-2 border-t border-ring/40">

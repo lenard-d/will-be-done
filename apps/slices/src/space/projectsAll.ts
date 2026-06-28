@@ -35,7 +35,7 @@ export const projectChildrenIdsWithoutInbox = selector({
   args: {},
   handler: function* projectChildrenIdsWithoutInbox() {
     const projects = yield* allProjectsSorted({});
-    return projects.filter((p) => !p.isInbox).map((p) => p.id);
+    return projects.filter((p) => !p.isInbox);
   },
 });
 

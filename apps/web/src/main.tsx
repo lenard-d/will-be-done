@@ -74,7 +74,11 @@ if (/Firefox|FxiOS/i.test(navigator.userAgent)) {
 const rootElement = document.getElementById("root");
 if (rootElement && !rootElement.innerHTML) {
   const root = createRoot(rootElement);
-  root.render(<RouterProvider router={router} />);
+  root.render(
+    <StrictMode>
+      <RouterProvider router={router} />
+    </StrictMode>,
+  );
 }
 
 // If you want to start measuring performance in your app, pass a function

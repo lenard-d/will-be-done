@@ -20,24 +20,21 @@ import { DndModelData, isModelDNDData } from "@/lib/dnd/models.ts";
 import { cn } from "@/lib/utils.ts";
 import ReactDOM from "react-dom";
 import { isInputElement } from "@/utils/isInputElement.ts";
-import { v } from "@will-be-done/hyperdb";
 import {
   useAsyncDispatch,
   useAsyncSelector,
 } from "@will-be-done/hyperdb/react";
-import { selector } from "@/store/builders.ts";
 import {
   createProject,
   deleteProjects,
   inboxProject,
   inboxProjectId as getInboxProjectId,
-  notDoneTasksCountExceptDailiesAndStashCount,
-  overdueTasksCountExceptDailiesAndStashCount,
-  projectByIdOrDefault,
   projectChildrenIdsWithoutInbox,
+  type Project,
   updateProject,
 } from "@will-be-done/slices/space";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
+import { selectedProject } from "./selectors.ts";
 import { PopoverContent, PopoverTrigger } from "@radix-ui/react-popover";
 import {
   EmojiPicker,
@@ -45,7 +42,6 @@ import {
   EmojiPickerSearch,
 } from "@/components/ui/emoji-picker.tsx";
 import { Popover } from "@/components/ui/popover.tsx";
-import { useCurrentDate } from "../DaysBoard/hooks.tsx";
 import { promptDialog } from "@/components/ui/prompt-dialog-service";
 import { ResizableDivider } from "@/components/DaysBoard/ResizableDivider.tsx";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -53,18 +49,6 @@ import { create } from "zustand";
 
 const MIN_PROJECTS_LIST_WIDTH = 240;
 const MAX_PROJECTS_LIST_WIDTH = 520;
-
-const selectedProject = selector({
-  name: "selectedProject",
-  args: { selectedProjectId: v.string() },
-  handler: function* selectedProject({ selectedProjectId }) {
-    if (selectedProjectId === "inbox") {
-      return yield* inboxProject({});
-    }
-
-    return yield* projectByIdOrDefault({ id: selectedProjectId });
-  },
-});
 
 type ProjectsListSize = {
   width: number;
@@ -140,16 +124,14 @@ const DropProjectIndicator = function DropProjectIndicatorComp({
 };
 
 const ProjectItem = function ProjectItemComp({
-  projectId,
+  project,
   // onProjectClick,
   isSelected,
-  exceptDailyListIds,
   projectLink: ProjectLink,
 }: {
-  projectId: string;
+  project: Project;
   // onProjectClick: (projectId: string) => void;
   isSelected: boolean;
-  exceptDailyListIds: string[];
   projectLink: React.ComponentType<
     React.PropsWithChildren<{
       projectId: string;
@@ -158,13 +140,7 @@ const ProjectItem = function ProjectItemComp({
     }>
   >;
 }) {
-  const { data: project } = useAsyncSelector({
-    selector: projectByIdOrDefault,
-    args: { id: projectId },
-  });
-  const focusItemKey = project
-    ? buildFocusKey(project.id, project.type, "ProjectItem")
-    : "";
+  const focusItemKey = buildFocusKey(project.id, project.type, "ProjectItem");
   const [closestEdge, setClosestEdge] = useState<Edge | "whole" | null>(null);
   const [dndState, setDndState] = useState<State>(idleState);
 
@@ -193,7 +169,6 @@ const ProjectItem = function ProjectItemComp({
 
   useGlobalListener("keydown", (e: KeyboardEvent) => {
     if (!isFocused) return;
-    if (!project) return;
     const { isFocusDisabled } = useFocusStore.getState();
 
     if (isFocusDisabled || e.defaultPrevented) return;
@@ -211,7 +186,6 @@ const ProjectItem = function ProjectItemComp({
 
       const [upKey, downKey] = getDOMSiblings(focusItemKey);
 
-      if (!project) return;
       void dispatch(deleteProjects({ ids: [project.id] }));
 
       if (downKey) {
@@ -330,37 +304,8 @@ const ProjectItem = function ProjectItemComp({
     );
   }, [project]);
 
-  const currentDate = useCurrentDate();
-
-  const { data: overdueTasksCount = 0 } = useAsyncSelector({
-    selector: overdueTasksCountExceptDailiesAndStashCount,
-    args: {
-      projectId: project?.id ?? "",
-      exceptDailyListIds: exceptDailyListIds,
-      currentDate: currentDate.getTime(),
-    },
-    enabled: !!project,
-    defaultValue: 0,
-  });
-  const { data: notDoneTasksCount = 0 } = useAsyncSelector({
-    selector: notDoneTasksCountExceptDailiesAndStashCount,
-    args: {
-      projectId: project?.id ?? "",
-      exceptDailyListIds: exceptDailyListIds,
-    },
-    enabled: !!project,
-    defaultValue: 0,
-  });
-  //
-  // const overdueTasksCount = useAsyncSelector(
-  //   () =>
-  //     projectItemsSlice2.overdueTaskCountExceptDailiesCount(
-  //       project.id,
-  //       exceptDailyListIds,
-  //       currentDate: currentDate.getTime(),
-  //     ),
-  //   [project.id, exceptDailyListIds, currentDate],
-  // );
+  const overdueTasksCount = 0;
+  const notDoneTasksCount = 0;
 
   const handleEditClick = async () => {
     if (!project) return;
@@ -547,12 +492,10 @@ const ProjectItem = function ProjectItemComp({
 };
 
 export const ProjectView = ({
-  exceptDailyListIds,
   marginTop,
   projectLink,
   selectedProjectId,
 }: {
-  exceptDailyListIds: string[];
   marginTop?: boolean;
   projectLink: React.ComponentType<
     React.PropsWithChildren<{
@@ -574,21 +517,11 @@ export const ProjectView = ({
     args: { selectedProjectId },
   });
 
-  // const taskIds = useAsyncSelector(
-  //   () =>
-  //     dailyListsSlice2.allTaskIdsExceptDailies(
-  //       project.id,
-  //       exceptDailyListIds,
-  //       // idsToAlwaysInclude,
-  //     ),
-  //   [exceptDailyListIds, project.id],
-  // );
-
   const { data: inboxProjectId } = useAsyncSelector({
     selector: inboxProject,
     args: {},
   });
-  const { data: projectIdsWithoutInbox = [] } = useAsyncSelector({
+  const { data: projectsWithoutInbox = [] } = useAsyncSelector({
     selector: projectChildrenIdsWithoutInbox,
     args: {},
   });
@@ -625,8 +558,6 @@ export const ProjectView = ({
       >
         <ProjectItemsList
           project={project}
-          exceptDailyListIds={exceptDailyListIds}
-          exceptStash
         />
       </div>
       <div
@@ -646,17 +577,15 @@ export const ProjectView = ({
         <div className="h-full overflow-y-auto flex flex-col gap-1 px-3 py-2 text-sm overflow-x-hidden text-ellipsis">
           <ProjectItem
             projectLink={projectLink}
-            projectId={inboxProjectId.id}
+            project={inboxProjectId}
             isSelected={selectedProjectId === inboxProjectId.id}
-            exceptDailyListIds={exceptDailyListIds}
           />
-          {projectIdsWithoutInbox.map((id) => (
+          {projectsWithoutInbox.map((project) => (
             <ProjectItem
               projectLink={projectLink}
-              key={id}
-              projectId={id}
-              isSelected={selectedProjectId === id}
-              exceptDailyListIds={exceptDailyListIds}
+              key={project.id}
+              project={project}
+              isSelected={selectedProjectId === project.id}
             />
           ))}
         </div>

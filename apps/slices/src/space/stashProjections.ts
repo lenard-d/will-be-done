@@ -12,7 +12,11 @@ import { generateKeyPositionedBetween } from "./utils";
 import { registerModelSlice } from "./maps";
 import { appById } from "./app";
 import { createProjectTask } from "./projects";
-import { createSiblingTask } from "./projectsCategoriesCards";
+import {
+  createSiblingTask,
+  projectCategoryCardsForDisplay,
+  type CardForDisplay,
+} from "./projectsCategoriesCards";
 import { deleteDailyProjections } from "./dailyListsProjections";
 import { taskById, taskByIdOrDefault } from "./cardsTasks";
 import { orderPositionArg } from "./utils";
@@ -129,6 +133,37 @@ export const stashProjectionChildrenIds = selector({
   },
 });
 
+export const stashProjectionChildrenForDisplay = selector({
+  name: "stashProjectionChildrenForDisplay",
+  args: {},
+  handler: function* stashProjectionChildrenForDisplay(): Generator<
+    unknown,
+    CardForDisplay[],
+    unknown
+  > {
+    const projections = yield* allStashProjectionsOrdered({});
+    const projectionIds = projections.map((projection) => projection.id);
+    const tasks = projectionIds.length
+      ? yield* selectFrom(tasksTable, "byId").where((q) =>
+          projectionIds.map((id) => q.eq("id", id)),
+        )
+      : [];
+    const taskMap = new Map((tasks as Task[]).map((task) => [task.id, task]));
+
+    const cards: Task[] = [];
+    const cardWrappers: StashProjection[] = [];
+    for (const projection of projections) {
+      const task = taskMap.get(projection.id);
+      if (task && task.state === "todo") {
+        cards.push(task);
+        cardWrappers.push(projection);
+      }
+    }
+
+    return yield* projectCategoryCardsForDisplay({ cards, cardWrappers });
+  },
+});
+
 // Get all done task ids in stash (sorted by lastToggledAt)
 export const doneStashProjectionChildrenIds = selector({
   name: "doneStashProjectionChildrenIds",
@@ -151,6 +186,45 @@ export const doneStashProjectionChildrenIds = selector({
     return doneTasks
       .sort((a, b) => b.lastToggledAt - a.lastToggledAt)
       .map((t) => t.id);
+  },
+});
+
+export const doneStashProjectionChildrenForDisplay = selector({
+  name: "doneStashProjectionChildrenForDisplay",
+  args: {},
+  handler: function* doneStashProjectionChildrenForDisplay(): Generator<
+    unknown,
+    CardForDisplay[],
+    unknown
+  > {
+    const projections = yield* allStashProjectionsOrdered({});
+    const projectionIds = projections.map((projection) => projection.id);
+    const tasks = projectionIds.length
+      ? yield* selectFrom(tasksTable, "byId").where((q) =>
+          projectionIds.map((id) => q.eq("id", id)),
+        )
+      : [];
+    const taskMap = new Map((tasks as Task[]).map((task) => [task.id, task]));
+
+    const cardsWithProjections: {
+      card: Task;
+      cardWrapper: StashProjection;
+    }[] = [];
+    for (const projection of projections) {
+      const task = taskMap.get(projection.id);
+      if (task && task.state === "done") {
+        cardsWithProjections.push({ card: task, cardWrapper: projection });
+      }
+    }
+
+    cardsWithProjections.sort(
+      (a, b) => b.card.lastToggledAt - a.card.lastToggledAt,
+    );
+
+    return yield* projectCategoryCardsForDisplay({
+      cards: cardsWithProjections.map(({ card }) => card),
+      cardWrappers: cardsWithProjections.map(({ cardWrapper }) => cardWrapper),
+    });
   },
 });
 

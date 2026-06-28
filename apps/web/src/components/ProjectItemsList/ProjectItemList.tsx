@@ -1,14 +1,12 @@
 import { PreloadedTaskComp } from "../Task/Task.tsx";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import { useMemo, useState } from "react";
-import { v } from "@will-be-done/hyperdb";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
-import { selector } from "@/store/builders.ts";
+import { projectItemsExceptTaskIds } from "./selectors.ts";
 import {
   createCategory,
   createProjectCategoryTask,
-  dailyListAllTaskIds,
   deleteCategories,
   doneProjectCategoryCardsForDisplay,
   moveLeft,
@@ -18,35 +16,12 @@ import {
   type ProjectCategory,
   projectCategoryCardsForDisplayChildren,
   projectCategorySiblings,
-  stashProjectionAllTaskIds,
   updateCategory,
 } from "@will-be-done/slices/space";
 import {
   TasksColumn,
   TasksColumnGrid,
 } from "@/components/TasksGrid/TasksGrid.tsx";
-
-const projectItemsExceptTaskIds = selector({
-  name: "projectItemsExceptTaskIds",
-  args: {
-    exceptDailyListIds: v.array(v.string()),
-    exceptStash: v.boolean(),
-  },
-  handler: function* projectItemsExceptTaskIds({
-    exceptDailyListIds,
-    exceptStash,
-  }) {
-    const dailyTaskIds = yield* dailyListAllTaskIds({
-      dailyListIds: exceptDailyListIds,
-    });
-    if (!exceptStash) {
-      return dailyTaskIds;
-    }
-
-    const stashTaskIds = yield* stashProjectionAllTaskIds({});
-    return new Set([...dailyTaskIds, ...stashTaskIds]);
-  },
-});
 
 import {
   AddLeftIcon,
@@ -69,7 +44,7 @@ const ProjectTasksColumn = ({
 }) => {
   const dispatch = useAsyncDispatch();
 
-  const { data: cardsForDisplay = [], isLoading } = useAsyncSelector({
+  const { data: cardsForDisplay = [] } = useAsyncSelector({
     selector: projectCategoryCardsForDisplayChildren,
     args: { projectCategoryId: category.id },
   });
@@ -300,12 +275,8 @@ const ProjectTasksColumn = ({
 
 export const ProjectItemsList = ({
   project,
-  exceptDailyListIds,
-  exceptStash = false,
 }: {
   project: Project;
-  exceptDailyListIds?: string[];
-  exceptStash?: boolean;
 }) => {
   const { data: categories = [] } = useAsyncSelector({
     selector: projectCategoriesByProjectId,
@@ -313,7 +284,7 @@ export const ProjectItemsList = ({
   });
   const { data: exceptTaskIds = new Set<string>() } = useAsyncSelector({
     selector: projectItemsExceptTaskIds,
-    args: { exceptDailyListIds: exceptDailyListIds ?? [], exceptStash },
+    args: {},
   });
 
   return (

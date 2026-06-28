@@ -18,6 +18,13 @@ export const dbIdTrait = function (dbType: string, dbId: string) {
 };
 
 export const genUUIDV5 = function* (objectType: string, identifier: string) {
+  return (yield* genUUIDV5Many(objectType, [identifier]))[0]!;
+};
+
+export const genUUIDV5Many = function* (
+  objectType: string,
+  identifiers: string[],
+) {
   const traits = yield* getCurrentTraits();
 
   const trait = traits.find((t) => t.type === dbIdTraitType);
@@ -27,5 +34,7 @@ export const genUUIDV5 = function* (objectType: string, identifier: string) {
 
   const spaceUUUIDTrait = trait as DbIDTrait;
 
-  return uuidv5(`${objectType}/${identifier}`, spaceUUUIDTrait.dbId);
+  return identifiers.map((identifier) =>
+    uuidv5(`${objectType}/${identifier}`, spaceUUUIDTrait.dbId),
+  );
 };

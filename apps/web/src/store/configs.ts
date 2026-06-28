@@ -4,21 +4,21 @@ import {
   createInboxIfNotExists,
   generateTasksFromTemplates,
   loadSpaceBackup,
+  projectsTable,
   registeredSpaceSyncableTableNameMap,
   registeredSpaceSyncableTables,
+  stashProjectionsTable,
   type Task,
 } from "@will-be-done/slices/space";
-import {
-  asyncDispatch,
-  HyperDB,
-  runSelectorAsync,
-} from "@will-be-done/hyperdb";
+import { asyncDispatch, runSelectorAsync } from "@will-be-done/hyperdb";
 import {
   registeredUserSyncableTableNameMap,
   registeredUserSyncableTables,
 } from "@will-be-done/slices/user";
 import type { SyncConfig } from "./syncTypes";
 import { generateDemoBackup } from "@/lib/demoData";
+import { execAsync } from "@will-be-done/hyperdb";
+import { HybridDB } from "@will-be-done/hyperdb";
 
 const demoDbId = "e89b6c8f-1d6c-4bf4-9d27-478339773fc9";
 export const spaceDbType = "space";
@@ -35,8 +35,15 @@ export const spaceDBConfig = (dbId: string) => {
     inmemDBTables: [...registeredSpaceSyncableTables, changesTable],
     syncableDBTables: registeredSpaceSyncableTables,
     tableNameMap: registeredSpaceSyncableTableNameMap,
-    afterInit: async (db: HyperDB) => {
+    afterInit: async (db: HybridDB) => {
       await asyncDispatch(db, createInboxIfNotExists({}));
+
+      await execAsync(
+        db.preloadTables([
+          { table: projectsTable, scanIndex: "byIds" },
+          { table: stashProjectionsTable, scanIndex: "byIds" },
+        ]),
+      );
 
       // To make load faster
       setTimeout(() => {
@@ -59,7 +66,7 @@ export const demoSpaceDBConfig = () => {
   return {
     ...spaceDBConfig(demoDbId),
     disableSync: true,
-    afterInit: async (db: HyperDB) => {
+    afterInit: async (db: HybridDB) => {
       await asyncDispatch(db, createInboxIfNotExists({}));
       const tasks = await runSelectorAsync<Task[]>(
         db,
