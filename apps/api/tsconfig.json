@@ -28,7 +28,7 @@
 
     // Allow missing modules for Docker builds
     "skipDefaultLibCheck": true,
-    "types": ["bun-types"]
+    "types": ["bun"]
   },
   "include": ["src"]
 }
