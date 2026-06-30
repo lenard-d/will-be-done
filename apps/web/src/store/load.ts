@@ -1,21 +1,33 @@
+import { asyncDispatch, type SubscribableDB } from "@will-be-done/hyperdb";
 import AwaitLock from "await-lock";
-import { asyncDispatch, type SubscribableDB } from "@will-be-done/hyperdb-lib";
 import { AutoBackuper } from "./autoBackup.ts";
 import { createCrossTabChanges } from "./crossTabChanges";
 import { createLocalPersistQueue } from "./localPersistQueue";
 import { getClientId, getDbName, initClock } from "./syncClock";
 import { registerSyncChangeHooks } from "./syncChangeHooks";
-import { hydrateSyncDb } from "./syncHydration";
 import { Syncer } from "./syncer";
 import { getPersistentDriverKind } from "./persistentDriver";
 import { resetEmptyPersistedSyncCursor } from "./syncActions";
 import { createStoreDbs } from "./storeDbs";
 import type { SyncConfig } from "./syncTypes";
+import { spaceDbType } from "./configs.ts";
 
 export type { SyncConfig } from "./syncTypes";
 
 const lock = new AwaitLock();
 const initedDbs: Record<string, SubscribableDB> = {};
+
+export const getDBBySpaceId = (spaceId: string) => {
+  const dbName = getDbName({ dbType: spaceDbType, dbId: spaceId });
+  const cacheKey = `${dbName}:${getPersistentDriverKind(dbName)}`;
+
+  const db = initedDbs[cacheKey];
+  if (!db) {
+    throw new Error("failed to find db for projectId: " + spaceId);
+  }
+
+  return db;
+};
 
 export const initDbStore = async (
   syncConfig: SyncConfig,
@@ -31,7 +43,7 @@ export const initDbStore = async (
 
     const clientId = getClientId(dbName);
     const nextClock = initClock(clientId);
-    const { persistentDB, syncDB, syncSubDb } = await createStoreDbs(
+    const { persistentDB, syncSubDb } = await createStoreDbs(
       dbName,
       syncConfig,
     );
@@ -39,15 +51,11 @@ export const initDbStore = async (
 
     registerSyncChangeHooks({
       syncSubDb,
+      syncableDBTables: syncConfig.syncableDBTables,
       clientId,
       nextClock,
     });
-
-    await hydrateSyncDb({
-      persistentDB,
-      syncDB,
-      syncableDBTables: syncConfig.syncableDBTables,
-    });
+    await syncConfig.beforeInit?.(syncSubDb);
 
     const crossTabChanges = createCrossTabChanges({
       clientId,
@@ -56,19 +64,10 @@ export const initDbStore = async (
       nextClock,
     });
 
-    const syncer = new Syncer(
-      persistentDB,
-      clientId,
-      syncConfig,
-      nextClock,
-      crossTabChanges.applyChanges,
-    );
+    const syncer = new Syncer(syncSubDb, clientId, syncConfig, nextClock);
 
     const localPersistQueue = createLocalPersistQueue({
-      clientId,
-      persistentDB,
       syncSubDb,
-      nextClock,
       postChanges: crossTabChanges.postChanges,
       onPersisted: () => syncer.forceSync(),
     });

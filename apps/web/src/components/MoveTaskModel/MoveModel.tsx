@@ -8,7 +8,7 @@ import {
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useUnmount } from "../../utils";
 import { useFocusStore } from "@/store/focusSlice.ts";
-import { useSyncSelector } from "@will-be-done/hyperdb-lib";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { allProjectsSorted } from "@will-be-done/slices/space";
 
 export const MoveModal = ({
@@ -23,7 +23,7 @@ export const MoveModal = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const allProjects = useSyncSelector({
+  const { data: allProjects = [] } = useAsyncSelector({
     selector: allProjectsSorted,
     args: {},
   });

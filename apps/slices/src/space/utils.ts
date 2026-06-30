@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
-import { v } from "@will-be-done/hyperdb-lib";
+import { v } from "@will-be-done/hyperdb";
 
 // Utility types
 export type OrderableItem = {

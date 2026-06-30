@@ -1,4 +1,4 @@
-import { selectFrom, v } from "@will-be-done/hyperdb-lib";
+import { selectFrom, v } from "@will-be-done/hyperdb";
 import { selector } from "../builders";
 import { inboxProjectId, projectById } from "./projects";
 import { defaultProject } from "./projects";
@@ -35,7 +35,7 @@ export const projectChildrenIdsWithoutInbox = selector({
   args: {},
   handler: function* projectChildrenIdsWithoutInbox() {
     const projects = yield* allProjectsSorted({});
-    return projects.filter((p) => !p.isInbox).map((p) => p.id);
+    return projects.filter((p) => !p.isInbox);
   },
 });
 

@@ -4,7 +4,7 @@ import {
   selectFrom,
   upsert,
   v,
-} from "@will-be-done/hyperdb-lib";
+} from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import {
   generateOrderTokenPositioned,
@@ -26,7 +26,7 @@ import { projectById, projectByIdOrDefault } from "./projects";
 import { createTask, taskById, updateTask } from "./cardsTasks";
 import { updateTemplate } from "./cardsTaskTemplates";
 import { defaultProject } from "./projects";
-import { noop } from "@will-be-done/hyperdb-lib";
+import { noop } from "@will-be-done/hyperdb";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { genUUIDV5 } from "../traits";
 import {

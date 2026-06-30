@@ -1,4 +1,7 @@
-import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb-lib";
+import {
+  useAsyncDispatch,
+  useAsyncSelector,
+} from "@will-be-done/hyperdb/react";
 import {
   deleteProjects,
   inboxProjectId as getInboxProjectId,
@@ -56,35 +59,41 @@ function useIsSmallScreen() {
 }
 
 const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
   const scrollRestorationId = useMemo(
     () => `project-view-scroll-${projectId}`,
     [projectId],
   );
-  const project = useSyncSelector({
+  const { data: project } = useAsyncSelector({
     selector: projectByIdOrDefault,
     args: { id: projectId },
   });
 
   const handleDeleteClick = () => {
+    if (!project) return;
     const shouldDelete = confirm(
       "Are you sure you want to delete this project?",
     );
     if (shouldDelete) {
-      dispatch(deleteProjects({ ids: [project.id] }));
+      void dispatch(deleteProjects({ ids: [project.id] }));
     }
   };
 
   const handleTitleClick = async () => {
+    if (!project) return;
     const newTitle = await promptDialog(
       "Enter new project title",
       project.title,
     );
     if (newTitle == "" || newTitle == null) return;
-    dispatch(updateProject({ id: project.id, project: { title: newTitle } }));
+    await dispatch(
+      updateProject({ id: project.id, project: { title: newTitle } }),
+    );
   };
 
   const isSmallScreen = useIsSmallScreen();
+
+  if (!project) return null;
 
   return (
     <div
@@ -110,7 +119,7 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
                 <EmojiPicker
                   className="h-[326px] rounded-lg shadow-md"
                   onEmojiSelect={({ emoji }) => {
-                    dispatch(
+                    void dispatch(
                       updateProject({
                         id: project.id,
                         project: { icon: emoji },
@@ -165,7 +174,7 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
 };
 
 export const ProjectDetailView = ({ projectId }: { projectId: string }) => {
-  const inboxProjectId = useSyncSelector({
+  const { data: inboxProjectId = "" } = useAsyncSelector({
     selector: getInboxProjectId,
     args: {},
   });

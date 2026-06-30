@@ -1,5 +1,5 @@
 # Stage 1: Build the Astro site
-FROM oven/bun:alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app/apps/landing
 
@@ -7,7 +7,7 @@ WORKDIR /app/apps/landing
 COPY apps/landing/package.json ./
 
 # Install dependencies
-RUN bun install
+RUN corepack enable && pnpm install
 
 # Copy the rest of the source
 COPY apps/landing/ ./
@@ -15,7 +15,7 @@ COPY apps/landing/ ./
 ENV PUBLIC_POSTHOG_KEY=phc_qrPoGFFkFW2yTiRH8Fjt4mHBIm4ZzZK2kSJoI5AqvPu
 
 # Build the Astro site
-RUN bun run build
+RUN pnpm build
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine AS runner

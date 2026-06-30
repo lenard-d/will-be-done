@@ -21,21 +21,23 @@ import {
   taskTemplateType,
   taskType,
 } from "@will-be-done/slices/space";
-import { select, useDB, useDispatch } from "@will-be-done/hyperdb-lib";
+import { useDB, useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { FocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   getDOMSiblings,
   getDOMColumnSiblingFirstItems,
 } from "@/components/Focus/domNavigation.ts";
+import { selectAsync } from "@will-be-done/hyperdb";
 
 export function GlobalListener() {
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
   const db = useDB();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const focusState = useFocusStore.getState();
-      const isSomethingFocused = !focusState.isFocusDisabled && !!focusState.focusItemKey;
+      const isSomethingFocused =
+        !focusState.isFocusDisabled && !!focusState.focusItemKey;
 
       if (focusState.isFocusDisabled || e.defaultPrevented) return;
 
@@ -166,85 +168,102 @@ export function GlobalListener() {
   useEffect(() => {
     return combine(
       monitorForElements({
-        onDrop(args) {
-          const { location, source } = args;
+        onDrop: function (args) {
+          void (async () => {
+            const { location, source } = args;
 
-          if (!location.current.dropTargets.length) {
-            return;
-          }
-
-          if (!isModelDNDData(source.data)) {
-            return;
-          }
-
-          const targetImportanceOrder = [
-            checklistItemType,
-            stashProjectionType,
-            projectionType,
-            taskType,
-            taskTemplateType,
-            stashType,
-            dailyListType,
-            projectCategoryType,
-            projectType,
-          ];
-
-          const targetModels = location.current.dropTargets.flatMap((t) => {
-            if (!isModelDNDData(t.data)) {
-              return [] as const;
+            if (!location.current.dropTargets.length) {
+              return;
             }
-            const entity = select(
-              db,
-              appById({ id: t.data.modelId, modelType: t.data.modelType }),
-            );
-            if (!entity) {
-              // Virtual models (e.g. stash) have no DB row — use DnD data directly
-              return [[t, { id: t.data.modelId, type: t.data.modelType }] as const];
-            }
-            return [[t, entity] as const];
-          });
 
-          let targetItemInfo:
-            | readonly [DropTargetRecord, { id: string; type: AnyModelType }]
-            | undefined = undefined;
-          for (const importanceType of targetImportanceOrder) {
-            targetItemInfo = targetModels.find(
-              ([_, e]) => e.type === importanceType,
-            ) as readonly [
-              DropTargetRecord,
-              { id: string; type: AnyModelType },
+            if (!isModelDNDData(source.data)) {
+              return;
+            }
+
+            const targetImportanceOrder = [
+              checklistItemType,
+              stashProjectionType,
+              projectionType,
+              taskType,
+              taskTemplateType,
+              stashType,
+              dailyListType,
+              projectCategoryType,
+              projectType,
             ];
 
-            if (targetItemInfo) {
-              break;
-            }
-          }
-
-          if (!targetItemInfo) {
-            shouldNeverHappen(
-              "Drop entity not found or not in importance list",
+            const targetModelsArray = await Promise.all(
+              location.current.dropTargets.map(async (t) => {
+                if (!isModelDNDData(t.data)) {
+                  return [] as const;
+                }
+                const entity = await selectAsync(
+                  db,
+                  appById({ id: t.data.modelId, modelType: t.data.modelType }),
+                );
+                if (!entity) {
+                  // Virtual models (e.g. stash) have no DB row — use DnD data directly
+                  return [
+                    [
+                      t,
+                      { id: t.data.modelId, type: t.data.modelType },
+                    ] as const,
+                  ];
+                }
+                return [[t, entity] as const];
+              }),
             );
 
-            return;
-          }
+            const targetModels = targetModelsArray.flatMap((t) => t);
 
-          const closestEdgeOfTarget: Edge | null = extractClosestEdge(
-            targetItemInfo[0].data,
-          );
+            let targetItemInfo:
+              | readonly [DropTargetRecord, { id: string; type: AnyModelType }]
+              | undefined = undefined;
+            for (const importanceType of targetImportanceOrder) {
+              targetItemInfo = targetModels.find(
+                ([_, e]) => e.type === importanceType,
+              ) as readonly [
+                DropTargetRecord,
+                { id: string; type: AnyModelType },
+              ];
 
-          if (
-            closestEdgeOfTarget &&
-            closestEdgeOfTarget != "top" &&
-            closestEdgeOfTarget != "bottom"
-          ) {
-            shouldNeverHappen("edge is not top or bottom");
+              if (targetItemInfo) {
+                break;
+              }
+            }
 
-            return;
-          }
+            if (!targetItemInfo) {
+              shouldNeverHappen(
+                "Drop entity not found or not in importance list",
+              );
 
-          dispatch(
-            appHandleDrop({ id: targetItemInfo[1].id, modelType: targetItemInfo[1].type, dropId: source.data.modelId, dropModelType: source.data.modelType, edge: closestEdgeOfTarget || "top" }),
-          );
+              return;
+            }
+
+            const closestEdgeOfTarget: Edge | null = extractClosestEdge(
+              targetItemInfo[0].data,
+            );
+
+            if (
+              closestEdgeOfTarget &&
+              closestEdgeOfTarget != "top" &&
+              closestEdgeOfTarget != "bottom"
+            ) {
+              shouldNeverHappen("edge is not top or bottom");
+
+              return;
+            }
+
+            void dispatch(
+              appHandleDrop({
+                id: targetItemInfo[1].id,
+                modelType: targetItemInfo[1].type,
+                dropId: source.data.modelId,
+                dropModelType: source.data.modelType,
+                edge: closestEdgeOfTarget || "top",
+              }),
+            );
+          })();
         },
       }),
     );

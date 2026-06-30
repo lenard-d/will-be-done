@@ -5,10 +5,10 @@ export function getRouter() {
   const router = createRouter({
     routeTree,
     context: {},
-    defaultPreload: "intent",
+    defaultPreload: false,
     scrollRestoration: true,
     defaultStructuralSharing: true,
-    defaultPreloadStaleTime: 0,
+    // defaultPreloadStaleTime: 0,
     scrollToTopSelectors: ["#main-scrollable-area"],
   });
 

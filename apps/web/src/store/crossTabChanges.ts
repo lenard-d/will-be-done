@@ -1,4 +1,4 @@
-import { syncDispatch, type SubscribableDB } from "@will-be-done/hyperdb-lib";
+import { asyncDispatch, type SubscribableDB } from "@will-be-done/hyperdb";
 import { mergeChanges } from "@will-be-done/slices/common";
 import { BroadcastChannel } from "broadcast-channel";
 import type { ChangePersistedEvent, SyncConfig } from "./syncTypes";
@@ -18,8 +18,8 @@ export const createCrossTabChanges = ({
 }: CreateCrossTabChangesArgs) => {
   const bc = new BroadcastChannel(`changes-${clientId}`);
 
-  const applyChanges = (data: ChangePersistedEvent) => {
-    syncDispatch(
+  const applyChanges = async (data: ChangePersistedEvent) => {
+    await asyncDispatch(
       syncSubDb.withTraits({ type: "skip-sync" }),
       mergeChanges({
         input: data.changeset,
@@ -31,7 +31,7 @@ export const createCrossTabChanges = ({
   };
 
   bc.onmessage = (data) => {
-    applyChanges(data as ChangePersistedEvent);
+    void applyChanges(data as ChangePersistedEvent);
   };
 
   return {

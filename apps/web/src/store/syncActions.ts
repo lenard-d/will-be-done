@@ -1,9 +1,4 @@
-import {
-  deleteRows,
-  selectFrom,
-  upsert,
-  v,
-} from "@will-be-done/hyperdb-lib";
+import { deleteRows, selectFrom, upsert, v } from "@will-be-done/hyperdb";
 import {
   changesTable,
   type Change,
@@ -146,9 +141,10 @@ export const resetEmptyPersistedSyncCursor = action({
       return false;
     }
 
-    const persistedChanges = yield* selectFrom(changesTable, "byUpdatedAt").limit(
-      1,
-    );
+    const persistedChanges = yield* selectFrom(
+      changesTable,
+      "byUpdatedAt",
+    ).limit(1);
     if (persistedChanges.length !== 0) {
       return false;
     }

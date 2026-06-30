@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { useSyncSelector, useDispatch } from "@will-be-done/hyperdb-lib";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import {
   createProject,
-  inboxProject,
   loadSpaceBackup,
-  notDoneTasksCountExceptDailiesCount,
-  projectChildrenIdsWithoutInbox,
+  projectsWithTaskStats,
 } from "@will-be-done/slices/space";
 import { SidebarProjectItem } from "./SidebarProjectItem.tsx";
 import { SpaceBlock } from "./SpaceBlock.tsx";
@@ -18,7 +17,7 @@ import {
 import { Link, useRouterState } from "@tanstack/react-router";
 import { SpaceNavLinks } from "@/components/SpaceNavLinks.tsx";
 import { Route } from "@/routes/spaces.$spaceId.tsx";
-import { format } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import { useCurrentDate } from "@/components/DaysBoard/hooks.tsx";
 import { cn } from "@/lib/utils.ts";
 import { promptDialog } from "@/components/ui/prompt-dialog-service";
@@ -133,14 +132,15 @@ const TodayNavItem = () => {
   );
 };
 
-const InboxNavItem = ({ inboxId }: { inboxId: string }) => {
+const InboxNavItem = ({
+  inboxId,
+  notDoneCount,
+}: {
+  inboxId: string;
+  notDoneCount: number;
+}) => {
   const spaceId = Route.useParams().spaceId;
   const closeMobile = useCloseMobileOnNav();
-
-  const notDoneCount = useSyncSelector({
-    selector: notDoneTasksCountExceptDailiesCount,
-    args: { projectId: inboxId, exceptDailyListIds: [] },
-  });
 
   const isActive = useRouterState({
     select: (s) =>
@@ -187,20 +187,19 @@ const NavStrip = () => {
 };
 
 export const AppSidebar = () => {
-  const dispatch = useDispatch();
-  const inbox = useSyncSelector({
-    selector: inboxProject,
-    args: {},
+  const dispatch = useAsyncDispatch();
+  const today = useCurrentDate();
+  const currentDate = startOfDay(today).getTime();
+  const { data: projects = [] } = useAsyncSelector({
+    selector: projectsWithTaskStats,
+    args: { currentDate },
   });
-  const projectIdsWithoutInbox = useSyncSelector({
-    selector: projectChildrenIdsWithoutInbox,
-    args: {},
-  });
+  const inbox = projects.find(({ project }) => project.isInbox);
 
   const handleAddProjectClick = async () => {
     const title = await promptDialog("Enter project title");
     if (title) {
-      dispatch(createProject({ project: { title }, position: "append" }));
+      await dispatch(createProject({ project: { title }, position: "append" }));
     }
   };
 
@@ -216,7 +215,12 @@ export const AppSidebar = () => {
         {/* Today + Inbox */}
         <div className="grid grid-cols-2 gap-1.5">
           <TodayNavItem />
-          <InboxNavItem inboxId={inbox.id} />
+          {inbox && (
+            <InboxNavItem
+              inboxId={inbox.project.id}
+              notDoneCount={inbox.notDoneCount}
+            />
+          )}
         </div>
 
         {/* Divider + Projects label */}
@@ -229,9 +233,16 @@ export const AppSidebar = () => {
       </SidebarHeader>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-3 flex flex-col py-1 gap-1">
-        {projectIdsWithoutInbox.map((id) => (
-          <SidebarProjectItem key={id} projectId={id} />
-        ))}
+        {projects
+          .filter(({ project }) => !project.isInbox)
+          .map(({ project, notDoneCount, overdueCount }) => (
+            <SidebarProjectItem
+              key={project.id}
+              project={project}
+              notDoneCount={notDoneCount}
+              overdueCount={overdueCount}
+            />
+          ))}
       </div>
 
       <div className="flex items-center justify-center pb-3 pt-2 border-t border-ring/40">
@@ -252,7 +263,7 @@ export const AppSidebar = () => {
 };
 
 const GenerateTestDataButton = () => {
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
   const [open, setOpen] = useState(false);
   const [projects, setProjects] = useState("5");
   const [categories, setCategories] = useState("3");
@@ -266,7 +277,7 @@ const GenerateTestDataButton = () => {
     const l = parseInt(todo, 10) || 0;
 
     const backup = generateTestBackup(n, m, k, l);
-    dispatch(loadSpaceBackup({ backup: backup }));
+    void dispatch(loadSpaceBackup({ backup: backup }));
     setOpen(false);
   };
 

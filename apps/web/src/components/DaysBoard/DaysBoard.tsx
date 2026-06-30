@@ -1,13 +1,13 @@
 import { useEffect, useCallback, useRef, useState } from "react";
 import { useMemo } from "react";
 import { addDays, format, startOfDay, subDays } from "date-fns";
-import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb-lib";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
   createManyDailyListsIfNotPresent,
   createTaskInList,
   type DailyList,
-  dailyListByIdOrDefault,
-  dailyListIdsByDates,
+  dailyListsByDates,
   dailyProjectionChildrenForDisplay,
   doneDailyProjectionChildrenForDisplay,
   inboxProjectId,
@@ -35,46 +35,40 @@ import { isInputElement } from "@/utils/isInputElement.ts";
 import { useCardDetailsOpen } from "@/components/CardDetails/CardDetailsStore.ts";
 
 const ColumnView = ({
-  dailyListId,
+  dailyList,
   onTaskAdd,
 }: {
-  dailyListId: string;
+  dailyList: DailyList;
   onTaskAdd: (dailyList: DailyList) => void;
 }) => {
-  const dailyList = useSyncSelector({
-    selector: dailyListByIdOrDefault,
-    args: { id: dailyListId },
-  });
   const currentDate = useCurrentDMY();
-  const isToday = useMemo(() => {
-    return currentDate === dailyList.date;
-  }, [currentDate, dailyList.date]);
+  const isToday = currentDate === dailyList.date;
 
-  const cardsForDisplay = useSyncSelector({
+  const { data: cardsForDisplay = [] } = useAsyncSelector({
     selector: dailyProjectionChildrenForDisplay,
-    args: { dailyListId: dailyListId },
+    args: { dailyListId: dailyList.id },
   });
 
-  const doneCardsForDisplay = useSyncSelector({
+  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
     selector: doneDailyProjectionChildrenForDisplay,
-    args: { dailyListId: dailyListId },
+    args: { dailyListId: dailyList.id },
   });
 
   // const [isHiddenClicked, setIsHiddenClicked] = useState(false);
 
   const isManuallyHidden = useHiddenDays(
-    (state) => state.hiddenDays[dailyListId],
+    (state) => state.hiddenDays[dailyList.id],
   );
   const setIsHidden = useHiddenDays((state) => state.setIsHidden);
   const toggleIsHidden = useHiddenDays((state) => state.toggleIsHidden);
   const isHidden =
     isManuallyHidden ||
     (cardsForDisplay.length == 0 && doneCardsForDisplay.length == 0);
-  const handleHideClick = () => toggleIsHidden(dailyListId);
+  const handleHideClick = () => toggleIsHidden(dailyList.id);
 
   const handleAddClick = () => {
     if (isHidden) {
-      setIsHidden(dailyListId, false);
+      setIsHidden(dailyList.id, false);
     }
 
     onTaskAdd(dailyList);
@@ -178,18 +172,18 @@ const BoardView = ({
   previousDate,
   nextDate,
   selectedDate,
-  dailyListsIds,
+  dailyLists,
   selectedProjectId,
 }: {
   previousDate: Date;
   nextDate: Date;
   selectedDate: Date;
-  dailyListsIds: string[];
+  dailyLists: DailyList[];
   selectedProjectId: string;
 }) => {
   const rootRef = useRef<HTMLDivElement>(null);
-  const dispatch = useDispatch();
-  const inboxId = useSyncSelector({
+  const dispatch = useAsyncDispatch();
+  const { data: inboxId = "" } = useAsyncSelector({
     selector: inboxProjectId,
     args: {},
   });
@@ -201,16 +195,20 @@ const BoardView = ({
 
   const handleAddTask = useCallback(
     (dailyList: DailyList) => {
-      const task = dispatch(
-        createTaskInList({
-          dailyListId: dailyList.id,
-          projectId: inboxId,
-          listPosition: "prepend",
-          categoryPosition: "prepend",
-        }),
-      );
+      void (async () => {
+        const task = await dispatch(
+          createTaskInList({
+            dailyListId: dailyList.id,
+            projectId: inboxId,
+            listPosition: "prepend",
+            categoryPosition: "prepend",
+          }),
+        );
 
-      useFocusStore.getState().editByKey(buildFocusKey(task.id, "projection"));
+        useFocusStore
+          .getState()
+          .editByKey(buildFocusKey(task.id, "projection"));
+      })();
     },
     [dispatch, inboxId],
   );
@@ -334,8 +332,12 @@ const BoardView = ({
             floatingColumn={<Stash />}
             paddingLeft={isStashOpen ? getStashOpenWidth(stashWidth) : 32}
           >
-            {dailyListsIds.map((id) => (
-              <ColumnView dailyListId={id} onTaskAdd={handleAddTask} key={id} />
+            {dailyLists.map((dailyList) => (
+              <ColumnView
+                dailyList={dailyList}
+                onTaskAdd={handleAddTask}
+                key={dailyList.id}
+              />
             ))}
           </TasksColumnGrid>
           <NavPanel
@@ -370,7 +372,6 @@ const BoardView = ({
               )}
             >
               <ProjectView
-                exceptDailyListIds={dailyListsIds}
                 selectedProjectId={selectedProjectId}
                 projectLink={ProjectLink}
               />
@@ -403,14 +404,14 @@ export const Board = ({
     [startingDate],
   );
 
-  const dailyListsIds = useSyncSelector({
-    selector: dailyListIdsByDates,
+  const { data: dailyLists = [] } = useAsyncSelector({
+    selector: dailyListsByDates,
     args: { dates: weekDays.map((date) => date.getTime()) },
   });
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
 
   useEffect(() => {
-    dispatch(
+    void dispatch(
       createManyDailyListsIfNotPresent({
         dates: weekDays.map((date) => date.getTime()),
       }),
@@ -422,7 +423,7 @@ export const Board = ({
       previousDate={previousDate}
       nextDate={nextDate}
       selectedDate={selectedDate}
-      dailyListsIds={dailyListsIds}
+      dailyLists={dailyLists}
       selectedProjectId={selectedProjectId}
     />
   );

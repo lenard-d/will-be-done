@@ -1,12 +1,12 @@
 import { Database } from "bun:sqlite";
-import { SqlDriver } from "@will-be-done/hyperdb-lib/drivers/sqlite";
+import { SqlDriver } from "@will-be-done/hyperdb/drivers/sqlite";
 import {
   DB,
   execSync,
   SubscribableDB,
   syncDispatch,
   TableDefinition,
-} from "@will-be-done/hyperdb-lib";
+} from "@will-be-done/hyperdb";
 import path from "path";
 import { getEnvConfig } from "../env";
 import {
@@ -16,7 +16,7 @@ import {
   changesTable,
   type PrimitiveRow,
 } from "@will-be-done/slices/common";
-import { noop } from "@will-be-done/hyperdb-lib";
+import { noop } from "@will-be-done/hyperdb";
 import { usersTable, tokensTable } from "../slices/authSlice";
 import { dbsTable } from "../slices/dbSlice";
 import {

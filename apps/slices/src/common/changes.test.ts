@@ -13,8 +13,8 @@ import {
   defineTable,
   Row,
   v,
-} from "@will-be-done/hyperdb-lib";
-import { BptreeInmemDriver } from "@will-be-done/hyperdb-lib/drivers/inmemory";
+} from "@will-be-done/hyperdb";
+import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
 import {
   mergeChanges,
   getChangesetAfter,

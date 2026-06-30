@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { SqlDriver } from "@will-be-done/hyperdb-lib/drivers/sqlite";
-import { DB, syncDispatch, execSync, select } from "@will-be-done/hyperdb-lib";
+import { SqlDriver } from "@will-be-done/hyperdb/drivers/sqlite";
+import { DB, syncDispatch, execSync, select } from "@will-be-done/hyperdb";
 import {
   backupStateTable,
   backupTierStateTable,
@@ -51,7 +51,9 @@ describe("backup", () => {
             }
           },
           values(params?: SqlValue[]): SqlValue[][] {
-            return (params ? stmt.values(...params) : stmt.values()) as SqlValue[][];
+            return (
+              params ? stmt.values(...params) : stmt.values()
+            ) as SqlValue[][];
           },
           finalize(): void {
             stmt.finalize();
@@ -62,7 +64,7 @@ describe("backup", () => {
 
     db = new DB(sqliteDriver);
     execSync(
-      db.loadTables([backupStateTable, backupTierStateTable, backupFileTable])
+      db.loadTables([backupStateTable, backupTierStateTable, backupFileTable]),
     );
   });
 
@@ -72,7 +74,7 @@ describe("backup", () => {
 
       const backupId = syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt })
+        createBackup({ tier: "hourly", scheduledAt }),
       );
 
       const backup = select(db, getBackupById({ id: backupId }));
@@ -95,7 +97,7 @@ describe("backup", () => {
       const scheduledAt = "2026-02-03T12:00:00.000Z";
       const backupId = syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt })
+        createBackup({ tier: "hourly", scheduledAt }),
       );
 
       syncDispatch(db, startBackup({ id: backupId }));
@@ -118,11 +120,18 @@ describe("backup", () => {
       const scheduledAt = "2026-02-03T12:00:00.000Z";
       const backupId = syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt })
+        createBackup({ tier: "hourly", scheduledAt }),
       );
       syncDispatch(db, startBackup({ id: backupId }));
 
-      syncDispatch(db, completeBackup({ id: backupId, totalSizeBytes: 1024000, durationMs: 5000 }));
+      syncDispatch(
+        db,
+        completeBackup({
+          id: backupId,
+          totalSizeBytes: 1024000,
+          durationMs: 5000,
+        }),
+      );
 
       const backup = select(db, getBackupById({ id: backupId }));
       expect(backup?.status).toBe("completed");
@@ -133,7 +142,14 @@ describe("backup", () => {
 
     test("throws error if backup not found", () => {
       expect(() => {
-        syncDispatch(db, completeBackup({ id: "nonexistent-id", totalSizeBytes: 0, durationMs: 0 }));
+        syncDispatch(
+          db,
+          completeBackup({
+            id: "nonexistent-id",
+            totalSizeBytes: 0,
+            durationMs: 0,
+          }),
+        );
       }).toThrow("Backup nonexistent-id not found");
     });
   });
@@ -143,13 +159,13 @@ describe("backup", () => {
       const scheduledAt = "2026-02-03T12:00:00.000Z";
       const backupId = syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt })
+        createBackup({ tier: "hourly", scheduledAt }),
       );
       syncDispatch(db, startBackup({ id: backupId }));
 
       syncDispatch(
         db,
-        failBackup({ id: backupId, error: "Connection timeout" })
+        failBackup({ id: backupId, error: "Connection timeout" }),
       );
 
       const backup = select(db, getBackupById({ id: backupId }));
@@ -169,15 +185,24 @@ describe("backup", () => {
     test("returns backups for specified tier in descending order", () => {
       syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T08:00:00.000Z" })
+        createBackup({
+          tier: "hourly",
+          scheduledAt: "2026-02-03T08:00:00.000Z",
+        }),
       );
       syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
+        createBackup({
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+        }),
       );
       syncDispatch(
         db,
-        createBackup({ tier: "daily", scheduledAt: "2026-02-03T00:00:00.000Z" })
+        createBackup({
+          tier: "daily",
+          scheduledAt: "2026-02-03T00:00:00.000Z",
+        }),
       );
 
       const hourlyBackups = select(db, getBackupsByTier({ tier: "hourly" }));
@@ -198,26 +223,38 @@ describe("backup", () => {
     test("returns only completed backups for specified tier", () => {
       const id1 = syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T08:00:00.000Z" })
+        createBackup({
+          tier: "hourly",
+          scheduledAt: "2026-02-03T08:00:00.000Z",
+        }),
       );
       syncDispatch(db, startBackup({ id: id1 }));
-      syncDispatch(db, completeBackup({ id: id1, totalSizeBytes: 1000, durationMs: 100 }));
+      syncDispatch(
+        db,
+        completeBackup({ id: id1, totalSizeBytes: 1000, durationMs: 100 }),
+      );
 
       const id2 = syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
+        createBackup({
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+        }),
       );
       syncDispatch(db, startBackup({ id: id2 }));
       syncDispatch(db, failBackup({ id: id2, error: "error" }));
 
       syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T16:00:00.000Z" })
+        createBackup({
+          tier: "hourly",
+          scheduledAt: "2026-02-03T16:00:00.000Z",
+        }),
       ); // Still pending
 
       const completedBackups = select(
         db,
-        getCompletedBackupsByTier({ tier: "hourly" })
+        getCompletedBackupsByTier({ tier: "hourly" }),
       );
 
       expect(completedBackups).toHaveLength(1);
@@ -230,7 +267,10 @@ describe("backup", () => {
     test("creates a backup file record", () => {
       const backupId = syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
+        createBackup({
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+        }),
       );
 
       const fileId = syncDispatch(
@@ -246,7 +286,7 @@ describe("backup", () => {
           vacuumDurationMs: 5000,
           uploadDurationMs: 2000,
           compressionDurationMs: 300,
-        })
+        }),
       );
 
       const files = select(db, getBackupFiles({ backupId }));
@@ -258,7 +298,7 @@ describe("backup", () => {
       expect(files[0].scheduledAt).toBe("2026-02-03T12:00:00.000Z");
       expect(files[0].fileName).toBe("main.sqlite");
       expect(files[0].s3Key).toBe(
-        "backups/hourly/2026-02-03T12-00-00Z/main.sqlite"
+        "backups/hourly/2026-02-03T12-00-00Z/main.sqlite",
       );
       expect(files[0].sizeBytes).toBe(1024000);
       expect(files[0].vacuumDurationMs).toBe(5000);
@@ -271,7 +311,10 @@ describe("backup", () => {
     test("returns all files for a backup", () => {
       const backupId = syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
+        createBackup({
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+        }),
       );
 
       syncDispatch(
@@ -287,7 +330,7 @@ describe("backup", () => {
           vacuumDurationMs: 5000,
           uploadDurationMs: 2000,
           compressionDurationMs: 300,
-        })
+        }),
       );
 
       syncDispatch(
@@ -303,7 +346,7 @@ describe("backup", () => {
           vacuumDurationMs: 6000,
           uploadDurationMs: 3000,
           compressionDurationMs: 400,
-        })
+        }),
       );
 
       const files = select(db, getBackupFiles({ backupId }));
@@ -325,7 +368,10 @@ describe("backup", () => {
     test("returns files for specified tier and scheduled time", () => {
       const backupId1 = syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
+        createBackup({
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+        }),
       );
       syncDispatch(
         db,
@@ -340,12 +386,15 @@ describe("backup", () => {
           vacuumDurationMs: 5000,
           uploadDurationMs: 2000,
           compressionDurationMs: 300,
-        })
+        }),
       );
 
       const backupId2 = syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T16:00:00.000Z" })
+        createBackup({
+          tier: "hourly",
+          scheduledAt: "2026-02-03T16:00:00.000Z",
+        }),
       );
       syncDispatch(
         db,
@@ -360,7 +409,7 @@ describe("backup", () => {
           vacuumDurationMs: 5000,
           uploadDurationMs: 2000,
           compressionDurationMs: 300,
-        })
+        }),
       );
 
       const files = select(
@@ -368,7 +417,7 @@ describe("backup", () => {
         getBackupFilesByTierAndTime({
           tier: "hourly",
           scheduledAt: "2026-02-03T12:00:00.000Z",
-        })
+        }),
       );
 
       expect(files).toHaveLength(1);
@@ -381,7 +430,10 @@ describe("backup", () => {
     test("deletes backup and all associated files", () => {
       const backupId = syncDispatch(
         db,
-        createBackup({ tier: "hourly", scheduledAt: "2026-02-03T12:00:00.000Z" })
+        createBackup({
+          tier: "hourly",
+          scheduledAt: "2026-02-03T12:00:00.000Z",
+        }),
       );
 
       syncDispatch(
@@ -397,7 +449,7 @@ describe("backup", () => {
           vacuumDurationMs: 5000,
           uploadDurationMs: 2000,
           compressionDurationMs: 300,
-        })
+        }),
       );
 
       syncDispatch(
@@ -413,7 +465,7 @@ describe("backup", () => {
           vacuumDurationMs: 6000,
           uploadDurationMs: 3000,
           compressionDurationMs: 400,
-        })
+        }),
       );
 
       // Verify files exist
@@ -441,7 +493,7 @@ describe("backup", () => {
             consecutiveFailures: 0,
             isBackupInProgress: false,
           },
-        })
+        }),
       );
 
       const tierState = select(db, getTierState({ tier: "hourly" }));
@@ -464,7 +516,7 @@ describe("backup", () => {
             lastScheduledTime: "2026-02-03T12:00:00.000Z",
             consecutiveFailures: 0,
           },
-        })
+        }),
       );
 
       syncDispatch(
@@ -476,7 +528,7 @@ describe("backup", () => {
             nextScheduledTime: "2026-02-03T20:00:00.000Z",
             consecutiveFailures: 1,
           },
-        })
+        }),
       );
 
       const tierState = select(db, getTierState({ tier: "hourly" }));
@@ -489,17 +541,26 @@ describe("backup", () => {
     test("tracks consecutive failures", () => {
       syncDispatch(
         db,
-        updateTierState({ tier: "hourly", updates: { consecutiveFailures: 0 } })
+        updateTierState({
+          tier: "hourly",
+          updates: { consecutiveFailures: 0 },
+        }),
       );
 
       syncDispatch(
         db,
-        updateTierState({ tier: "hourly", updates: { consecutiveFailures: 1 } })
+        updateTierState({
+          tier: "hourly",
+          updates: { consecutiveFailures: 1 },
+        }),
       );
 
       syncDispatch(
         db,
-        updateTierState({ tier: "hourly", updates: { consecutiveFailures: 2 } })
+        updateTierState({
+          tier: "hourly",
+          updates: { consecutiveFailures: 2 },
+        }),
       );
 
       const tierState = select(db, getTierState({ tier: "hourly" }));
@@ -509,7 +570,10 @@ describe("backup", () => {
     test("manages backup in progress flag", () => {
       syncDispatch(
         db,
-        updateTierState({ tier: "hourly", updates: { isBackupInProgress: true } })
+        updateTierState({
+          tier: "hourly",
+          updates: { isBackupInProgress: true },
+        }),
       );
 
       let tierState = select(db, getTierState({ tier: "hourly" }));
@@ -517,7 +581,10 @@ describe("backup", () => {
 
       syncDispatch(
         db,
-        updateTierState({ tier: "hourly", updates: { isBackupInProgress: false } })
+        updateTierState({
+          tier: "hourly",
+          updates: { isBackupInProgress: false },
+        }),
       );
 
       tierState = select(db, getTierState({ tier: "hourly" }));
@@ -537,7 +604,7 @@ describe("backup", () => {
         updateTierState({
           tier: "daily",
           updates: { lastScheduledTime: "2026-02-03T00:00:00.000Z" },
-        })
+        }),
       );
 
       const tierState = select(db, getTierState({ tier: "daily" }));

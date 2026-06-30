@@ -38,7 +38,7 @@ export default tseslint.config(
       "react-hooks/exhaustive-deps": [
         "warn",
         {
-          additionalHooks: "(useSyncSelector)",
+          additionalHooks: "(useAsyncSelector)",
         },
       ],
       "react-refresh/only-export-components": [

@@ -7,7 +7,7 @@ import {
   upsert,
   type Validator,
   v,
-} from "@will-be-done/hyperdb-lib";
+} from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { isEqual } from "es-toolkit";
 import { uniq } from "es-toolkit/array";

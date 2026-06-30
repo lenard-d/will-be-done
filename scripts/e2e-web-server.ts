@@ -1,8 +1,10 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const repoRoot = path.resolve(import.meta.dir, "..");
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, "..");
 const apiPort = process.env.PLAYWRIGHT_API_PORT ?? "3200";
 const webPort = process.env.PLAYWRIGHT_WEB_PORT ?? "5174";
 const e2eDbPath =
@@ -11,6 +13,7 @@ const e2eDbPath =
 fs.mkdirSync(e2eDbPath, { recursive: true });
 
 const children = new Set<ChildProcess>();
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function spawnService(
   name: string,
@@ -88,44 +91,52 @@ async function waitForReady(name: string, url: string, timeoutMs: number) {
       // Keep polling until the service accepts connections.
     }
 
-    await Bun.sleep(250);
+    await sleep(250);
   }
 
   throw new Error(`Timed out waiting for ${name} at ${url}`);
 }
 
-console.log(`Starting API on http://127.0.0.1:${apiPort}`);
-console.log(`Using E2E DB path: ${e2eDbPath}`);
+async function main() {
+  console.log(`Starting API on http://127.0.0.1:${apiPort}`);
+  console.log(`Using E2E DB path: ${e2eDbPath}`);
 
-spawnService("api", "bun", ["run", "src/start.ts"], {
-  cwd: path.join(repoRoot, "apps", "api"),
-  env: {
-    PORT: apiPort,
-    WBD_DB_PATH: e2eDbPath,
-    WBD_CF_CAPTCHA_ENABLED: "false",
-    WBD_BACKUP_S3_ENABLED: "false",
-  },
-});
+  spawnService("api", "bun", ["run", "src/start.ts"], {
+    cwd: path.join(repoRoot, "apps", "api"),
+    env: {
+      PORT: apiPort,
+      WBD_DB_PATH: e2eDbPath,
+      WBD_CF_CAPTCHA_ENABLED: "false",
+      WBD_BACKUP_S3_ENABLED: "false",
+    },
+  });
 
-try {
-  await waitForReady("api", `http://127.0.0.1:${apiPort}/api/health`, 120_000);
-} catch (error) {
-  console.error(error);
-  shutdown(1);
-  await Bun.sleep(300);
-  process.exit(1);
+  try {
+    await waitForReady(
+      "api",
+      `http://127.0.0.1:${apiPort}/api/health`,
+      120_000,
+    );
+  } catch (error) {
+    console.error(error);
+    shutdown(1);
+    await sleep(300);
+    process.exit(1);
+  }
+
+  console.log(`Starting web on http://127.0.0.1:${webPort}`);
+
+  spawnService(
+    "web",
+    "pnpm",
+    ["exec", "vite", "--host", "127.0.0.1", "--port", webPort, "--strictPort"],
+    {
+      cwd: path.join(repoRoot, "apps", "web"),
+      env: {
+        VITE_API_PORT: apiPort,
+      },
+    },
+  );
 }
 
-console.log(`Starting web on http://127.0.0.1:${webPort}`);
-
-spawnService(
-  "web",
-  "bun",
-  ["run", "vite", "--host", "127.0.0.1", "--port", webPort, "--strictPort"],
-  {
-    cwd: path.join(repoRoot, "apps", "web"),
-    env: {
-      VITE_API_PORT: apiPort,
-    },
-  },
-);
+void main();

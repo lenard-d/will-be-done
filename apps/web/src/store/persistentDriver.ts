@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { openIndexedDBDriver } from "@will-be-done/hyperdb-lib/drivers/idb";
+import { openIndexedDBDriver } from "@will-be-done/hyperdb/drivers/idb";
 import { initAsyncDriver } from "./asyncDriver";
 
 export type PersistentDriverKind = "wa-sqlite" | "indexeddb";
@@ -44,9 +44,7 @@ function getLegacyPersistentDriverKind(
   return foundLegacyKind;
 }
 
-export function getPersistentDriverKind(
-  dbName?: string,
-): PersistentDriverKind {
+export function getPersistentDriverKind(dbName?: string): PersistentDriverKind {
   if (typeof window === "undefined") return "wa-sqlite";
 
   try {
@@ -71,7 +69,9 @@ export function setPersistentDriverKind(kind: PersistentDriverKind): void {
   }
 }
 
-function subscribeToPersistentDriverKind(onStoreChange: () => void): () => void {
+function subscribeToPersistentDriverKind(
+  onStoreChange: () => void,
+): () => void {
   if (typeof window === "undefined") return () => {};
 
   const handleStorage = (event: StorageEvent) => {

@@ -15,9 +15,7 @@ node_modules
 **/node_modules
 .pnpm-store
 
-# Lock files (will be generated during build)
-pnpm-lock.yaml
-pnpm-workspace.yaml
+# Package manager metadata required by Dockerfile
 
 # Build outputs
 dist

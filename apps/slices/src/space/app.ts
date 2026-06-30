@@ -1,4 +1,4 @@
-import { v } from "@will-be-done/hyperdb-lib";
+import { v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { defaultTask } from "./cardsTasks";
 import { appTypeSlicesMap } from "./maps";
