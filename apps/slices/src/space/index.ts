@@ -13,6 +13,7 @@ export * from "./projectsCategories";
 export * from "./projectsCategoriesCards";
 export * from "./projects";
 export * from "./projectsAll";
+export * from "./taskStats";
 export * from "./dailyLists";
 export * from "./dailyListsProjections";
 export * from "./stashProjections";

@@ -27,9 +27,7 @@ import {
 import {
   createProject,
   deleteProjects,
-  inboxProject,
-  inboxProjectId as getInboxProjectId,
-  projectChildrenIdsWithoutInbox,
+  projectsWithTaskStats,
   type Project,
   updateProject,
 } from "@will-be-done/slices/space";
@@ -43,9 +41,11 @@ import {
 } from "@/components/ui/emoji-picker.tsx";
 import { Popover } from "@/components/ui/popover.tsx";
 import { promptDialog } from "@/components/ui/prompt-dialog-service";
+import { useCurrentDate } from "@/components/DaysBoard/hooks.tsx";
 import { ResizableDivider } from "@/components/DaysBoard/ResizableDivider.tsx";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { create } from "zustand";
+import { startOfDay } from "date-fns";
 
 const MIN_PROJECTS_LIST_WIDTH = 240;
 const MAX_PROJECTS_LIST_WIDTH = 520;
@@ -125,11 +125,15 @@ const DropProjectIndicator = function DropProjectIndicatorComp({
 
 const ProjectItem = function ProjectItemComp({
   project,
+  notDoneTasksCount,
+  overdueTasksCount,
   // onProjectClick,
   isSelected,
   projectLink: ProjectLink,
 }: {
   project: Project;
+  notDoneTasksCount: number;
+  overdueTasksCount: number;
   // onProjectClick: (projectId: string) => void;
   isSelected: boolean;
   projectLink: React.ComponentType<
@@ -304,9 +308,6 @@ const ProjectItem = function ProjectItemComp({
     );
   }, [project]);
 
-  const overdueTasksCount = 0;
-  const notDoneTasksCount = 0;
-
   const handleEditClick = async () => {
     if (!project) return;
     const newTitle = await promptDialog(
@@ -337,11 +338,6 @@ const ProjectItem = function ProjectItemComp({
       void dispatch(deleteProjects({ ids: [project.id] }));
     }
   };
-
-  const { data: inboxProjectId = "" } = useAsyncSelector({
-    selector: getInboxProjectId,
-    args: {},
-  });
 
   if (!project) return null;
 
@@ -408,7 +404,7 @@ const ProjectItem = function ProjectItemComp({
         <div
           className={cn(
             "ml-auto flex items-center gap-1 text-xs tabular-nums text-content-tinted flex-shrink-0 ",
-            project.id !== inboxProjectId && "group-hover:hidden",
+            !project.isInbox && "group-hover:hidden",
           )}
         >
           {overdueTasksCount > 0 && (
@@ -423,7 +419,7 @@ const ProjectItem = function ProjectItemComp({
         <div
           className={cn(
             "ml-auto flex gap-2 text-content-tinted stroke-content hidden",
-            project.id !== inboxProjectId && "group-hover:flex",
+            !project.isInbox && "group-hover:flex",
           )}
         >
           <button
@@ -517,14 +513,16 @@ export const ProjectView = ({
     args: { selectedProjectId },
   });
 
-  const { data: inboxProjectId } = useAsyncSelector({
-    selector: inboxProject,
-    args: {},
+  const today = useCurrentDate();
+  const currentDate = startOfDay(today).getTime();
+  const { data: projects = [] } = useAsyncSelector({
+    selector: projectsWithTaskStats,
+    args: { currentDate },
   });
-  const { data: projectsWithoutInbox = [] } = useAsyncSelector({
-    selector: projectChildrenIdsWithoutInbox,
-    args: {},
-  });
+  const inboxProject = projects.find(({ project }) => project.isInbox);
+  const projectsWithoutInbox = projects.filter(
+    ({ project }) => !project.isInbox,
+  );
 
   const handleAddProjectClick = async () => {
     const title = await promptDialog("Enter project title");
@@ -544,7 +542,7 @@ export const ProjectView = ({
     [setProjectsListWidth],
   );
 
-  if (!project || !inboxProjectId) {
+  if (!project || !inboxProject) {
     return <div>Project not found</div>;
   }
 
@@ -556,9 +554,7 @@ export const ProjectView = ({
           "-mt-1 pt-1": !marginTop,
         })}
       >
-        <ProjectItemsList
-          project={project}
-        />
+        <ProjectItemsList project={project} />
       </div>
       <div
         ref={projectsListRef}
@@ -577,17 +573,26 @@ export const ProjectView = ({
         <div className="h-full overflow-y-auto flex flex-col gap-1 px-3 py-2 text-sm overflow-x-hidden text-ellipsis">
           <ProjectItem
             projectLink={projectLink}
-            project={inboxProjectId}
-            isSelected={selectedProjectId === inboxProjectId.id}
+            project={inboxProject.project}
+            notDoneTasksCount={inboxProject.notDoneCount}
+            overdueTasksCount={inboxProject.overdueCount}
+            isSelected={
+              selectedProjectId === "inbox" ||
+              selectedProjectId === inboxProject.project.id
+            }
           />
-          {projectsWithoutInbox.map((project) => (
-            <ProjectItem
-              projectLink={projectLink}
-              key={project.id}
-              project={project}
-              isSelected={selectedProjectId === project.id}
-            />
-          ))}
+          {projectsWithoutInbox.map(
+            ({ project, notDoneCount, overdueCount }) => (
+              <ProjectItem
+                projectLink={projectLink}
+                key={project.id}
+                project={project}
+                notDoneTasksCount={notDoneCount}
+                overdueTasksCount={overdueCount}
+                isSelected={selectedProjectId === project.id}
+              />
+            ),
+          )}
         </div>
         <div className="flex text-center items-center justify-center pb-3 pt-2 border-t border-ring">
           <button

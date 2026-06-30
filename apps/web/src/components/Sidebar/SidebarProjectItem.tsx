@@ -58,26 +58,18 @@ const DragPreview = ({
   </div>
 );
 
-export const SidebarProjectItem = ({ project }: { project: Project }) => {
+export const SidebarProjectItem = ({
+  project,
+  notDoneCount,
+  overdueCount,
+}: {
+  project: Project;
+  notDoneCount: number;
+  overdueCount: number;
+}) => {
   const spaceId = Route.useParams().spaceId;
   const { isMobile, setOpenMobile } = useSidebar();
   const projectId = project.id;
-
-  const notDoneCount = 0;
-  // const { data: notDoneCount = 0 } = useAsyncSelector({
-  //   selector: notDoneTasksCountExceptDailiesCount,
-  //   args: { projectId: projectId, exceptDailyListIds: [] },
-  // });
-
-  const overdueCount = 0;
-  // const { data: overdueCount = 0 } = useAsyncSelector({
-  //   selector: overdueTasksCountExceptDailiesCount,
-  //   args: {
-  //     projectId: projectId,
-  //     exceptDailyListIds: [],
-  //     currentDate: currentDate.getTime(),
-  //   },
-  // });
 
   const isActive = useRouterState({
     select: (s) =>

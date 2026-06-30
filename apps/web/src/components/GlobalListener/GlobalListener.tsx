@@ -168,97 +168,102 @@ export function GlobalListener() {
   useEffect(() => {
     return combine(
       monitorForElements({
-        onDrop: async function (args) {
-          const { location, source } = args;
+        onDrop: function (args) {
+          void (async () => {
+            const { location, source } = args;
 
-          if (!location.current.dropTargets.length) {
-            return;
-          }
+            if (!location.current.dropTargets.length) {
+              return;
+            }
 
-          if (!isModelDNDData(source.data)) {
-            return;
-          }
+            if (!isModelDNDData(source.data)) {
+              return;
+            }
 
-          const targetImportanceOrder = [
-            checklistItemType,
-            stashProjectionType,
-            projectionType,
-            taskType,
-            taskTemplateType,
-            stashType,
-            dailyListType,
-            projectCategoryType,
-            projectType,
-          ];
-
-          const targetModelsArray = await Promise.all(
-            location.current.dropTargets.map(async (t) => {
-              if (!isModelDNDData(t.data)) {
-                return [] as const;
-              }
-              const entity = await selectAsync(
-                db,
-                appById({ id: t.data.modelId, modelType: t.data.modelType }),
-              );
-              if (!entity) {
-                // Virtual models (e.g. stash) have no DB row — use DnD data directly
-                return [
-                  [t, { id: t.data.modelId, type: t.data.modelType }] as const,
-                ];
-              }
-              return [[t, entity] as const];
-            }),
-          );
-
-          const targetModels = targetModelsArray.flatMap((t) => t);
-
-          let targetItemInfo:
-            | readonly [DropTargetRecord, { id: string; type: AnyModelType }]
-            | undefined = undefined;
-          for (const importanceType of targetImportanceOrder) {
-            targetItemInfo = targetModels.find(
-              ([_, e]) => e.type === importanceType,
-            ) as readonly [
-              DropTargetRecord,
-              { id: string; type: AnyModelType },
+            const targetImportanceOrder = [
+              checklistItemType,
+              stashProjectionType,
+              projectionType,
+              taskType,
+              taskTemplateType,
+              stashType,
+              dailyListType,
+              projectCategoryType,
+              projectType,
             ];
 
-            if (targetItemInfo) {
-              break;
-            }
-          }
-
-          if (!targetItemInfo) {
-            shouldNeverHappen(
-              "Drop entity not found or not in importance list",
+            const targetModelsArray = await Promise.all(
+              location.current.dropTargets.map(async (t) => {
+                if (!isModelDNDData(t.data)) {
+                  return [] as const;
+                }
+                const entity = await selectAsync(
+                  db,
+                  appById({ id: t.data.modelId, modelType: t.data.modelType }),
+                );
+                if (!entity) {
+                  // Virtual models (e.g. stash) have no DB row — use DnD data directly
+                  return [
+                    [
+                      t,
+                      { id: t.data.modelId, type: t.data.modelType },
+                    ] as const,
+                  ];
+                }
+                return [[t, entity] as const];
+              }),
             );
 
-            return;
-          }
+            const targetModels = targetModelsArray.flatMap((t) => t);
 
-          const closestEdgeOfTarget: Edge | null = extractClosestEdge(
-            targetItemInfo[0].data,
-          );
+            let targetItemInfo:
+              | readonly [DropTargetRecord, { id: string; type: AnyModelType }]
+              | undefined = undefined;
+            for (const importanceType of targetImportanceOrder) {
+              targetItemInfo = targetModels.find(
+                ([_, e]) => e.type === importanceType,
+              ) as readonly [
+                DropTargetRecord,
+                { id: string; type: AnyModelType },
+              ];
 
-          if (
-            closestEdgeOfTarget &&
-            closestEdgeOfTarget != "top" &&
-            closestEdgeOfTarget != "bottom"
-          ) {
-            shouldNeverHappen("edge is not top or bottom");
+              if (targetItemInfo) {
+                break;
+              }
+            }
 
-            return;
-          }
+            if (!targetItemInfo) {
+              shouldNeverHappen(
+                "Drop entity not found or not in importance list",
+              );
 
-          void dispatch(
-            appHandleDrop({
-              id: targetItemInfo[1].id,
-              modelType: targetItemInfo[1].type,
-              dropId: source.data.modelId,
-              dropModelType: source.data.modelType,
-              edge: closestEdgeOfTarget || "top",
-            }),
-          );
+              return;
+            }
+
+            const closestEdgeOfTarget: Edge | null = extractClosestEdge(
+              targetItemInfo[0].data,
+            );
+
+            if (
+              closestEdgeOfTarget &&
+              closestEdgeOfTarget != "top" &&
+              closestEdgeOfTarget != "bottom"
+            ) {
+              shouldNeverHappen("edge is not top or bottom");
+
+              return;
+            }
+
+            void dispatch(
+              appHandleDrop({
+                id: targetItemInfo[1].id,
+                modelType: targetItemInfo[1].type,
+                dropId: source.data.modelId,
+                dropModelType: source.data.modelType,
+                edge: closestEdgeOfTarget || "top",
+              }),
+            );
+          })();
         },
       }),
     );

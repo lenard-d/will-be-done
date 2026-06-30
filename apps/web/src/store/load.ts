@@ -55,6 +55,7 @@ export const initDbStore = async (
       clientId,
       nextClock,
     });
+    await syncConfig.beforeInit?.(syncSubDb);
 
     const crossTabChanges = createCrossTabChanges({
       clientId,

@@ -2,11 +2,9 @@ import { useState } from "react";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import {
-  allProjectsSorted,
   createProject,
-  inboxProject,
   loadSpaceBackup,
-  notDoneTasksCountExceptDailiesCount,
+  projectsWithTaskStats,
 } from "@will-be-done/slices/space";
 import { SidebarProjectItem } from "./SidebarProjectItem.tsx";
 import { SpaceBlock } from "./SpaceBlock.tsx";
@@ -19,7 +17,7 @@ import {
 import { Link, useRouterState } from "@tanstack/react-router";
 import { SpaceNavLinks } from "@/components/SpaceNavLinks.tsx";
 import { Route } from "@/routes/spaces.$spaceId.tsx";
-import { format } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import { useCurrentDate } from "@/components/DaysBoard/hooks.tsx";
 import { cn } from "@/lib/utils.ts";
 import { promptDialog } from "@/components/ui/prompt-dialog-service";
@@ -134,14 +132,15 @@ const TodayNavItem = () => {
   );
 };
 
-const InboxNavItem = ({ inboxId }: { inboxId: string }) => {
+const InboxNavItem = ({
+  inboxId,
+  notDoneCount,
+}: {
+  inboxId: string;
+  notDoneCount: number;
+}) => {
   const spaceId = Route.useParams().spaceId;
   const closeMobile = useCloseMobileOnNav();
-
-  const { data: notDoneCount = 0 } = useAsyncSelector({
-    selector: notDoneTasksCountExceptDailiesCount,
-    args: { projectId: inboxId, exceptDailyListIds: [] },
-  });
 
   const isActive = useRouterState({
     select: (s) =>
@@ -189,14 +188,13 @@ const NavStrip = () => {
 
 export const AppSidebar = () => {
   const dispatch = useAsyncDispatch();
-  const { data: inbox } = useAsyncSelector({
-    selector: inboxProject,
-    args: {},
-  });
+  const today = useCurrentDate();
+  const currentDate = startOfDay(today).getTime();
   const { data: projects = [] } = useAsyncSelector({
-    selector: allProjectsSorted,
-    args: {},
+    selector: projectsWithTaskStats,
+    args: { currentDate },
   });
+  const inbox = projects.find(({ project }) => project.isInbox);
 
   const handleAddProjectClick = async () => {
     const title = await promptDialog("Enter project title");
@@ -217,7 +215,12 @@ export const AppSidebar = () => {
         {/* Today + Inbox */}
         <div className="grid grid-cols-2 gap-1.5">
           <TodayNavItem />
-          {inbox && <InboxNavItem inboxId={inbox.id} />}
+          {inbox && (
+            <InboxNavItem
+              inboxId={inbox.project.id}
+              notDoneCount={inbox.notDoneCount}
+            />
+          )}
         </div>
 
         {/* Divider + Projects label */}
@@ -231,9 +234,14 @@ export const AppSidebar = () => {
 
       <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-3 flex flex-col py-1 gap-1">
         {projects
-          .filter((project) => !project.isInbox)
-          .map((project) => (
-            <SidebarProjectItem key={project.id} project={project} />
+          .filter(({ project }) => !project.isInbox)
+          .map(({ project, notDoneCount, overdueCount }) => (
+            <SidebarProjectItem
+              key={project.id}
+              project={project}
+              notDoneCount={notDoneCount}
+              overdueCount={overdueCount}
+            />
           ))}
       </div>
 

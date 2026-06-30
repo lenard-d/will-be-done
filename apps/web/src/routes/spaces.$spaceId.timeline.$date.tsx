@@ -14,11 +14,10 @@ import {
   dailyProjectionChildrenForDisplay,
   doneDailyProjectionChildrenForDisplay,
   doneProjectCategoryCardsForDisplay,
-  inboxProject,
   inboxProjectId as getInboxProjectId,
   projectCategoriesByProjectId,
   projectCategoryCardsForDisplayChildren,
-  projectChildrenIdsWithoutInbox,
+  projectsWithTaskStats,
 } from "@will-be-done/slices/space";
 
 const filterParams = z.object({
@@ -51,12 +50,15 @@ export const Route = createFileRoute("/spaces/$spaceId/timeline/$date")({
     const inboxProjectId = await preloadSelector(db, getInboxProjectId, {});
     const selectedProjectId =
       deps.projectId === "inbox" ? inboxProjectId : deps.projectId;
-    await preloadSelector(db, projectChildrenIdsWithoutInbox, {});
     const project = await preloadSelector(db, selectedProject, {
       selectedProjectId,
     });
 
-    appendPromise(preloadSelector(db, inboxProject, {}));
+    appendPromise(
+      preloadSelector(db, projectsWithTaskStats, {
+        currentDate: startOfDay(new Date()).getTime(),
+      }),
+    );
     appendPromise(preloadSelector(db, projectItemsExceptTaskIds, {}));
 
     const projectCategories = await preloadSelector(

@@ -3,10 +3,17 @@ import {
   allTasks,
   createInboxIfNotExists,
   generateTasksFromTemplates,
+  installProjectTaskStatsHooks,
   loadSpaceBackup,
+  migrateProjectCategoryTaskStats,
+  migrateScheduledTodoTasks,
+  projectCategoriesTable,
+  projectCategoryTaskStatsTable,
   projectsTable,
   registeredSpaceSyncableTableNameMap,
   registeredSpaceSyncableTables,
+  scheduledTodoTasksTable,
+  spaceMigrationsTable,
   stashProjectionsTable,
   type Task,
 } from "@will-be-done/slices/space";
@@ -18,7 +25,7 @@ import {
 import type { SyncConfig } from "./syncTypes";
 import { generateDemoBackup } from "@/lib/demoData";
 import { execAsync } from "@will-be-done/hyperdb";
-import { HybridDB } from "@will-be-done/hyperdb";
+import { SubscribableDB } from "@will-be-done/hyperdb";
 
 const demoDbId = "e89b6c8f-1d6c-4bf4-9d27-478339773fc9";
 export const spaceDbType = "space";
@@ -29,21 +36,31 @@ export const spaceDBConfig = (dbId: string) => {
     dbType: spaceDbType,
     persistDBTables: [
       ...registeredSpaceSyncableTables,
+      projectCategoryTaskStatsTable,
+      scheduledTodoTasksTable,
+      spaceMigrationsTable,
       changesTable,
       syncStateTable,
     ],
-    inmemDBTables: [...registeredSpaceSyncableTables, changesTable],
     syncableDBTables: registeredSpaceSyncableTables,
     tableNameMap: registeredSpaceSyncableTableNameMap,
-    afterInit: async (db: HybridDB) => {
+    beforeInit: (db: SubscribableDB) => {
+      installProjectTaskStatsHooks(db);
+    },
+    afterInit: async (db: SubscribableDB) => {
       await asyncDispatch(db, createInboxIfNotExists({}));
 
       await execAsync(
         db.preloadTables([
           { table: projectsTable, scanIndex: "byIds" },
+          { table: projectCategoriesTable, scanIndex: "byIds" },
           { table: stashProjectionsTable, scanIndex: "byIds" },
+          { table: projectCategoryTaskStatsTable, scanIndex: "byIds" },
+          { table: scheduledTodoTasksTable, scanIndex: "byIds" },
         ]),
       );
+      await asyncDispatch(db, migrateProjectCategoryTaskStats({}));
+      await asyncDispatch(db, migrateScheduledTodoTasks({}));
 
       // To make load faster
       setTimeout(() => {
@@ -66,7 +83,10 @@ export const demoSpaceDBConfig = () => {
   return {
     ...spaceDBConfig(demoDbId),
     disableSync: true,
-    afterInit: async (db: HybridDB) => {
+    beforeInit: (db: SubscribableDB) => {
+      installProjectTaskStatsHooks(db);
+    },
+    afterInit: async (db: SubscribableDB) => {
       await asyncDispatch(db, createInboxIfNotExists({}));
       const tasks = await runSelectorAsync<Task[]>(
         db,
@@ -83,10 +103,25 @@ export const demoSpaceDBConfig = () => {
         );
       }
 
-      await asyncDispatch(
-        db,
-        generateTasksFromTemplates({ toDate: Date.now() }),
+      await execAsync(
+        db.preloadTables([
+          { table: projectsTable, scanIndex: "byIds" },
+          { table: projectCategoriesTable, scanIndex: "byIds" },
+          { table: stashProjectionsTable, scanIndex: "byIds" },
+          { table: projectCategoryTaskStatsTable, scanIndex: "byIds" },
+          { table: scheduledTodoTasksTable, scanIndex: "byIds" },
+        ]),
       );
+      await asyncDispatch(db, migrateProjectCategoryTaskStats({}));
+      await asyncDispatch(db, migrateScheduledTodoTasks({}));
+
+      // To make load faster
+      setTimeout(() => {
+        void asyncDispatch(
+          db,
+          generateTasksFromTemplates({ toDate: Date.now() }),
+        );
+      });
       setInterval(() => {
         void asyncDispatch(
           db,
@@ -106,7 +141,6 @@ export const userDBConfig = (dbId: string) => {
       changesTable,
       syncStateTable,
     ],
-    inmemDBTables: [...registeredUserSyncableTables, changesTable],
     syncableDBTables: registeredUserSyncableTables,
     tableNameMap: registeredUserSyncableTableNameMap,
     afterInit: () => {},

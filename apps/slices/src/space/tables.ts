@@ -127,6 +127,35 @@ export type ProjectCategory = ExtractSchema<typeof projectCategoriesTable>;
 export const isProjectCategory =
   isObjectType<ProjectCategory>(projectCategoryType);
 
+export const projectCategoryTaskStatsTable = defineTable(
+  "project_category_task_stats",
+  {
+    id: v.string(),
+    total: v.number(),
+    todo: v.number(),
+    done: v.number(),
+  },
+).index("byIds", ["id"]);
+export type ProjectCategoryTaskStats = ExtractSchema<
+  typeof projectCategoryTaskStatsTable
+>;
+
+export const scheduledTodoTasksTable = defineTable("scheduled_todo_tasks", {
+  id: v.string(),
+  scheduledAt: v.number(),
+  projectCategoryId: v.string(),
+})
+  .index("byIds", ["id"])
+  .index("byScheduledAt", ["scheduledAt"])
+  .index("byProjectCategoryId", ["projectCategoryId"], { type: "hash" });
+export type ScheduledTodoTask = ExtractSchema<typeof scheduledTodoTasksTable>;
+
+export const spaceMigrationsTable = defineTable("space_migrations", {
+  id: v.string(),
+  appliedAt: v.number(),
+}).index("byIds", ["id"]);
+export type SpaceMigration = ExtractSchema<typeof spaceMigrationsTable>;
+
 export const stashProjectionType = "stashProjection";
 export const stashProjectionsTable = defineTable("stash_projections", {
   type: v.literal(stashProjectionType),
