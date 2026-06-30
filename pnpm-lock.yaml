@@ -5,7 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@will-be-done/hyperdb': link:../hyperdb/packages/hyperdb
+  '@will-be-done/hyperdb': 0.2.0
+  '@will-be-done/hyperdb-devtool': 0.2.0
   '@types/react': 19.2.17
   '@types/react-dom': 19.2.3
   react: 19.2.7
@@ -53,8 +54,8 @@ importers:
         specifier: ^11.7.2
         version: 11.18.0(typescript@5.9.3)
       '@will-be-done/hyperdb':
-        specifier: link:../../../hyperdb/packages/hyperdb
-        version: link:../../../hyperdb/packages/hyperdb
+        specifier: 0.2.0
+        version: 0.2.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@will-be-done/slices':
         specifier: workspace:*
         version: link:../slices
@@ -184,8 +185,8 @@ importers:
   apps/slices:
     dependencies:
       '@will-be-done/hyperdb':
-        specifier: link:../../../hyperdb/packages/hyperdb
-        version: link:../../../hyperdb/packages/hyperdb
+        specifier: 0.2.0
+        version: 0.2.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       date-fns:
         specifier: ^4.1.0
         version: 4.4.0
@@ -314,11 +315,11 @@ importers:
         specifier: workspace:*
         version: link:../api
       '@will-be-done/hyperdb':
-        specifier: link:../../../hyperdb/packages/hyperdb
-        version: link:../../../hyperdb/packages/hyperdb
+        specifier: 0.2.0
+        version: 0.2.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@will-be-done/hyperdb-devtool':
-        specifier: ^0.1.0
-        version: 0.1.0(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 0.2.0
+        version: 0.2.0(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@will-be-done/slices':
         specifier: workspace:*
         version: link:../slices
@@ -419,8 +420,8 @@ importers:
         specifier: ^1.0.2
         version: 1.2.1
       wa-sqlite:
-        specifier: github:rhashimoto/wa-sqlite#idbbatchatomic-skip-writes
-        version: git+ssh://git@github.com/rhashimoto/wa-sqlite.git#c7375512180a15783434d54c35bdc6313bd3b866
+        specifier: git+https://github.com/rhashimoto/wa-sqlite.git#idbbatchatomic-skip-writes
+        version: https://codeload.github.com/rhashimoto/wa-sqlite/tar.gz/c7375512180a15783434d54c35bdc6313bd3b866
       zod:
         specifier: ^4.1.13
         version: 4.4.3
@@ -3646,8 +3647,14 @@ packages:
   '@vitest/utils@4.1.9':
     resolution: {integrity: sha512-A51o8ymO5PpqlWNnBP9ZHPXDIpuMtTLlGSjN7la4US+LJzoUMyhwjA5QXlm39JexgwHKW4Xjs8Z2d3dLCXOeuA==}
 
-  '@will-be-done/hyperdb-devtool@0.1.0':
-    resolution: {integrity: sha512-xvLClCcqRgsHqRBhvLha6xZsUVHssEVMcpPehGZHPh+lPmguv+TT2aI5wO4uHCSRp8pDA2dWqzoSEJ4m3Vp5AA==}
+  '@will-be-done/hyperdb-devtool@0.2.0':
+    resolution: {integrity: sha512-cRR6EVEGCYxSZ4qWrOuw/zdpIZt7SHqSwwmOihadFKV6EhvEN70tmagmK3aQ7UbpqgFkCf7usvngQWlAYI71Eg==}
+    peerDependencies:
+      react: 19.2.7
+      react-dom: 19.2.7
+
+  '@will-be-done/hyperdb@0.2.0':
+    resolution: {integrity: sha512-Z4nqecVuut7aNrxYYb28eRvsMpjwA8CS/D8rUdQY/YMA7m9wLMSczS0aWW1OiSSx678QJc7811gNPBbvGI02Rg==}
     peerDependencies:
       react: 19.2.7
       react-dom: 19.2.7
@@ -7212,8 +7219,8 @@ packages:
       jsdom:
         optional: true
 
-  wa-sqlite@git+ssh://git@github.com/rhashimoto/wa-sqlite.git#c7375512180a15783434d54c35bdc6313bd3b866:
-    resolution: {commit: c7375512180a15783434d54c35bdc6313bd3b866, repo: git@github.com:rhashimoto/wa-sqlite.git, type: git}
+  wa-sqlite@https://codeload.github.com/rhashimoto/wa-sqlite/tar.gz/c7375512180a15783434d54c35bdc6313bd3b866:
+    resolution: {gitHosted: true, integrity: sha512-asTDYRzQgR92QlcrEdK19+n5+S7obZm13WUG1mXN6e6OTnoQPlne2t78v4FZJXNL+pyrBlmdB8Kdo8sVsrNj0Q==, tarball: https://codeload.github.com/rhashimoto/wa-sqlite/tar.gz/c7375512180a15783434d54c35bdc6313bd3b866}
     version: 1.0.6
 
   web-namespaces@2.0.1:
@@ -10835,14 +10842,19 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@will-be-done/hyperdb-devtool@0.1.0(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@will-be-done/hyperdb-devtool@0.2.0(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@will-be-done/hyperdb': link:../hyperdb/packages/hyperdb
+      '@will-be-done/hyperdb': 0.2.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       goober: 2.1.19(csstype@3.2.3)
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
     transitivePeerDependencies:
       - csstype
+
+  '@will-be-done/hyperdb@0.2.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+    dependencies:
+      react: 19.2.7
+      react-dom: 19.2.7(react@19.2.7)
 
   '@xmldom/xmldom@0.8.13': {}
 
@@ -15111,7 +15123,7 @@ snapshots:
     transitivePeerDependencies:
       - msw
 
-  wa-sqlite@git+ssh://git@github.com/rhashimoto/wa-sqlite.git#c7375512180a15783434d54c35bdc6313bd3b866: {}
+  wa-sqlite@https://codeload.github.com/rhashimoto/wa-sqlite/tar.gz/c7375512180a15783434d54c35bdc6313bd3b866: {}
 
   web-namespaces@2.0.1: {}
 

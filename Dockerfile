@@ -2,6 +2,8 @@
 FROM node:24-alpine AS builder
 # Set the working directory
 WORKDIR /app
+# Git is required for git-based pnpm dependencies.
+RUN apk add --no-cache git
 # Copy package.json files
 COPY package.json ./
 COPY pnpm-workspace.yaml pnpm-lock.yaml ./
