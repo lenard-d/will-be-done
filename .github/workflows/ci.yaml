@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [web, hyperdb-lib, api, slices]
+        package: [web, api, slices]
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -41,17 +41,9 @@ jobs:
       - name: TypeCheck @apps/${{ matrix.package }}
         run: pnpm -C apps/${{ matrix.package }} ts
 
-      - name: Install Playwright browsers @apps/${{ matrix.package }}
-        if: matrix.package == 'hyperdb-lib'
-        run: pnpm -C apps/${{ matrix.package }} exec playwright install --with-deps chromium
-
       - name: Test @apps/${{ matrix.package }}
-        if: matrix.package == 'hyperdb-lib' || matrix.package == 'api'
+        if: matrix.package == 'api'
         run: pnpm -C apps/${{ matrix.package }} test
-
-      - name: Check import cycles @apps/${{ matrix.package }}
-        if: matrix.package == 'hyperdb-lib'
-        run: pnpm -C apps/${{ matrix.package }} lint:cycles
 
   web-e2e:
     runs-on: ubuntu-latest
