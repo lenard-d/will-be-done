@@ -102,8 +102,10 @@ export default defineConfig({
     }),
     tailwindcss(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
+      injectRegister: false,
       workbox: {
+        clientsClaim: true,
         globPatterns: [
           "**/*.{js,css,html,woff2,json,svg,wasm,webmanifest,png}",
         ],

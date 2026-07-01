@@ -104,6 +104,22 @@
   --color-nature-red-content: oklch(65% 0.06 15);
   --color-nature-green: oklch(28% 0.05 155 / 0.8);
   --color-nature-green-content: oklch(65% 0.05 155);
+
+  /* Update toast — mirrors the desktop connect card design language
+     (bg #0a0a0f, subtle white borders, blue-500 accent, soft glow) */
+  --color-update-toast-surface: color-mix(in srgb, #0f1017 94%, transparent);
+  --color-update-toast-border: rgba(255, 255, 255, 0.08);
+  --color-update-toast-title: rgba(255, 255, 245, 0.92);
+  --color-update-toast-description: rgba(235, 235, 245, 0.6);
+  --color-update-toast-action: #3b82f6;
+  --color-update-toast-action-content: #ffffff;
+  --color-update-toast-action-hover: #60a5fa;
+  --color-update-toast-cancel: rgba(255, 255, 255, 0.05);
+  --color-update-toast-cancel-hover: rgba(255, 255, 255, 0.09);
+  --color-update-toast-action-glow: rgba(59, 130, 246, 0.35);
+  --shadow-update-toast:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 8px 40px rgba(0, 0, 0, 0.45);
 }
 /* @custom-variant dark (&:is(.dark *)); */
 /**/
@@ -225,6 +241,9 @@
 
 
 :root {
+  --update-toast-bottom-offset: max(16px, env(safe-area-inset-bottom));
+  --update-toast-mobile-bottom-offset: max(16px, env(safe-area-inset-bottom));
+
   --sidebar: hsl(0 0% 98%);
   --sidebar-foreground: hsl(240 5.3% 26.1%);
   --sidebar-primary: hsl(240 5.9% 10%);
@@ -268,6 +287,14 @@
 /*     @apply bg-background text-foreground; */
 /*   } */
 /* } */
+
+/* Sonner flips toasts to their "expanded" state on hover, which swaps
+   `height: auto` for a pixel `--initial-height` measured at mount (before the
+   web font settles). With `transition: height` that mismatch animates and the
+   toast visibly jumps. Keep the height fluid so hovering is a no-op. */
+[data-sonner-toast][data-mounted="true"][data-expanded="true"] {
+  height: auto !important;
+}
 
 /* Desktop app window drag region — pass-through for clicks, draggable for window moves */
 .desktop-drag-region {
