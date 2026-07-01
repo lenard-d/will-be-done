@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRegisterSW } from "virtual:pwa-register/react";
 
@@ -71,6 +71,13 @@ export function PwaUpdateController() {
       console.error("Service worker registration failed", error);
     },
   });
+
+  const activateUpdateServiceWorker = useCallback(() => {
+    void updateServiceWorker(true).catch((error) => {
+      manualReloadActivationStartedRef.current = false;
+      console.error("Service worker update activation failed", error);
+    });
+  }, [updateServiceWorker]);
 
   useEffect(() => {
     if (!shouldPreviewUpdateToast()) {
@@ -160,8 +167,8 @@ export function PwaUpdateController() {
     }
 
     manualReloadActivationStartedRef.current = true;
-    void updateServiceWorker(true);
-  }, [needRefresh, registration, updateServiceWorker]);
+    activateUpdateServiceWorker();
+  }, [needRefresh, registration, activateUpdateServiceWorker]);
 
   useEffect(() => {
     if (
@@ -177,13 +184,13 @@ export function PwaUpdateController() {
       id: UPDATE_TOAST_ID,
       onReload: () => {
         setUpdateToastDismissed(true);
-        void updateServiceWorker(true);
+        activateUpdateServiceWorker();
       },
       onDismiss: () => {
         setUpdateToastDismissed(true);
       },
     });
-  }, [needRefresh, updateServiceWorker, updateToastDismissed]);
+  }, [activateUpdateServiceWorker, needRefresh, updateToastDismissed]);
 
   return null;
 }
