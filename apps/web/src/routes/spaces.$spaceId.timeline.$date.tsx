@@ -4,7 +4,6 @@ import { z } from "zod";
 import { addDays, parse, startOfDay } from "date-fns";
 import { GlobalLayout } from "@/components/Layout/GlobalLayout.tsx";
 import { Board } from "@/components/DaysBoard/DaysBoard.tsx";
-import { projectItemsExceptTaskIds } from "@/components/ProjectItemsList/selectors.ts";
 import { selectedProject } from "@/components/ProjectView/selectors.ts";
 import { asyncDispatch, preloadSelector } from "@will-be-done/hyperdb";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
@@ -59,7 +58,6 @@ export const Route = createFileRoute("/spaces/$spaceId/timeline/$date")({
         currentDate: startOfDay(new Date()).getTime(),
       }),
     );
-    appendPromise(preloadSelector(db, projectItemsExceptTaskIds, {}));
 
     const projectCategories = await preloadSelector(
       db,

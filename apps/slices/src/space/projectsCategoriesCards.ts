@@ -4,7 +4,6 @@ import { dailyDateFormat, generateKeyPositionedBetween } from "./utils";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { createTask, taskById, defaultTask } from "./cardsTasks";
 import { taskTemplateById } from "./cardsTaskTemplates";
-import { dailyListAllTaskIds } from "./dailyLists";
 import { parse } from "date-fns";
 import {
   tasksTable,
@@ -65,56 +64,14 @@ export const lastProjectCategoryCard = selector({
   },
 });
 
-export const projectCategoryCardIdsExceptDailies = selector({
-  name: "projectCategoryCardIdsExceptDailies",
-  args: {
-    projectCategoryId: v.string(),
-    exceptDailyListIds: v.array(v.string()),
-  },
-  handler: function* projectCategoryCardIdsExceptDailies({
-    projectCategoryId,
-    exceptDailyListIds,
-  }): Generator<unknown, string[], unknown> {
-    // TODO: use merge sort
-    const exceptTaskIds = yield* dailyListAllTaskIds({
-      dailyListIds: exceptDailyListIds,
-    });
-    const tasks = yield* selectFrom(
-      tasksTable,
-      "byCategoryIdOrderStates",
-    ).where((q) =>
-      q.eq("projectCategoryId", projectCategoryId).eq("state", "todo"),
-    );
-
-    const finalTasks = tasks.filter((task) => !exceptTaskIds.has(task.id));
-
-    const templates = yield* selectFrom(
-      taskTemplatesTable,
-      "byCategoryIdOrderStates",
-    ).where((q) => q.eq("projectCategoryId", projectCategoryId));
-
-    const allCards = [...finalTasks, ...templates];
-
-    return allCards
-      .sort((a, b) => {
-        if (a.orderToken > b.orderToken) {
-          return 1;
-        }
-        if (a.orderToken < b.orderToken) {
-          return -1;
-        }
-
-        return 0;
-      })
-      .map((card) => card.id);
-  },
-});
-
 export const projectCategoryCards = selector({
   name: "projectCategoryCards",
   args: { projectCategoryId: v.string() },
-  handler: function* projectCategoryCards({ projectCategoryId }) {
-    // TODO: use merge sort
+  memoization: { selfChild: true },
+  handler: function* ({ projectCategoryId }) {
+    // TODO: make separate table that will maintain list
+    // of all cards in a project category
+    // or you merge sort
     const tasks = yield* selectFrom(
       tasksTable,
       "byCategoryIdOrderStates",
@@ -276,17 +233,6 @@ export const projectCategoryCardsForDisplayChildren = selector({
   },
 });
 
-export const projectCategoryCardIdsWithTypes = selector({
-  name: "projectCategoryCardIdsWithTypes",
-  args: { projectCategoryId: v.string() },
-  handler: function* projectCategoryCardIdsWithTypes({ projectCategoryId }) {
-    return (yield* projectCategoryCards({ projectCategoryId })).map((card) => ({
-      id: card.id,
-      type: card.type as "task" | "template",
-    }));
-  },
-});
-
 export const projectCategoryCardIds = selector({
   name: "projectCategoryCardIds",
   args: { projectCategoryId: v.string() },
@@ -294,23 +240,6 @@ export const projectCategoryCardIds = selector({
     return (yield* projectCategoryCards({ projectCategoryId })).map(
       (card) => card.id,
     );
-  },
-});
-
-export const doneProjectCategoryCardIds = selector({
-  name: "doneProjectCategoryCardIds",
-  args: { projectCategoryId: v.string() },
-  handler: function* doneProjectCategoryCardIds({ projectCategoryId }) {
-    const tasks = yield* selectFrom(
-      tasksTable,
-      "byCategoryIdOrderStates",
-    ).where((q) =>
-      q.eq("projectCategoryId", projectCategoryId).eq("state", "done"),
-    );
-
-    return tasks
-      .sort((a, b) => b.lastToggledAt - a.lastToggledAt)
-      .map((p) => p.id);
   },
 });
 
@@ -326,32 +255,13 @@ export const doneProjectCategoryCardsForDisplay = selector({
         q.eq("projectCategoryId", projectCategoryId).eq("state", "done"),
       )
       // fetch one more, so UI will show "Show more" button and limit to show only 5 cards
-      .limit(limited ? 6 : 9999);
+      .limit(limited ? 6 : 9999)
+      .order("desc");
 
     return yield* projectCategoryCardsForDisplay({
       cards: tasks,
       cardWrappers: tasks,
     });
-  },
-});
-
-export const doneProjectCategoryCardIdsExceptDailies = selector({
-  name: "doneProjectCategoryCardIdsExceptDailies",
-  args: {
-    projectCategoryId: v.string(),
-    exceptDailyListIds: v.array(v.string()),
-  },
-  handler: function* doneProjectCategoryCardIdsExceptDailies({
-    projectCategoryId,
-    exceptDailyListIds,
-  }): Generator<unknown, string[], unknown> {
-    const exceptTaskIds = yield* dailyListAllTaskIds({
-      dailyListIds: exceptDailyListIds,
-    });
-
-    const taskIds = yield* doneProjectCategoryCardIds({ projectCategoryId });
-
-    return taskIds.filter((id) => !exceptTaskIds.has(id));
   },
 });
 

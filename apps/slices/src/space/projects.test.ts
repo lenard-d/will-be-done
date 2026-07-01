@@ -8,8 +8,9 @@ import {
 } from "@will-be-done/hyperdb";
 import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
 import { dbIdTrait } from "../traits";
+import { appCanDrop, appHandleDrop } from "./app";
 import { addToDailyList } from "./dailyListsProjections";
-import { addToStash } from "./stashProjections";
+import { addToStash, stashProjectionById } from "./stashProjections";
 import { createDailyList } from "./dailyLists";
 import {
   createProject as createProjectAction,
@@ -28,10 +29,12 @@ import {
   rebuildScheduledTodoTasks,
 } from "./taskStats";
 import {
+  createCategory,
   createProjectCategoryTask,
   projectCategoriesByProjectId,
 } from "./projectsCategories";
-import { updateTask } from "./cardsTasks";
+import { projectCategoryCardIds } from "./projectsCategoriesCards";
+import { taskById, updateTask } from "./cardsTasks";
 import {
   DailyList,
   dailyListsTable,
@@ -42,6 +45,7 @@ import {
   projectsTable,
   scheduledTodoTasksTable,
   spaceMigrationsTable,
+  stashProjectionType,
   stashProjectionsTable,
   Task,
   taskProjectionsTable,
@@ -79,13 +83,16 @@ function createDBWithTaskStatsHooks() {
   return db;
 }
 
-function createProject(db: DB | SubscribableDB) {
+function createProject(
+  db: DB | SubscribableDB,
+  attrs: { id?: string; title?: string } = {},
+) {
   const project = syncDispatch(
     db,
     createProjectAction({
       project: {
-        id: "project-1",
-        title: "Project",
+        id: attrs.id ?? "project-1",
+        title: attrs.title ?? "Project",
       },
       position: "append",
     }),
@@ -427,6 +434,203 @@ describe("project task stats cache", () => {
     );
 
     expect(projectAfterSecondMigration?.overdueCount).toBe(1);
+  });
+});
+
+describe("moving stashed tasks through app drops", () => {
+  it("treats a stash projection dropped on a project task as its task and removes it from stash", () => {
+    const db = createDB();
+    const { category } = createProject(db);
+    const targetTask = createTask(db, category.id, "target-task");
+    const stashedTask = createTask(db, category.id, "stashed-drop-on-task");
+
+    syncDispatch(
+      db,
+      addToStash({
+        taskId: stashedTask.id,
+        position: "append",
+      }),
+    );
+
+    const canDrop = runSelector<boolean>(
+      db,
+      function* () {
+        return yield* appCanDrop({
+          id: targetTask.id,
+          modelType: targetTask.type,
+          dropId: stashedTask.id,
+          dropModelType: stashProjectionType,
+        });
+      },
+      [],
+    );
+    expect(canDrop).toBe(true);
+
+    syncDispatch(
+      db,
+      appHandleDrop({
+        id: targetTask.id,
+        modelType: targetTask.type,
+        dropId: stashedTask.id,
+        dropModelType: stashProjectionType,
+        edge: "top",
+      }),
+    );
+
+    const taskIds = runSelector<string[]>(
+      db,
+      function* () {
+        return yield* projectCategoryCardIds({
+          projectCategoryId: category.id,
+        });
+      },
+      [],
+    );
+    const stashProjection = runSelector(
+      db,
+      function* () {
+        return yield* stashProjectionById({ id: stashedTask.id });
+      },
+      [],
+    );
+
+    expect(taskIds).toContain(stashedTask.id);
+    expect(taskIds).toContain(targetTask.id);
+    expect(taskIds.indexOf(stashedTask.id)).toBeLessThan(
+      taskIds.indexOf(targetTask.id),
+    );
+    expect(stashProjection).toBeUndefined();
+  });
+
+  it("treats a stash projection dropped on a project category as its task and removes it from stash", () => {
+    const db = createDB();
+    const { project, category } = createProject(db);
+    const targetCategory = syncDispatch(
+      db,
+      createCategory({
+        categoryDraft: {
+          projectId: project.id,
+          title: "Target",
+        },
+        position: "append",
+      }),
+    ) as ProjectCategory;
+    const stashedTask = createTask(db, category.id, "stashed-drop-task");
+
+    syncDispatch(
+      db,
+      addToStash({
+        taskId: stashedTask.id,
+        position: "append",
+      }),
+    );
+
+    const canDrop = runSelector<boolean>(
+      db,
+      function* () {
+        return yield* appCanDrop({
+          id: targetCategory.id,
+          modelType: targetCategory.type,
+          dropId: stashedTask.id,
+          dropModelType: stashProjectionType,
+        });
+      },
+      [],
+    );
+    expect(canDrop).toBe(true);
+
+    syncDispatch(
+      db,
+      appHandleDrop({
+        id: targetCategory.id,
+        modelType: targetCategory.type,
+        dropId: stashedTask.id,
+        dropModelType: stashProjectionType,
+        edge: "bottom",
+      }),
+    );
+
+    const movedTask = runSelector<Task | undefined>(
+      db,
+      function* () {
+        return yield* taskById({ id: stashedTask.id });
+      },
+      [],
+    );
+    const stashProjection = runSelector(
+      db,
+      function* () {
+        return yield* stashProjectionById({ id: stashedTask.id });
+      },
+      [],
+    );
+
+    expect(movedTask?.projectCategoryId).toBe(targetCategory.id);
+    expect(stashProjection).toBeUndefined();
+  });
+
+  it("treats a stash projection dropped on a project as its task and removes it from stash", () => {
+    const db = createDB();
+    const { category } = createProject(db);
+    const { project: targetProject, category: targetCategory } = createProject(
+      db,
+      {
+        id: "project-2",
+        title: "Target project",
+      },
+    );
+    const stashedTask = createTask(db, category.id, "stashed-drop-on-project");
+
+    syncDispatch(
+      db,
+      addToStash({
+        taskId: stashedTask.id,
+        position: "append",
+      }),
+    );
+
+    const canDrop = runSelector<boolean>(
+      db,
+      function* () {
+        return yield* appCanDrop({
+          id: targetProject.id,
+          modelType: targetProject.type,
+          dropId: stashedTask.id,
+          dropModelType: stashProjectionType,
+        });
+      },
+      [],
+    );
+    expect(canDrop).toBe(true);
+
+    syncDispatch(
+      db,
+      appHandleDrop({
+        id: targetProject.id,
+        modelType: targetProject.type,
+        dropId: stashedTask.id,
+        dropModelType: stashProjectionType,
+        edge: "bottom",
+      }),
+    );
+
+    const movedTask = runSelector<Task | undefined>(
+      db,
+      function* () {
+        return yield* taskById({ id: stashedTask.id });
+      },
+      [],
+    );
+    const stashProjection = runSelector(
+      db,
+      function* () {
+        return yield* stashProjectionById({ id: stashedTask.id });
+      },
+      [],
+    );
+
+    expect(movedTask?.projectCategoryId).toBe(targetCategory.id);
+    expect(stashProjection).toBeUndefined();
   });
 });
 

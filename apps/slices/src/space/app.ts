@@ -1,8 +1,22 @@
-import { v } from "@will-be-done/hyperdb";
+import { deleteRows, v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { defaultTask } from "./cardsTasks";
 import { appTypeSlicesMap } from "./maps";
-import { AnyModel, possibleModelType } from "./tables";
+import {
+  AnyModel,
+  possibleModelType,
+  stashProjectionsTable,
+  stashProjectionType,
+  taskType,
+} from "./tables";
+
+const shouldMoveOutOfStash = (
+  targetModelType: string,
+  dropModelType: string,
+) =>
+  dropModelType === stashProjectionType &&
+  targetModelType !== stashProjectionType &&
+  targetModelType !== "stash";
 
 export const appById = selector({
   name: "appById",
@@ -53,15 +67,23 @@ export const appCanDrop = selector({
       id,
       modelType,
     });
+    const targetModelType = model?.type ?? modelType;
+    const effectiveDropModelType = shouldMoveOutOfStash(
+      targetModelType,
+      dropModelType,
+    )
+      ? taskType
+      : dropModelType;
+
     if (!model) {
       // For virtual models (e.g. stash) that have no DB row, use modelType directly
-      return yield* slice.canDrop(id, dropId, dropModelType);
+      return yield* slice.canDrop(id, dropId, effectiveDropModelType);
     }
 
     const modelSlice = appTypeSlicesMap[model.type];
     if (!modelSlice) throw new Error(`Unknown model type: ${model.type}`);
 
-    return yield* modelSlice.canDrop(id, dropId, dropModelType);
+    return yield* modelSlice.canDrop(id, dropId, effectiveDropModelType);
   },
 });
 
@@ -88,16 +110,31 @@ export const appHandleDrop = action({
       id,
       modelType,
     });
+    const targetModelType = model?.type ?? modelType;
+    const shouldDeleteStashProjection = shouldMoveOutOfStash(
+      targetModelType,
+      dropModelType,
+    );
+    const effectiveDropModelType = shouldDeleteStashProjection
+      ? taskType
+      : dropModelType;
+
     if (!model) {
       // For virtual models (e.g. stash) that have no DB row, use modelType directly
-      yield* slice.handleDrop(id, dropId, dropModelType, edge);
+      yield* slice.handleDrop(id, dropId, effectiveDropModelType, edge);
+      if (shouldDeleteStashProjection) {
+        yield* deleteRows(stashProjectionsTable, [dropId]);
+      }
       return;
     }
 
     const modelSlice = appTypeSlicesMap[model.type];
     if (!modelSlice) throw new Error(`Unknown model type: ${model.type}`);
 
-    yield* modelSlice.handleDrop(id, dropId, dropModelType, edge);
+    yield* modelSlice.handleDrop(id, dropId, effectiveDropModelType, edge);
+    if (shouldDeleteStashProjection) {
+      yield* deleteRows(stashProjectionsTable, [dropId]);
+    }
   },
 });
 

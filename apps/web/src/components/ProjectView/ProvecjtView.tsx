@@ -491,6 +491,7 @@ export const ProjectView = ({
   marginTop,
   projectLink,
   selectedProjectId,
+  selectedDate,
 }: {
   marginTop?: boolean;
   projectLink: React.ComponentType<
@@ -501,6 +502,7 @@ export const ProjectView = ({
     }>
   >;
   selectedProjectId: string;
+  selectedDate?: Date;
 }) => {
   const projectsListRef = useRef<HTMLDivElement>(null);
   // const [selectedProjectId, setSelectedProjectId] = useState(inboxId);
@@ -554,7 +556,7 @@ export const ProjectView = ({
           "-mt-1 pt-1": !marginTop,
         })}
       >
-        <ProjectItemsList project={project} />
+        <ProjectItemsList project={project} selectedDate={selectedDate} />
       </div>
       <div
         ref={projectsListRef}

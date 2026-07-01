@@ -104,7 +104,6 @@ const appRouter = router({
         db,
         getChangesetAfter({
           after: opts.input.lastServerUpdatedAt,
-          requesterClientId: opts.input.clientId,
           registeredSyncableTableNameMap: config.tableNameMap,
         }),
       );

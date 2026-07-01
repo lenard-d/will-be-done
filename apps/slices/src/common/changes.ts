@@ -94,7 +94,6 @@ export const getChangesetAfter = selector({
   name: "getChangesetAfter",
   args: {
     after: v.string(),
-    requesterClientId: v.optional(v.string()),
     registeredSyncableTableNameMap: v.record(
       v.string(),
       tableDefinitionArgSchema,
@@ -102,7 +101,6 @@ export const getChangesetAfter = selector({
   },
   handler: function* getChangesetAfter({
     after,
-    requesterClientId,
     registeredSyncableTableNameMap,
   }) {
     const allChangesToSend = yield* allChangesAfter({ after });
@@ -115,16 +113,11 @@ export const getChangesetAfter = selector({
       }
     }
 
-    const changesToSend =
-      requesterClientId == null
-        ? allChangesToSend
-        : allChangesToSend.filter((c) => c.clientId !== requesterClientId);
-
-    if (changesToSend.length === 0) {
+    if (allChangesToSend.length === 0) {
       return { changesets: [], maxClock };
     }
 
-    const groupedChanges = groupBy(changesToSend, (c) => c.tableName);
+    const groupedChanges = groupBy(allChangesToSend, (c) => c.tableName);
 
     for (const [tableName, changes] of Object.entries(groupedChanges)) {
       const table = registeredSyncableTableNameMap[tableName] as
@@ -447,11 +440,26 @@ export const mergeChanges = action({
           incomingRow ?? { id: incomingChange.entityId },
         );
 
-        const currentIsDeleted = currentChanges?.deletedAt != null;
-        const incomingIsDeleted = incomingChange.deletedAt != null;
-        const isDeleted = currentIsDeleted || incomingIsDeleted;
+        const currentDeletedAt = currentChanges?.deletedAt ?? null;
+        const incomingDeletedAt = incomingChange.deletedAt;
+        const incomingRecreatedAfterCurrentDelete =
+          currentDeletedAt != null &&
+          incomingDeletedAt == null &&
+          incomingRow != null &&
+          incomingChange.createdAt > currentDeletedAt;
+        const currentRecreatedAfterIncomingDelete =
+          incomingDeletedAt != null &&
+          currentChanges?.deletedAt == null &&
+          currentRow != null &&
+          currentChanges != null &&
+          currentChanges.createdAt > incomingDeletedAt;
+        const currentDeleteWins =
+          currentDeletedAt != null && !incomingRecreatedAfterCurrentDelete;
+        const incomingDeleteWins =
+          incomingDeletedAt != null && !currentRecreatedAfterIncomingDelete;
+        const isDeleted = currentDeleteWins || incomingDeleteWins;
 
-        // Delete always wins, whether the tombstone is local or incoming.
+        // Tombstones beat stale updates, but a later create can reuse the id.
         if (isDeleted) {
           if (currentRow) {
             toDeleteRows.push(currentRow.id);
@@ -464,25 +472,28 @@ export const mergeChanges = action({
 
         const currentClock = nextClock;
         const lastDeletedAt = (function () {
-          if (currentChanges?.deletedAt) {
-            return currentChanges.deletedAt;
+          if (currentDeleteWins) {
+            return currentDeletedAt;
           }
 
-          if (incomingIsDeleted) {
+          if (incomingDeleteWins) {
             return currentClock;
           }
 
           return null;
         })();
-        const winnerClientId = currentIsDeleted
-          ? currentChanges.clientId
-          : incomingChange.clientId;
+        const winnerClientId =
+          currentDeleteWins || currentRecreatedAfterIncomingDelete
+            ? (currentChanges?.clientId ?? incomingChange.clientId)
+            : incomingChange.clientId;
 
         allChanges.push({
           id: `${table.tableName}:${incomingChange.entityId}`,
           entityId: incomingChange.entityId,
           tableName: table.tableName,
-          createdAt: currentChanges?.createdAt ?? currentClock,
+          createdAt: incomingRecreatedAfterCurrentDelete
+            ? incomingChange.createdAt
+            : (currentChanges?.createdAt ?? currentClock),
           updatedAt: currentClock,
           deletedAt: lastDeletedAt,
           clientId: winnerClientId,

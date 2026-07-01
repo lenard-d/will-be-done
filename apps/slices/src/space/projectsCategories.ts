@@ -16,7 +16,6 @@ import { uuidv7 } from "uuidv7";
 import { appById } from "./app";
 import { deleteCardsByIds } from "./cards";
 import {
-  doneProjectCategoryCardIds,
   firstProjectCategoryCard,
   lastProjectCategoryCard,
   projectCategoryCardByIdOrDefault,
@@ -40,6 +39,7 @@ import {
   isTask,
   isTaskTemplate,
   isTaskProjection,
+  taskTemplatesTable,
 } from "./tables";
 
 export const defaultProjectCategory: ProjectCategory = {
@@ -347,14 +347,28 @@ export const deleteCategories = action({
     const idsToDelete: string[] = [];
 
     for (const categoryId of ids) {
-      const childrenIds = yield* projectCategoryCardIds({
-        projectCategoryId: categoryId,
-      });
-      const doneChildrenIds = yield* doneProjectCategoryCardIds({
-        projectCategoryId: categoryId,
-      });
+      const templatesIds = (yield* selectFrom(
+        taskTemplatesTable,
+        "byCategoryIdOrderStates",
+      ).where((q) => q.eq("projectCategoryId", categoryId))).map((t) => t.id);
 
-      idsToDelete.push(...childrenIds, ...doneChildrenIds);
+      const taskIds = (yield* selectFrom(
+        tasksTable,
+        "byCategoryIdOrderStates",
+      ).where((q) =>
+        q.eq("projectCategoryId", categoryId).eq("state", "todo"),
+      )).map((t) => t.id);
+
+      const doneTaskIds = (yield* selectFrom(
+        tasksTable,
+        "byCategoryIdOrderStates",
+      ).where((q) =>
+        q.eq("projectCategoryId", categoryId).eq("state", "done"),
+      )).map((t) => t.id);
+
+      idsToDelete.push(...templatesIds);
+      idsToDelete.push(...taskIds);
+      idsToDelete.push(...doneTaskIds);
     }
 
     if (idsToDelete.length > 0) {
