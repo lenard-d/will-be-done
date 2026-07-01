@@ -1,8 +1,4 @@
-import {
-  insert,
-  selectFrom,
-  v,
-} from "@will-be-done/hyperdb-lib";
+import { insert, selectFrom, v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { dbsTable, type Db } from "./tables";
 
@@ -10,7 +6,10 @@ export { dbsTable, type Db } from "./tables";
 
 export const getDbById = selector({
   name: "getDbById",
-  args: { id: v.string(), type: v.union(v.literal("user"), v.literal("space")) },
+  args: {
+    id: v.string(),
+    type: v.union(v.literal("user"), v.literal("space")),
+  },
   handler: function* getDbById({ id, type }) {
     const dbs = yield* selectFrom(dbsTable, "byIdTypes").where((q) =>
       q.eq("id", id).eq("type", type),
@@ -46,4 +45,3 @@ export const getDbByIdOrCreate = action({
     return newDb;
   },
 });
-

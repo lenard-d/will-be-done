@@ -1,4 +1,4 @@
-import { Folder, Hash } from "lucide-react";
+import { Folder, Hash, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TextareaAutosize from "react-textarea-autosize";
 
@@ -110,19 +110,32 @@ export function EditableDescription({
 
 export function ProjectDetailRow({
   project,
+  onOpenClick,
   onEditClick,
 }: {
-  project: { icon: string; title: string };
+  project: { id: string; icon: string; title: string };
+  onOpenClick: () => void;
   onEditClick: () => void;
 }) {
   return (
     <DetailRow icon={<Folder className="h-3 w-3 shrink-0" />} label="Project">
-      <button
-        className="cursor-pointer rounded px-1 -mx-1 hover:bg-task-panel-hover transition-colors text-left"
-        onClick={onEditClick}
-      >
-        {project.icon || "🟡"} {project.title}
-      </button>
+      <span className="inline-flex min-w-0 items-center gap-1">
+        <button
+          className="min-w-0 cursor-pointer rounded px-1 -mx-1 hover:bg-task-panel-hover transition-colors text-left truncate"
+          onClick={onOpenClick}
+        >
+          {project.icon || "🟡"} {project.title}
+        </button>
+        <button
+          type="button"
+          title="Move to project"
+          aria-label="Move to project"
+          className="cursor-pointer rounded p-0.5 text-content-tinted hover:bg-task-panel-hover hover:text-content transition-colors"
+          onClick={onEditClick}
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+      </span>
     </DetailRow>
   );
 }

@@ -23,13 +23,9 @@ import {
 import TextareaAutosize from "react-textarea-autosize";
 import clsx from "clsx";
 import { GripVertical, Plus } from "lucide-react";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncSelect, useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
-  useDispatch,
-  useSelect,
-  useSyncSelector,
-} from "@will-be-done/hyperdb-lib";
-import {
-  appCanDrop,
   type ChecklistItem,
   checklistItemById,
   checklistItemChildren,
@@ -140,8 +136,8 @@ const ChecklistItemComp = ({
   editTrigger: ChecklistEditTrigger;
   onItemsRemoved: () => void;
 }) => {
-  const dispatch = useDispatch();
-  const select = useSelect();
+  const dispatch = useAsyncDispatch();
+  const select = useAsyncSelect();
   const rowRef = useRef<HTMLDivElement | null>(null);
   const dragHandleRef = useRef<HTMLButtonElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -149,9 +145,13 @@ const ChecklistItemComp = ({
   const [isEditing, setIsEditing] = useState(false);
   const persistContent = useCallback(
     (content: string) => {
-      if (!select(checklistItemById({ id: item.id }))) return;
+      void (async () => {
+        if (!(await select(checklistItemById({ id: item.id })))) return;
 
-      dispatch(updateChecklistItemContent({ id: item.id, content: content }));
+        await dispatch(
+          updateChecklistItemContent({ id: item.id, content: content }),
+        );
+      })();
     },
     [dispatch, item.id, select],
   );
@@ -207,14 +207,7 @@ const ChecklistItemComp = ({
           const data = source.data;
           if (!isModelDNDData(data)) return false;
 
-          return select(
-            appCanDrop({
-              id: item.id,
-              modelType: checklistItemType,
-              dropId: data.modelId,
-              dropModelType: data.modelType,
-            }),
-          );
+          return true;
         },
         getIsSticky: () => true,
         getData: ({ input, element }) => {
@@ -313,7 +306,9 @@ const ChecklistItemComp = ({
         </button>
         <CheckboxComp
           checked={item.state === "done"}
-          onChange={() => dispatch(toggleChecklistItemState({ id: item.id }))}
+          onChange={() =>
+            void dispatch(toggleChecklistItemState({ id: item.id }))
+          }
         />
         {isTextareaVisible ? (
           <TextareaAutosize
@@ -327,8 +322,12 @@ const ChecklistItemComp = ({
                 flushContent();
                 setIsEditing(false);
 
-                const newItem = dispatch(createItemAfter({ itemId: item.id }));
-                focusItemInCurrentChecklist(newItem.id);
+                void (async () => {
+                  const newItem = await dispatch(
+                    createItemAfter({ itemId: item.id }),
+                  );
+                  focusItemInCurrentChecklist(newItem.id);
+                })();
               } else if (e.key === "Escape") {
                 e.preventDefault();
                 e.stopPropagation();
@@ -347,19 +346,21 @@ const ChecklistItemComp = ({
                 e.preventDefault();
                 e.stopPropagation();
 
-                const [before, after] = select(
-                  checklistItemSiblings({ itemId: item.id }),
-                );
-                flushContent();
-                dispatch(deleteItems({ ids: [item.id] }));
+                void (async () => {
+                  const [before, after] = await select(
+                    checklistItemSiblings({ itemId: item.id }),
+                  );
+                  flushContent();
+                  await dispatch(deleteItems({ ids: [item.id] }));
 
-                if (before) {
-                  focusItemInCurrentChecklist(before.id, { caret: "end" });
-                } else if (after) {
-                  focusItemInCurrentChecklist(after.id, { caret: "end" });
-                } else {
-                  onItemsRemoved();
-                }
+                  if (before) {
+                    focusItemInCurrentChecklist(before.id, { caret: "end" });
+                  } else if (after) {
+                    focusItemInCurrentChecklist(after.id, { caret: "end" });
+                  } else {
+                    onItemsRemoved();
+                  }
+                })();
               }
             }}
             onFocus={() => focusParentFromChecklist(focusableItemKey)}
@@ -436,24 +437,26 @@ const ChecklistItemsView = ({
   className,
   items,
 }: ChecklistItemsViewProps) => {
-  const dispatch = useDispatch();
-  const select = useSelect();
+  const dispatch = useAsyncDispatch();
+  const select = useAsyncSelect();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
   const isParentDropTargetEnabled = items.length === 0;
   const activeClosestEdge = isParentDropTargetEnabled ? closestEdge : null;
 
   const createItem = () => {
-    const item = dispatch(
-      createChecklistItem({
-        item: {
-          parentId,
-          parentType,
-        },
-      }),
-    );
+    void (async () => {
+      const item = await dispatch(
+        createChecklistItem({
+          item: {
+            parentId,
+            parentType,
+          },
+        }),
+      );
 
-    focusChecklistItem(item.id, { root: containerRef.current });
+      focusChecklistItem(item.id, { root: containerRef.current });
+    })();
   };
 
   useEffect(() => {
@@ -468,14 +471,7 @@ const ChecklistItemsView = ({
         const data = source.data;
         if (!isModelDNDData(data)) return false;
 
-        return select(
-          appCanDrop({
-            id: parentId,
-            modelType: parentType,
-            dropId: data.modelId,
-            dropModelType: data.modelType,
-          }),
-        );
+        return true;
       },
       getIsSticky: () => true,
       getData: ({ input, element }) => {
@@ -548,7 +544,7 @@ const ChecklistItemsView = ({
 
 const ChecklistItemsWithSelector = (props: ChecklistItemsBaseProps) => {
   const { parentId, parentType } = props;
-  const items = useSyncSelector({
+  const { data: items = [] } = useAsyncSelector({
     selector: checklistItemChildren,
     args: { parentId: parentId, parentType: parentType },
   });

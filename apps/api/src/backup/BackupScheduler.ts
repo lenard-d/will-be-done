@@ -1,5 +1,5 @@
-import type { DB } from "@will-be-done/hyperdb-lib";
-import { select } from "@will-be-done/hyperdb-lib";
+import { DB } from "@will-be-done/hyperdb";
+import { select } from "@will-be-done/hyperdb";
 import type { BackupManager } from "./BackupManager";
 import type { BackupTier, BackupConfig } from "./types";
 import { ScheduledTimeCalculator } from "./ScheduledTimeCalculator";
@@ -12,7 +12,7 @@ export class BackupScheduler {
   constructor(
     private mainDB: DB,
     private backupManager: BackupManager,
-    private config: BackupConfig
+    private config: BackupConfig,
   ) {
     this.scheduledTimeCalculator = new ScheduledTimeCalculator(config);
   }
@@ -24,11 +24,16 @@ export class BackupScheduler {
     void this.checkAndRunBackups();
 
     // Check every 15 minutes
-    this.intervalId = setInterval(() => {
-      void this.checkAndRunBackups();
-    }, 15 * 60 * 1000);
+    this.intervalId = setInterval(
+      () => {
+        void this.checkAndRunBackups();
+      },
+      15 * 60 * 1000,
+    );
 
-    console.log("[BackupScheduler] Backup scheduler started (checking every 15 minutes)");
+    console.log(
+      "[BackupScheduler] Backup scheduler started (checking every 15 minutes)",
+    );
   }
 
   private async checkAndRunBackups(): Promise<void> {
@@ -47,7 +52,7 @@ export class BackupScheduler {
       // Determine which tiers are due
       const dueTiers = this.scheduledTimeCalculator.getDueTiers(
         tierStates,
-        now
+        now,
       );
 
       if (dueTiers.length === 0) {
@@ -56,7 +61,7 @@ export class BackupScheduler {
       }
 
       console.log(
-        `[BackupScheduler] Tiers due for backup: ${dueTiers.join(", ")}`
+        `[BackupScheduler] Tiers due for backup: ${dueTiers.join(", ")}`,
       );
 
       // Run backups for all due tiers

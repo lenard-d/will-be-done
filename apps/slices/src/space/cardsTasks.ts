@@ -2,11 +2,13 @@ import { shouldNeverHappen } from "../utils";
 import {
   deleteRows,
   insert,
+  or,
   selectFrom,
   upsert,
   v,
-} from "@will-be-done/hyperdb-lib";
+} from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
+import { changesTable } from "../common";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { uuidv7 } from "uuidv7";
 import { appById, appDeleteModel } from "./app";
@@ -23,6 +25,7 @@ import { updateTemplate } from "./cardsTaskTemplates";
 import { registerModelSlice } from "./maps";
 import {
   taskType,
+  taskProjectionsTable,
   tasksTable,
   taskTemplatesTable,
   possibleModelType,
@@ -64,6 +67,32 @@ export const taskExists = selector({
   args: { id: v.string() },
   handler: function* taskExists({ id }) {
     return !!(yield* taskById({ id }));
+  },
+});
+
+export const preloadEntities = selector({
+  name: "preloadEntities",
+  args: {
+    ids: v.array(v.string()),
+    tableName: v.string(),
+    preloadTaskProjections: v.boolean(),
+  },
+  handler: function* preloadEntities({
+    ids,
+    tableName,
+    preloadTaskProjections,
+  }) {
+    if (ids.length === 0) return;
+
+    yield* selectFrom(changesTable, "byEntityIdAndTableName").where((q) =>
+      or(...ids.map((id) => q.eq("entityId", id).eq("tableName", tableName))),
+    );
+
+    if (!preloadTaskProjections) return;
+
+    yield* selectFrom(taskProjectionsTable, "byIds").where((q) =>
+      or(...ids.map((id) => q.eq("id", id))),
+    );
   },
 });
 

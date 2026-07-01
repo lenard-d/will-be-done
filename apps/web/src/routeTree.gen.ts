@@ -119,14 +119,14 @@ export interface FileRoutesByFullPath {
   '/popup': typeof PopupRoute
   '/signup': typeof SignupRoute
   '/spaces': typeof SpacesRouteWithChildren
-  '/spaces/$spaceId': typeof SpacesSpaceIdWithSidebarRouteWithChildren
+  '/spaces/$spaceId': typeof SpacesSpaceIdRouteWithChildren
   '/spaces/': typeof SpacesIndexRoute
   '/spaces/$spaceId/': typeof SpacesSpaceIdIndexRoute
   '/spaces/$spaceId/card-details/$cardId': typeof SpacesSpaceIdCardDetailsCardIdRoute
   '/spaces/$spaceId/timeline/$date': typeof SpacesSpaceIdTimelineDateRoute
-  '/spaces/$spaceId/dates': typeof SpacesSpaceIdDatesIndexRoute
-  '/spaces/$spaceId/projects': typeof SpacesSpaceIdProjectsIndexRoute
-  '/spaces/$spaceId/timeline': typeof SpacesSpaceIdTimelineIndexRoute
+  '/spaces/$spaceId/dates/': typeof SpacesSpaceIdDatesIndexRoute
+  '/spaces/$spaceId/projects/': typeof SpacesSpaceIdProjectsIndexRoute
+  '/spaces/$spaceId/timeline/': typeof SpacesSpaceIdTimelineIndexRoute
   '/spaces/$spaceId/dates/$date': typeof SpacesSpaceIdWithSidebarDatesDateRoute
   '/spaces/$spaceId/projects/$projectId': typeof SpacesSpaceIdWithSidebarProjectsProjectIdRoute
 }
@@ -177,9 +177,9 @@ export interface FileRouteTypes {
     | '/spaces/$spaceId/'
     | '/spaces/$spaceId/card-details/$cardId'
     | '/spaces/$spaceId/timeline/$date'
-    | '/spaces/$spaceId/dates'
-    | '/spaces/$spaceId/projects'
-    | '/spaces/$spaceId/timeline'
+    | '/spaces/$spaceId/dates/'
+    | '/spaces/$spaceId/projects/'
+    | '/spaces/$spaceId/timeline/'
     | '/spaces/$spaceId/dates/$date'
     | '/spaces/$spaceId/projects/$projectId'
   fileRoutesByTo: FileRoutesByTo
@@ -293,21 +293,21 @@ declare module '@tanstack/react-router' {
     '/spaces/$spaceId/timeline/': {
       id: '/spaces/$spaceId/timeline/'
       path: '/timeline'
-      fullPath: '/spaces/$spaceId/timeline'
+      fullPath: '/spaces/$spaceId/timeline/'
       preLoaderRoute: typeof SpacesSpaceIdTimelineIndexRouteImport
       parentRoute: typeof SpacesSpaceIdRoute
     }
     '/spaces/$spaceId/projects/': {
       id: '/spaces/$spaceId/projects/'
       path: '/projects'
-      fullPath: '/spaces/$spaceId/projects'
+      fullPath: '/spaces/$spaceId/projects/'
       preLoaderRoute: typeof SpacesSpaceIdProjectsIndexRouteImport
       parentRoute: typeof SpacesSpaceIdRoute
     }
     '/spaces/$spaceId/dates/': {
       id: '/spaces/$spaceId/dates/'
       path: '/dates'
-      fullPath: '/spaces/$spaceId/dates'
+      fullPath: '/spaces/$spaceId/dates/'
       preLoaderRoute: typeof SpacesSpaceIdDatesIndexRouteImport
       parentRoute: typeof SpacesSpaceIdRoute
     }

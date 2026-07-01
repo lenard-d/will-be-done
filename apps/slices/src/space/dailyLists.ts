@@ -1,9 +1,4 @@
-import {
-  deleteRows,
-  insert,
-  selectFrom,
-  v,
-} from "@will-be-done/hyperdb-lib";
+import { deleteRows, insert, selectFrom, v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { getDMY, orderPositionArg } from "./utils";
 import { appById } from "./app";
@@ -18,7 +13,7 @@ import { createProjectTask } from "./projects";
 import { deleteStashProjections } from "./stashProjections";
 import { taskById, taskByIdOrDefault } from "./cardsTasks";
 import { registerModelSlice } from "./maps";
-import { genUUIDV5 } from "../traits";
+import { genUUIDV5, genUUIDV5Many } from "../traits";
 import {
   dailyListType,
   dailyListsTable,
@@ -63,6 +58,7 @@ export const dailyListsByIds = selector({
   name: "dailyListsByIds",
   args: { ids: v.array(v.string()) },
   handler: function* dailyListsByIds({ ids }) {
+    if (ids.length === 0) return [];
     const dailyLists = yield* selectFrom(dailyListsTable, "byId").where((q) =>
       ids.map((id) => q.eq("id", id)),
     );
@@ -147,14 +143,34 @@ export const dailyListIdsByDates = selector({
   name: "dailyListIdsByDates",
   args: { dates: v.array(v.number()) },
   handler: function* dailyListIdsByDates({ dates }) {
-    const map = yield* dailyListDateIdsMap({});
-    return dates
-      .map((timestamp) => {
-        const date = new Date(timestamp);
-        const dmy = getDMY(date);
-        return map[dmy];
-      })
+    const dmyDates = dates.map((timestamp) => getDMY(new Date(timestamp)));
+    if (dmyDates.length === 0) return [];
+
+    const dailyLists = (yield* selectFrom(dailyListsTable, "byDate").where(
+      (q) => dmyDates.map((date) => q.eq("date", date)),
+    )) as DailyList[];
+    const idsByDate = new Map(
+      dailyLists.map((dailyList) => [dailyList.date, dailyList.id]),
+    );
+
+    return dmyDates
+      .map((date) => idsByDate.get(date))
       .filter((id) => id !== undefined) as string[];
+  },
+});
+
+export const dailyListsByDates = selector({
+  name: "dailyListsByDates",
+  args: { dates: v.array(v.number()) },
+  handler: function* dailyListsByDates({ dates }) {
+    const ids = yield* dailyListIdsByDates({ dates });
+    const dailyLists = yield* dailyListsByIds({ ids });
+    const dailyListsById = new Map(
+      dailyLists.map((dailyList) => [dailyList.id, dailyList]),
+    );
+    return ids
+      .map((id) => dailyListsById.get(id))
+      .filter((dailyList) => dailyList !== undefined) as DailyList[];
   },
 });
 
@@ -219,6 +235,14 @@ export const dailyListGetId = selector({
   args: { date: v.string() },
   handler: function* dailyListGetId({ date }) {
     return yield* genUUIDV5(dailyListType, date);
+  },
+});
+
+export const dailyListGetIds = selector({
+  name: "dailyListGetIds",
+  args: { dates: v.array(v.string()) },
+  handler: function* dailyListGetIds({ dates }) {
+    return yield* genUUIDV5Many(dailyListType, dates);
   },
 });
 

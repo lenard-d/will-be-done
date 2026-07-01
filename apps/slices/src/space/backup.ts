@@ -1,4 +1,4 @@
-import { v, deleteRows, insert, selectFrom } from "@will-be-done/hyperdb-lib";
+import { v, deleteRows, insert, selectFrom } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { getDMY } from "./utils";
 import { allChecklistItems } from "./checklistItems";

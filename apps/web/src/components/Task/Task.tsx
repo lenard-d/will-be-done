@@ -37,7 +37,6 @@ import {
   addToDailyList,
   AnyModelType,
   appById,
-  appCanDrop,
   appDeleteModel,
   appHandleDrop,
   Card,
@@ -76,11 +75,8 @@ import {
   updateTask,
   updateTemplate,
 } from "@will-be-done/slices/space";
-import {
-  useDispatch,
-  useSelect,
-  useSyncSelector,
-} from "@will-be-done/hyperdb-lib";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncSelect, useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
   buildFocusKey,
   focusTextareaAtEnd,
@@ -96,6 +92,7 @@ import {
   useCardDetailsEditRequest,
   useCardDetailsOpen,
 } from "@/components/CardDetails/CardDetailsStore.ts";
+import { useOpenProject } from "@/hooks/useOpenProject.ts";
 
 export const DropTaskIndicator = ({
   direction,
@@ -151,6 +148,7 @@ export const PreloadedTaskComp = ({
   newTaskParams,
   displayLastScheduleTime,
   centerScheduleDate,
+  isOnTimeline,
 }: {
   card: Card;
   category: ProjectCategory;
@@ -164,8 +162,9 @@ export const PreloadedTaskComp = ({
   newTaskParams?: Partial<Task>;
   displayLastScheduleTime?: boolean;
   centerScheduleDate?: boolean;
+  isOnTimeline?: boolean;
 }) => {
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
 
   const taskId = card.id;
   const date = useCurrentDate();
@@ -193,36 +192,39 @@ export const PreloadedTaskComp = ({
   const isEditing = useFocusStore(
     (s) => !s.isFocusDisabled && s.editItemKey === focusableItemKey,
   );
-  const select = useSelect();
+  const select = useAsyncSelect();
+  const openProject = useOpenProject();
 
   const persistTaskTitle = useCallback(
     (title: string) => {
-      if (isTask(card)) {
-        if (!select(taskById({ id: taskId }))) return;
+      void (async () => {
+        if (isTask(card)) {
+          if (!(await select(taskById({ id: taskId })))) return;
 
-        dispatch(
-          updateTask({
-            id: taskId,
-            task: {
-              title,
-            },
-          }),
-        );
-        return;
-      }
+          await dispatch(
+            updateTask({
+              id: taskId,
+              task: {
+                title,
+              },
+            }),
+          );
+          return;
+        }
 
-      if (isTaskTemplate(card)) {
-        if (!select(taskTemplateById({ id: taskId }))) return;
+        if (isTaskTemplate(card)) {
+          if (!(await select(taskTemplateById({ id: taskId })))) return;
 
-        dispatch(
-          updateTemplate({
-            id: taskId,
-            template: {
-              title,
-            },
-          }),
-        );
-      }
+          await dispatch(
+            updateTemplate({
+              id: taskId,
+              template: {
+                title,
+              },
+            }),
+          );
+        }
+      })();
     },
     [card, dispatch, select, taskId],
   );
@@ -239,51 +241,53 @@ export const PreloadedTaskComp = ({
   const handleTick = useCallback(() => {
     if (!isTask(card)) return;
 
-    const [upKey, downKey] = getDOMSiblings(focusableItemKey);
+    void (async () => {
+      const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
-    const taskState = card.state;
-    dispatch(toggleTaskState({ taskId: taskId }));
+      const taskState = card.state;
+      await dispatch(toggleTaskState({ taskId: taskId }));
 
-    if (!isFocused) return;
+      if (!isFocused) return;
 
-    const upModel = upKey
-      ? select(
-          appById({
-            id: parseColumnKey(upKey).id,
-            modelType: parseColumnKey(upKey).type,
-          }),
-        )
-      : undefined;
-    const downModel = downKey
-      ? select(
-          appById({
-            id: parseColumnKey(downKey).id,
-            modelType: parseColumnKey(downKey).type,
-          }),
-        )
-      : undefined;
-
-    const upTask =
-      upModel?.type !== projectCategoryType && upModel
-        ? select(taskOfModel({ model: upModel }))
+      const upModel = upKey
+        ? await select(
+            appById({
+              id: parseColumnKey(upKey).id,
+              modelType: parseColumnKey(upKey).type,
+            }),
+          )
         : undefined;
-    const downTask =
-      downModel?.type !== projectCategoryType && downModel
-        ? select(taskOfModel({ model: downModel }))
+      const downModel = downKey
+        ? await select(
+            appById({
+              id: parseColumnKey(downKey).id,
+              modelType: parseColumnKey(downKey).type,
+            }),
+          )
         : undefined;
 
-    if (downTask && downTask.state === taskState) {
-      useFocusStore.getState().focusByKey(downKey!);
-    } else if (upTask && upTask.state === taskState) {
-      useFocusStore.getState().focusByKey(upKey!);
-    }
+      const upTask =
+        upModel?.type !== projectCategoryType && upModel
+          ? await select(taskOfModel({ model: upModel }))
+          : undefined;
+      const downTask =
+        downModel?.type !== projectCategoryType && downModel
+          ? await select(taskOfModel({ model: downModel }))
+          : undefined;
+
+      if (downTask && downTask.state === taskState) {
+        useFocusStore.getState().focusByKey(downKey!);
+      } else if (upTask && upTask.state === taskState) {
+        useFocusStore.getState().focusByKey(upKey!);
+      }
+    })();
   }, [dispatch, focusableItemKey, isFocused, card, select, taskId]);
 
   const handleDelete = useCallback(() => {
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
     flushEditedTitle();
-    dispatch(
+    void dispatch(
       appDeleteModel({ id: cardWrapper.id, modelType: cardWrapper.type }),
     );
 
@@ -319,7 +323,7 @@ export const PreloadedTaskComp = ({
       );
       const { id, type } = parseColumnKey(dropTarget.targetKey);
 
-      dispatch(
+      void dispatch(
         appHandleDrop({
           id: id,
           modelType: type as AnyModelType,
@@ -387,7 +391,7 @@ export const PreloadedTaskComp = ({
           ? "top"
           : "bottom";
 
-      dispatch(
+      void dispatch(
         appHandleDrop({
           id: id,
           modelType: type,
@@ -420,34 +424,38 @@ export const PreloadedTaskComp = ({
     useFocusStore.getState().focusByKey(focusableItemKey, true);
     useFocusStore.getState().resetEdit();
 
-    const item = dispatch(
-      createItem({
-        item: {
-          parentId: card.id,
-          parentType: card.type,
-        },
-      }),
-    );
+    void (async () => {
+      const item = await dispatch(
+        createItem({
+          item: {
+            parentId: card.id,
+            parentType: card.type,
+          },
+        }),
+      );
 
-    focusChecklistItem(item.id, { root: ref.current });
+      focusChecklistItem(item.id, { root: ref.current });
+    })();
   }, [card, dispatch, focusableItemKey]);
 
   const handleAddSiblingTask = useCallback(
     (position: "after" | "before") => {
       if (isTask(card) && card.state === "done") return;
 
-      unstable_batchedUpdates(() => {
-        const newBox = dispatch(
+      void (async () => {
+        const newBox = await dispatch(
           createSiblingCard({
             taskBox: cardWrapper,
             position: position,
             taskParams: newTaskParams,
           }),
         );
-        useFocusStore
-          .getState()
-          .editByKey(buildFocusKey(newBox.id, newBox.type));
-      });
+        unstable_batchedUpdates(() => {
+          useFocusStore
+            .getState()
+            .editByKey(buildFocusKey(newBox.id, newBox.type));
+        });
+      })();
     },
     [card, cardWrapper, dispatch, newTaskParams],
   );
@@ -457,6 +465,14 @@ export const PreloadedTaskComp = ({
     ref.current?.focus();
     setIsMoveModalOpen(true);
   }, []);
+
+  const handleOpenProject = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      openProject(project.id);
+    },
+    [openProject, project.id],
+  );
 
   const handleOpenDatePicker = useCallback(() => {
     ref.current?.focus();
@@ -471,23 +487,25 @@ export const PreloadedTaskComp = ({
   const handleScheduleToday = useCallback(() => {
     if (!isTask(card)) return;
 
-    const dailyList = dispatch(
-      createDailyListIfNotPresent({ date: getDMY(date) }),
-    );
+    void (async () => {
+      const dailyList = await dispatch(
+        createDailyListIfNotPresent({ date: getDMY(date) }),
+      );
 
-    dispatch(
-      addToDailyList({
-        taskId: taskId,
-        dailyListId: dailyList.id,
-        position: "append",
-      }),
-    );
+      await dispatch(
+        addToDailyList({
+          taskId: taskId,
+          dailyListId: dailyList.id,
+          position: "append",
+        }),
+      );
+    })();
   }, [card, date, dispatch, taskId]);
 
   const handleResetSchedule = useCallback(() => {
     if (!isTask(card)) return;
 
-    dispatch(removeFromDailyList({ taskId: taskId }));
+    void dispatch(removeFromDailyList({ taskId: taskId }));
   }, [card, dispatch, taskId]);
 
   const handleStashTask = useCallback(() => {
@@ -501,7 +519,7 @@ export const PreloadedTaskComp = ({
 
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
-    dispatch(
+    void dispatch(
       appHandleDrop({
         id: STASH_ID,
         modelType: stashType,
@@ -534,20 +552,22 @@ export const PreloadedTaskComp = ({
       setIsRepeatModalOpen(false);
       flushEditedTitle();
 
-      const task = select(taskById({ id: taskId })) ?? card;
-      const template = dispatch(
-        createTaskTemplateFromTask({
-          task: task,
-          now: Date.now(),
-          data: {
-            repeatRule: ruleString,
-          },
-        }),
-      );
+      void (async () => {
+        const task = (await select(taskById({ id: taskId }))) ?? card;
+        const template = await dispatch(
+          createTaskTemplateFromTask({
+            task: task,
+            now: Date.now(),
+            data: {
+              repeatRule: ruleString,
+            },
+          }),
+        );
 
-      useFocusStore
-        .getState()
-        .focusByKey(buildFocusKey(template.id, template.type));
+        useFocusStore
+          .getState()
+          .focusByKey(buildFocusKey(template.id, template.type));
+      })();
     },
     [card, dispatch, flushEditedTitle, select, taskId],
   );
@@ -645,9 +665,9 @@ export const PreloadedTaskComp = ({
       if (e.code === "Digit1" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(card)) {
-            dispatch(updateTask({ id: taskId, task: { nature: "red" } }));
+            void dispatch(updateTask({ id: taskId, task: { nature: "red" } }));
           } else if (isTaskTemplate(card)) {
-            dispatch(
+            void dispatch(
               updateTemplate({
                 id: taskId,
                 template: {
@@ -660,9 +680,11 @@ export const PreloadedTaskComp = ({
       } else if (e.code === "Digit2" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(card)) {
-            dispatch(updateTask({ id: taskId, task: { nature: "green" } }));
+            void dispatch(
+              updateTask({ id: taskId, task: { nature: "green" } }),
+            );
           } else if (isTaskTemplate(card)) {
-            dispatch(
+            void dispatch(
               updateTemplate({
                 id: taskId,
                 template: {
@@ -675,9 +697,11 @@ export const PreloadedTaskComp = ({
       } else if (e.code === "Digit3" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(card)) {
-            dispatch(updateTask({ id: taskId, task: { nature: "unknown" } }));
+            void dispatch(
+              updateTask({ id: taskId, task: { nature: "unknown" } }),
+            );
           } else if (isTaskTemplate(card)) {
-            dispatch(
+            void dispatch(
               updateTemplate({
                 id: taskId,
                 template: {
@@ -691,7 +715,7 @@ export const PreloadedTaskComp = ({
         return runShortcutAction(() => {
           const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
-          dispatch(deleteTasks({ ids: [taskId] }));
+          void dispatch(deleteTasks({ ids: [taskId] }));
 
           if (downKey) {
             useFocusStore.getState().focusByKey(downKey);
@@ -853,9 +877,11 @@ export const PreloadedTaskComp = ({
     setIsMoveModalOpen(false);
 
     if (isTask(card)) {
-      dispatch(moveTaskToProject({ taskId: taskId, projectId: projectId }));
+      void dispatch(
+        moveTaskToProject({ taskId: taskId, projectId: projectId }),
+      );
     } else if (isTaskTemplate(card)) {
-      dispatch(
+      void dispatch(
         moveTemplateToProject({ templateId: taskId, projectId: projectId }),
       );
     }
@@ -922,14 +948,7 @@ export const PreloadedTaskComp = ({
           const data = source.data;
           if (!isModelDNDData(data)) return false;
 
-          return select(
-            appCanDrop({
-              id: cardWrapper.id,
-              modelType: cardWrapper.type,
-              dropId: data.modelId,
-              dropModelType: data.modelType,
-            }),
-          );
+          return true;
         },
         getIsSticky: () => true,
         getData: ({ input, element }) => {
@@ -1078,11 +1097,19 @@ export const PreloadedTaskComp = ({
           "[&[data-suppress-focus-visible=true]]:focus-visible:outline-none",
           isFocused
             ? isTask(card) && card.state === "done"
-              ? "ring-2 ring-done-panel-selected text-done-content"
-              : "ring-2 ring-accent text-content"
+              ? isOnTimeline
+                ? "ring-ring outline-2 outline-dashed outline-done-panel-selected focus-visible:outline-dashed text-done-content"
+                : "ring-2 ring-done-panel-selected text-done-content"
+              : isOnTimeline
+                ? "ring-ring outline-2 outline-dashed outline-accent focus-visible:outline-dashed text-content"
+                : "ring-2 ring-accent text-content"
             : isTask(card) && card.state === "done"
-              ? "ring-done-ring text-done-content hover:ring-ring-hover"
-              : "ring-ring text-content hover:ring-ring-hover",
+              ? isOnTimeline
+                ? "ring-done-ring outline-2 outline-dashed outline-done-panel-selected text-done-content hover:ring-ring-hover"
+                : "ring-done-ring text-done-content hover:ring-ring-hover"
+              : isOnTimeline
+                ? "ring-ring outline-2 outline-dashed outline-content-tinted-2 text-content hover:ring-ring-hover"
+                : "ring-ring text-content hover:ring-ring-hover",
         )}
         style={{}}
         onClick={() =>
@@ -1344,7 +1371,7 @@ export const PreloadedTaskComp = ({
                     ? "text-right justify-self-end"
                     : "text-right",
                 )}
-                onClick={handleOpenMoveModal}
+                onClick={handleOpenProject}
               >
                 {project.icon || "🟡"} {project.title}
               </button>
@@ -1389,26 +1416,30 @@ export const TaskComp = ({
   displayLastScheduleTime?: boolean;
   centerScheduleDate?: boolean;
 }) => {
-  const card = useSyncSelector({
+  const { data: card } = useAsyncSelector({
     selector: projectCategoryCardByIdOrDefault,
     args: { id: taskId },
   });
-  const category = useSyncSelector({
+  const { data: category } = useAsyncSelector({
     selector: projectCategoryByIdOrDefault,
-    args: { id: card.projectCategoryId },
+    args: { id: card?.projectCategoryId ?? "" },
+    enabled: !!card,
   });
-  const cardWrapper = useSyncSelector({
+  const { data: cardWrapper } = useAsyncSelector({
     selector: cardWrapperIdOrDefault,
     args: { id: cardWrapperId, modelType: cardWrapperType },
   });
-  const project = useSyncSelector({
+  const { data: project } = useAsyncSelector({
     selector: projectOfCategoryOrDefault,
-    args: { categoryId: card.projectCategoryId },
+    args: { categoryId: card?.projectCategoryId ?? "" },
+    enabled: !!card,
   });
-  const lastScheduleTime = useSyncSelector({
+  const { data: lastScheduleTime } = useAsyncSelector({
     selector: dailyProjectionDateOfTask,
     args: { taskId: taskId },
   });
+
+  if (!card || !category || !cardWrapper || !project) return null;
 
   return (
     <PreloadedTaskComp

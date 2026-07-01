@@ -1,14 +1,7 @@
 import { CSSProperties, useEffect, useRef, useState } from "react";
-import { useSyncSelector, useDB, select } from "@will-be-done/hyperdb-lib";
-import {
-  notDoneTasksCountExceptDailiesCount,
-  overdueTasksCountExceptDailiesCount,
-  projectByIdOrDefault,
-  projectCanDrop,
-} from "@will-be-done/slices/space";
+import { type Project } from "@will-be-done/slices/space";
 import { cn } from "@/lib/utils.ts";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useCurrentDate } from "../DaysBoard/hooks.tsx";
 import { Route } from "@/routes/spaces.$spaceId.tsx";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -65,31 +58,18 @@ const DragPreview = ({
   </div>
 );
 
-export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
+export const SidebarProjectItem = ({
+  project,
+  notDoneCount,
+  overdueCount,
+}: {
+  project: Project;
+  notDoneCount: number;
+  overdueCount: number;
+}) => {
   const spaceId = Route.useParams().spaceId;
-  const db = useDB();
   const { isMobile, setOpenMobile } = useSidebar();
-
-  const project = useSyncSelector({
-    selector: projectByIdOrDefault,
-    args: { id: projectId },
-  });
-
-  const currentDate = useCurrentDate();
-
-  const notDoneCount = useSyncSelector({
-    selector: notDoneTasksCountExceptDailiesCount,
-    args: { projectId: projectId, exceptDailyListIds: [] },
-  });
-
-  const overdueCount = useSyncSelector({
-    selector: overdueTasksCountExceptDailiesCount,
-    args: {
-      projectId: projectId,
-      exceptDailyListIds: [],
-      currentDate: currentDate.getTime(),
-    },
-  });
+  const projectId = project.id;
 
   const isActive = useRouterState({
     select: (s) =>
@@ -104,6 +84,7 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!project) return;
     const element = ref.current;
     invariant(element);
 
@@ -136,14 +117,7 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
         canDrop: ({ source }) => {
           const data = source.data;
           if (!isModelDNDData(data)) return false;
-          return select(
-            db,
-            projectCanDrop({
-              projectId: project.id,
-              dropItemId: data.modelId,
-              dropModelType: data.modelType,
-            }),
-          );
+          return true;
         },
         getIsSticky: () => true,
         getData: ({ input, element: el }) => {
@@ -183,7 +157,7 @@ export const SidebarProjectItem = ({ projectId }: { projectId: string }) => {
         },
       }),
     );
-  }, [db, project.id, project.type]);
+  }, [project]);
 
   return (
     <div ref={ref} className="relative">

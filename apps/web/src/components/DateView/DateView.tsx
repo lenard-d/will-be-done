@@ -1,18 +1,11 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { addDays, format, startOfDay, subDays } from "date-fns";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
-  useDispatch,
-  useSyncSelector,
-  useSelect,
-} from "@will-be-done/hyperdb-lib";
-import { flushSync } from "react-dom";
-import {
-  appCanDrop,
-  createManyDailyListsIfNotPresent,
   createTaskInList,
   type DailyList,
-  dailyListByIdOrDefault,
-  dailyListIdsByDates,
+  dailyListsByDates,
   dailyProjectionChildrenForDisplay,
   doneDailyProjectionChildrenForDisplay,
   inboxProjectId,
@@ -80,12 +73,12 @@ const ChevronRight = () => (
 );
 
 const SingleDayColumn = ({
-  dailyListId,
+  dailyList,
   onTaskAdd,
   previousDate,
   nextDate,
 }: {
-  dailyListId: string;
+  dailyList: DailyList;
   onTaskAdd: (dailyList: DailyList) => void;
   previousDate: Date;
   nextDate: Date;
@@ -93,31 +86,25 @@ const SingleDayColumn = ({
   const spaceId = Route.useParams().spaceId;
   const navigate = useNavigate();
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const dailyList = useSyncSelector({
-    selector: dailyListByIdOrDefault,
-    args: { id: dailyListId },
-  });
   const currentDate = useCurrentDMY();
-  const isToday = useMemo(() => {
-    return currentDate === dailyList.date;
-  }, [currentDate, dailyList.date]);
+  const isToday = currentDate === dailyList.date;
 
-  const cardsForDisplay = useSyncSelector({
+  const { data: cardsForDisplay = [] } = useAsyncSelector({
     selector: dailyProjectionChildrenForDisplay,
-    args: { dailyListId: dailyListId },
+    args: { dailyListId: dailyList.id },
   });
 
-  const doneCardsForDisplay = useSyncSelector({
+  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
     selector: doneDailyProjectionChildrenForDisplay,
-    args: { dailyListId: dailyListId },
+    args: { dailyListId: dailyList.id },
   });
 
-  const select = useSelect();
   const columnRef = useRef<HTMLDivElement>(null);
   const scrollableRef = useRef<HTMLDivElement>(null);
   const [_isOver, setIsOver] = useState(false);
 
   useEffect(() => {
+    if (!dailyList) return;
     invariant(columnRef.current);
     invariant(scrollableRef.current);
     return combine(
@@ -131,14 +118,7 @@ const SingleDayColumn = ({
           const data = source.data;
           if (!isModelDNDData(data)) return false;
 
-          return select(
-            appCanDrop({
-              id: dailyList.id,
-              modelType: dailyList.type,
-              dropId: data.modelId,
-              dropModelType: data.modelType,
-            }),
-          );
+          return true;
         },
         getIsSticky: () => true,
         onDragEnter: () => setIsOver(true),
@@ -151,7 +131,7 @@ const SingleDayColumn = ({
         canScroll: ({ source }) => isModelDNDData(source.data),
       }),
     );
-  }, [dailyList.id, dailyList.type, select]);
+  }, [dailyList]);
 
   return (
     <div
@@ -301,32 +281,23 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
     [startingDate],
   );
 
-  const dailyListsIds = useSyncSelector({
-    selector: dailyListIdsByDates,
+  const { data: dailyLists = [] } = useAsyncSelector({
+    selector: dailyListsByDates,
     args: { dates: [startingDate.getTime()] },
   });
-  const dispatch = useDispatch();
-  const inboxId = useSyncSelector({
+  const dispatch = useAsyncDispatch();
+  const { data: inboxId = "" } = useAsyncSelector({
     selector: inboxProjectId,
     args: {},
   });
   const stashOffset = useStashDesktopOffset();
 
-  useEffect(() => {
-    dispatch(
-      createManyDailyListsIfNotPresent({ dates: [startingDate.getTime()] }),
-    );
-  }, [dispatch, startingDate]);
-
   const handleAddTask = useCallback(
     (dailyList: DailyList) => {
       prepareTextInputFocus();
 
-      let focusKey: ReturnType<typeof buildFocusKey> | undefined;
-
-      // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
-      flushSync(() => {
-        const task = dispatch(
+      void (async () => {
+        const task = await dispatch(
           createTaskInList({
             dailyListId: dailyList.id,
             projectId: inboxId,
@@ -335,18 +306,15 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
           }),
         );
 
-        focusKey = buildFocusKey(task.id, "projection");
+        const focusKey = buildFocusKey(task.id, "projection");
         useFocusStore.getState().editByKey(focusKey);
-      });
 
-      if (!focusKey) return;
+        if (focusTaskTitleTextareaByKey(focusKey)) return;
 
-      const key = focusKey;
-      if (focusTaskTitleTextareaByKey(key)) return;
-
-      window.requestAnimationFrame(() => {
-        focusTaskTitleTextareaByKey(key);
-      });
+        window.requestAnimationFrame(() => {
+          focusTaskTitleTextareaByKey(focusKey);
+        });
+      })();
     },
     [dispatch, inboxId],
   );
@@ -363,9 +331,9 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
         }}
       >
         <div className="max-w-lg mx-auto px-4 py-4">
-          {dailyListsIds[0] && (
+          {dailyLists[0] && (
             <SingleDayColumn
-              dailyListId={dailyListsIds[0]}
+              dailyList={dailyLists[0]}
               onTaskAdd={handleAddTask}
               previousDate={previousDate}
               nextDate={nextDate}

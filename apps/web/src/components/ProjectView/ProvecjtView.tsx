@@ -21,26 +21,18 @@ import { cn } from "@/lib/utils.ts";
 import ReactDOM from "react-dom";
 import { isInputElement } from "@/utils/isInputElement.ts";
 import {
-  select,
-  useDB,
-  useDispatch,
-  useSyncSelector,
-  v,
-} from "@will-be-done/hyperdb-lib";
-import { selector } from "@/store/builders.ts";
+  useAsyncDispatch,
+  useAsyncSelector,
+} from "@will-be-done/hyperdb/react";
 import {
   createProject,
   deleteProjects,
-  inboxProject,
-  inboxProjectId as getInboxProjectId,
-  notDoneTasksCountExceptDailiesAndStashCount,
-  overdueTasksCountExceptDailiesAndStashCount,
-  projectByIdOrDefault,
-  projectCanDrop,
-  projectChildrenIdsWithoutInbox,
+  projectsWithTaskStats,
+  type Project,
   updateProject,
 } from "@will-be-done/slices/space";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
+import { selectedProject } from "./selectors.ts";
 import { PopoverContent, PopoverTrigger } from "@radix-ui/react-popover";
 import {
   EmojiPicker,
@@ -48,26 +40,15 @@ import {
   EmojiPickerSearch,
 } from "@/components/ui/emoji-picker.tsx";
 import { Popover } from "@/components/ui/popover.tsx";
-import { useCurrentDate } from "../DaysBoard/hooks.tsx";
 import { promptDialog } from "@/components/ui/prompt-dialog-service";
+import { useCurrentDate } from "@/components/DaysBoard/hooks.tsx";
 import { ResizableDivider } from "@/components/DaysBoard/ResizableDivider.tsx";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { create } from "zustand";
+import { startOfDay } from "date-fns";
 
 const MIN_PROJECTS_LIST_WIDTH = 240;
 const MAX_PROJECTS_LIST_WIDTH = 520;
-
-const selectedProject = selector({
-  name: "selectedProject",
-  args: { selectedProjectId: v.string() },
-  handler: function* selectedProject({ selectedProjectId }) {
-    if (selectedProjectId === "inbox") {
-      return yield* inboxProject({});
-    }
-
-    return yield* projectByIdOrDefault({ id: selectedProjectId });
-  },
-});
 
 type ProjectsListSize = {
   width: number;
@@ -143,16 +124,18 @@ const DropProjectIndicator = function DropProjectIndicatorComp({
 };
 
 const ProjectItem = function ProjectItemComp({
-  projectId,
+  project,
+  notDoneTasksCount,
+  overdueTasksCount,
   // onProjectClick,
   isSelected,
-  exceptDailyListIds,
   projectLink: ProjectLink,
 }: {
-  projectId: string;
+  project: Project;
+  notDoneTasksCount: number;
+  overdueTasksCount: number;
   // onProjectClick: (projectId: string) => void;
   isSelected: boolean;
-  exceptDailyListIds: string[];
   projectLink: React.ComponentType<
     React.PropsWithChildren<{
       projectId: string;
@@ -161,11 +144,6 @@ const ProjectItem = function ProjectItemComp({
     }>
   >;
 }) {
-  const db = useDB();
-  const project = useSyncSelector({
-    selector: projectByIdOrDefault,
-    args: { id: projectId },
-  });
   const focusItemKey = buildFocusKey(project.id, project.type, "ProjectItem");
   const [closestEdge, setClosestEdge] = useState<Edge | "whole" | null>(null);
   const [dndState, setDndState] = useState<State>(idleState);
@@ -177,7 +155,7 @@ const ProjectItem = function ProjectItemComp({
     (s) => !s.isFocusDisabled && s.focusItemKey === focusItemKey,
   );
 
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
 
   useGlobalListener("mousedown", (e: MouseEvent) => {
     const { isFocusDisabled } = useFocusStore.getState();
@@ -212,7 +190,7 @@ const ProjectItem = function ProjectItemComp({
 
       const [upKey, downKey] = getDOMSiblings(focusItemKey);
 
-      dispatch(deleteProjects({ ids: [project.id] }));
+      void dispatch(deleteProjects({ ids: [project.id] }));
 
       if (downKey) {
         useFocusStore.getState().focusByKey(downKey);
@@ -224,7 +202,9 @@ const ProjectItem = function ProjectItemComp({
     } else if (e.code === "KeyI" && noModifiers) {
       e.preventDefault();
 
-      useFocusStore.getState().editByKey(focusItemKey);
+      useFocusStore
+        .getState()
+        .editByKey(buildFocusKey(project.id, project.type, "ProjectItem"));
     } else if (isAddAfter || isAddBefore) {
       e.preventDefault();
 
@@ -239,6 +219,7 @@ const ProjectItem = function ProjectItemComp({
   });
 
   useEffect(() => {
+    if (!project) return;
     const element = ref.current;
     invariant(element);
 
@@ -280,14 +261,7 @@ const ProjectItem = function ProjectItemComp({
           const data = source.data;
           if (!isModelDNDData(data)) return false;
 
-          return select(
-            db,
-            projectCanDrop({
-              projectId: project.id,
-              dropItemId: data.modelId,
-              dropModelType: data.modelType,
-            }),
-          );
+          return true;
         },
         getIsSticky: () => true,
         getData: ({ input, element }) => {
@@ -332,34 +306,10 @@ const ProjectItem = function ProjectItemComp({
         },
       }),
     );
-  }, [db, project.id, project.type]);
-
-  const currentDate = useCurrentDate();
-
-  const overdueTasksCount = useSyncSelector({
-    selector: overdueTasksCountExceptDailiesAndStashCount,
-    args: {
-      projectId: project.id,
-      exceptDailyListIds: exceptDailyListIds,
-      currentDate: currentDate.getTime(),
-    },
-  });
-  const notDoneTasksCount = useSyncSelector({
-    selector: notDoneTasksCountExceptDailiesAndStashCount,
-    args: { projectId: project.id, exceptDailyListIds: exceptDailyListIds },
-  });
-  //
-  // const overdueTasksCount = useSyncSelector(
-  //   () =>
-  //     projectItemsSlice2.overdueTaskCountExceptDailiesCount(
-  //       project.id,
-  //       exceptDailyListIds,
-  //       currentDate: currentDate.getTime(),
-  //     ),
-  //   [project.id, exceptDailyListIds, currentDate],
-  // );
+  }, [project]);
 
   const handleEditClick = async () => {
+    if (!project) return;
     const newTitle = await promptDialog(
       "Enter new project title",
       project.title,
@@ -369,7 +319,7 @@ const ProjectItem = function ProjectItemComp({
       return;
     }
 
-    dispatch(
+    await dispatch(
       updateProject({
         id: project.id,
         project: {
@@ -380,18 +330,16 @@ const ProjectItem = function ProjectItemComp({
   };
 
   const handleDeleteClick = () => {
+    if (!project) return;
     const shouldDelete = confirm(
       "Are you sure you want to delete this project?",
     );
     if (shouldDelete) {
-      dispatch(deleteProjects({ ids: [project.id] }));
+      void dispatch(deleteProjects({ ids: [project.id] }));
     }
   };
 
-  const inboxProjectId = useSyncSelector({
-    selector: getInboxProjectId,
-    args: {},
-  });
+  if (!project) return null;
 
   return (
     <div className="relative">
@@ -426,7 +374,7 @@ const ProjectItem = function ProjectItemComp({
             <EmojiPicker
               className="h-[326px] rounded-lg shadow-md"
               onEmojiSelect={({ emoji }) => {
-                dispatch(
+                void dispatch(
                   updateProject({
                     id: project.id,
                     project: {
@@ -456,7 +404,7 @@ const ProjectItem = function ProjectItemComp({
         <div
           className={cn(
             "ml-auto flex items-center gap-1 text-xs tabular-nums text-content-tinted flex-shrink-0 ",
-            project.id !== inboxProjectId && "group-hover:hidden",
+            !project.isInbox && "group-hover:hidden",
           )}
         >
           {overdueTasksCount > 0 && (
@@ -471,7 +419,7 @@ const ProjectItem = function ProjectItemComp({
         <div
           className={cn(
             "ml-auto flex gap-2 text-content-tinted stroke-content hidden",
-            project.id !== inboxProjectId && "group-hover:flex",
+            !project.isInbox && "group-hover:flex",
           )}
         >
           <button
@@ -540,12 +488,11 @@ const ProjectItem = function ProjectItemComp({
 };
 
 export const ProjectView = ({
-  exceptDailyListIds,
   marginTop,
   projectLink,
   selectedProjectId,
+  selectedDate,
 }: {
-  exceptDailyListIds: string[];
   marginTop?: boolean;
   projectLink: React.ComponentType<
     React.PropsWithChildren<{
@@ -555,42 +502,35 @@ export const ProjectView = ({
     }>
   >;
   selectedProjectId: string;
+  selectedDate?: Date;
 }) => {
   const projectsListRef = useRef<HTMLDivElement>(null);
   // const [selectedProjectId, setSelectedProjectId] = useState(inboxId);
 
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
   const projectsListWidth = useProjectsListSize((s) => s.width);
   const setProjectsListWidth = useProjectsListSize((s) => s.setWidth);
-  const project = useSyncSelector({
+  const { data: project } = useAsyncSelector({
     selector: selectedProject,
     args: { selectedProjectId },
   });
 
-  // const taskIds = useSyncSelector(
-  //   () =>
-  //     dailyListsSlice2.allTaskIdsExceptDailies(
-  //       project.id,
-  //       exceptDailyListIds,
-  //       // idsToAlwaysInclude,
-  //     ),
-  //   [exceptDailyListIds, project.id],
-  // );
-
-  const inboxProjectId = useSyncSelector({
-    selector: inboxProject,
-    args: {},
+  const today = useCurrentDate();
+  const currentDate = startOfDay(today).getTime();
+  const { data: projects = [] } = useAsyncSelector({
+    selector: projectsWithTaskStats,
+    args: { currentDate },
   });
-  const projectIdsWithoutInbox = useSyncSelector({
-    selector: projectChildrenIdsWithoutInbox,
-    args: {},
-  });
+  const inboxProject = projects.find(({ project }) => project.isInbox);
+  const projectsWithoutInbox = projects.filter(
+    ({ project }) => !project.isInbox,
+  );
 
   const handleAddProjectClick = async () => {
     const title = await promptDialog("Enter project title");
 
     if (title) {
-      dispatch(createProject({ project: { title }, position: "append" }));
+      await dispatch(createProject({ project: { title }, position: "append" }));
     }
   };
 
@@ -604,7 +544,7 @@ export const ProjectView = ({
     [setProjectsListWidth],
   );
 
-  if (!project) {
+  if (!project || !inboxProject) {
     return <div>Project not found</div>;
   }
 
@@ -616,11 +556,7 @@ export const ProjectView = ({
           "-mt-1 pt-1": !marginTop,
         })}
       >
-        <ProjectItemsList
-          project={project}
-          exceptDailyListIds={exceptDailyListIds}
-          exceptStash
-        />
+        <ProjectItemsList project={project} selectedDate={selectedDate} />
       </div>
       <div
         ref={projectsListRef}
@@ -639,19 +575,26 @@ export const ProjectView = ({
         <div className="h-full overflow-y-auto flex flex-col gap-1 px-3 py-2 text-sm overflow-x-hidden text-ellipsis">
           <ProjectItem
             projectLink={projectLink}
-            projectId={inboxProjectId.id}
-            isSelected={selectedProjectId === inboxProjectId.id}
-            exceptDailyListIds={exceptDailyListIds}
+            project={inboxProject.project}
+            notDoneTasksCount={inboxProject.notDoneCount}
+            overdueTasksCount={inboxProject.overdueCount}
+            isSelected={
+              selectedProjectId === "inbox" ||
+              selectedProjectId === inboxProject.project.id
+            }
           />
-          {projectIdsWithoutInbox.map((id) => (
-            <ProjectItem
-              projectLink={projectLink}
-              key={id}
-              projectId={id}
-              isSelected={selectedProjectId === id}
-              exceptDailyListIds={exceptDailyListIds}
-            />
-          ))}
+          {projectsWithoutInbox.map(
+            ({ project, notDoneCount, overdueCount }) => (
+              <ProjectItem
+                projectLink={projectLink}
+                key={project.id}
+                project={project}
+                notDoneTasksCount={notDoneCount}
+                overdueTasksCount={overdueCount}
+                isSelected={selectedProjectId === project.id}
+              />
+            ),
+          )}
         </div>
         <div className="flex text-center items-center justify-center pb-3 pt-2 border-t border-ring">
           <button

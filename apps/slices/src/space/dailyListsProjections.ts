@@ -5,7 +5,7 @@ import {
   selectFrom,
   upsert as upsertRows,
   v,
-} from "@will-be-done/hyperdb-lib";
+} from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import {

@@ -5,11 +5,7 @@ import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { DndModelData, isModelDNDData } from "@/lib/dnd/models";
-import { useSelect } from "@will-be-done/hyperdb-lib";
-import {
-  AnyModelType,
-  appCanDrop,
-} from "@will-be-done/slices/space";
+import { AnyModelType } from "@will-be-done/slices/space";
 import { PlusIcon } from "@/components/ui/icons.tsx";
 import { buildFocusKey } from "@/store/focusSlice.ts";
 
@@ -77,7 +73,6 @@ export const TasksColumn = ({
   onAddClick?: () => void;
   actions?: React.ReactNode;
 }) => {
-  const select = useSelect();
   const columnRef = useRef<HTMLDivElement>(null);
   const scrollableRef = useRef<HTMLDivElement>(null);
   const [dndState, setDndState] = useState<DailyListDndState>(idle);
@@ -98,9 +93,7 @@ export const TasksColumn = ({
           const data = source.data;
           if (!isModelDNDData(data)) return false;
 
-          return select(
-            appCanDrop({ id: columnModelId, modelType: columnModelType, dropId: data.modelId, dropModelType: data.modelType }),
-          );
+          return true;
         },
         getIsSticky: () => true,
         onDragEnter: () => setDndState(isTaskOver),
@@ -113,7 +106,7 @@ export const TasksColumn = ({
         canScroll: ({ source }) => isModelDNDData(source.data),
       }),
     );
-  }, [columnModelId, columnModelType, select]);
+  }, [columnModelId, columnModelType]);
 
   return (
     <div

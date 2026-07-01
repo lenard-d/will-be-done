@@ -1,4 +1,4 @@
-import { defineTable, type ExtractSchema, v } from "@will-be-done/hyperdb-lib";
+import { defineTable, type ExtractSchema, v } from "@will-be-done/hyperdb";
 
 export const spacesTableType = "space";
 

@@ -1,4 +1,4 @@
-import { createAction, createSelector } from "@will-be-done/hyperdb-lib";
+import { createAction, createSelector } from "@will-be-done/hyperdb";
 
 export const selector = createSelector({
   validateArgs: false,

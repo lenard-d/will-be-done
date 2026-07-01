@@ -13,8 +13,8 @@ import {
   defineTable,
   Row,
   v,
-} from "@will-be-done/hyperdb-lib";
-import { BptreeInmemDriver } from "@will-be-done/hyperdb-lib/drivers/inmemory";
+} from "@will-be-done/hyperdb";
+import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
 import {
   mergeChanges,
   getChangesetAfter,
@@ -137,6 +137,49 @@ function localDelete(
               title: createdAtClock,
               orderToken: createdAtClock,
               createdAt: createdAtClock,
+            },
+          } satisfies Change,
+        ]);
+      },
+    })({}),
+  );
+}
+
+/** Reinsert a row after deletion, replacing the tombstone change record. */
+function localRecreate(
+  db: DB,
+  row: {
+    type: string;
+    id: string;
+    title: string;
+    orderToken: string;
+    createdAt: number;
+  },
+  recreatedAtClock: string,
+  clientId = "local",
+) {
+  syncDispatch(
+    db,
+    action({
+      name: "anonymousRecreateAction",
+      args: {},
+      handler: function* anonymousRecreateAction() {
+        yield* insert(testTable, [row]);
+        yield* upsert(changesTable, [
+          {
+            id: `testItems:${row.id}`,
+            entityId: row.id,
+            tableName: "testItems",
+            createdAt: recreatedAtClock,
+            updatedAt: recreatedAtClock,
+            deletedAt: null,
+            clientId,
+            changes: {
+              type: recreatedAtClock,
+              id: recreatedAtClock,
+              title: recreatedAtClock,
+              orderToken: recreatedAtClock,
+              createdAt: recreatedAtClock,
             },
           } satisfies Change,
         ]);
@@ -509,6 +552,119 @@ describe("first-creator-wins merge", () => {
     expect(change!.clientId).toBe("client1");
   });
 
+  it("incoming recreate after local tombstone resurrects the row", () => {
+    resetClock();
+    const db = createDB();
+    const entityId = "entity-rescheduled-remotely";
+    const row = {
+      type: "task",
+      id: entityId,
+      title: "scheduled",
+      orderToken: "a",
+      createdAt: 100,
+    };
+    const createdAtClock = "0000000010-0001-client1";
+    const deletedAtClock = "0000000020-0001-client1";
+    const recreatedAtClock = "0000000030-0001-client2";
+
+    localCreate(db, row, createdAtClock, "client1");
+    localDelete(db, row, createdAtClock, deletedAtClock, "client1");
+
+    syncDispatch(
+      db,
+      mergeChanges({
+        input: makeIncomingCreate(
+          entityId,
+          "rescheduled",
+          recreatedAtClock,
+        ),
+        nextClock: makeClockFn("0000000040")(),
+        clientId: "local",
+        registeredSyncableTableNameMap: registeredTables,
+      }),
+    );
+
+    const mergedRow = getRow(db, entityId);
+    expect(mergedRow).toBeDefined();
+    expect(mergedRow!.title).toBe("rescheduled");
+
+    const change = getChange(db, entityId);
+    expect(change).toBeDefined();
+    expect(change!.createdAt).toBe(recreatedAtClock);
+    expect(change!.deletedAt).toBeNull();
+  });
+
+  it("local recreate after incoming tombstone keeps the row", () => {
+    resetClock();
+    const db = createDB();
+    const entityId = "entity-rescheduled-locally";
+    const originalRow = {
+      type: "task",
+      id: entityId,
+      title: "scheduled",
+      orderToken: "a",
+      createdAt: 100,
+    };
+    const recreatedRow = {
+      ...originalRow,
+      title: "rescheduled",
+      orderToken: "b",
+    };
+    const createdAtClock = "0000000010-0001-client1";
+    const deletedAtClock = "0000000020-0001-client2";
+    const recreatedAtClock = "0000000030-0001-client1";
+
+    localCreate(db, originalRow, createdAtClock, "client1");
+    localDelete(db, originalRow, createdAtClock, deletedAtClock, "client1");
+    localRecreate(db, recreatedRow, recreatedAtClock, "client1");
+
+    const incoming: ChangesetArrayType = [
+      {
+        tableName: "testItems",
+        data: [
+          {
+            change: {
+              id: `testItems:${entityId}`,
+              entityId,
+              tableName: "testItems",
+              createdAt: createdAtClock,
+              updatedAt: deletedAtClock,
+              deletedAt: deletedAtClock,
+              clientId: "client2",
+              changes: {
+                type: createdAtClock,
+                id: createdAtClock,
+                title: createdAtClock,
+                orderToken: createdAtClock,
+                createdAt: createdAtClock,
+              },
+            },
+          },
+        ],
+      },
+    ];
+
+    syncDispatch(
+      db,
+      mergeChanges({
+        input: incoming,
+        nextClock: makeClockFn("0000000040")(),
+        clientId: "local",
+        registeredSyncableTableNameMap: registeredTables,
+      }),
+    );
+
+    const mergedRow = getRow(db, entityId);
+    expect(mergedRow).toBeDefined();
+    expect(mergedRow!.title).toBe("rescheduled");
+    expect(mergedRow!.orderToken).toBe("b");
+
+    const change = getChange(db, entityId);
+    expect(change).toBeDefined();
+    expect(change!.createdAt).toBe(recreatedAtClock);
+    expect(change!.deletedAt).toBeNull();
+  });
+
   it("new entity from remote inserts normally when no local record exists", () => {
     resetClock();
     const db = createDB();
@@ -679,7 +835,7 @@ describe("first-creator-wins merge", () => {
     expect(changesets[0]!.data).toHaveLength(1205);
   });
 
-  it("filters changes from the requesting client while preserving max clock", () => {
+  it("returns requester changes so server-merged state is not skipped", () => {
     resetClock();
     const db = createDB();
 
@@ -713,7 +869,6 @@ describe("first-creator-wins merge", () => {
       function* () {
         return yield* getChangesetAfter({
           after: "",
-          requesterClientId: "local-client",
           registeredSyncableTableNameMap: registeredTables,
         });
       },
@@ -722,7 +877,9 @@ describe("first-creator-wins merge", () => {
 
     expect(maxClock).toBe("0000000030-0001-local");
     expect(changesets).toHaveLength(1);
-    expect(changesets[0]!.data).toHaveLength(1);
-    expect(changesets[0]!.data[0]!.change.entityId).toBe("remote-change");
+    expect(changesets[0]!.data.map((d) => d.change.entityId).sort()).toEqual([
+      "own-change",
+      "remote-change",
+    ]);
   });
 });

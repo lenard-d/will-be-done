@@ -1,8 +1,4 @@
-import {
-  asyncDispatch,
-  DB,
-  execAsync,
-} from "@will-be-done/hyperdb-lib";
+import { asyncDispatch, DB, execAsync } from "@will-be-done/hyperdb";
 import {
   insertChangeFromInsert,
   changesTable,

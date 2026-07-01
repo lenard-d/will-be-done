@@ -1,12 +1,10 @@
-import { selectFrom, v } from "@will-be-done/hyperdb-lib";
+import { selectFrom, v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { dailyDateFormat, generateKeyPositionedBetween } from "./utils";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { createTask, taskById, defaultTask } from "./cardsTasks";
 import { taskTemplateById } from "./cardsTaskTemplates";
-import { dailyListAllTaskIds } from "./dailyLists";
 import { parse } from "date-fns";
-import { hasChecklistItems } from "./checklistItems";
 import {
   tasksTable,
   taskTemplatesTable,
@@ -14,7 +12,9 @@ import {
   projectCategoriesTable,
   projectsTable,
   dailyListsTable,
+  checklistItemsTable,
   cardWrapper,
+  stashProjectionType,
   type CardWrapper,
   type Task,
   type TaskTemplate,
@@ -64,56 +64,14 @@ export const lastProjectCategoryCard = selector({
   },
 });
 
-export const projectCategoryCardIdsExceptDailies = selector({
-  name: "projectCategoryCardIdsExceptDailies",
-  args: {
-    projectCategoryId: v.string(),
-    exceptDailyListIds: v.array(v.string()),
-  },
-  handler: function* projectCategoryCardIdsExceptDailies({
-    projectCategoryId,
-    exceptDailyListIds,
-  }): Generator<unknown, string[], unknown> {
-    // TODO: use merge sort
-    const exceptTaskIds = yield* dailyListAllTaskIds({
-      dailyListIds: exceptDailyListIds,
-    });
-    const tasks = yield* selectFrom(
-      tasksTable,
-      "byCategoryIdOrderStates",
-    ).where((q) =>
-      q.eq("projectCategoryId", projectCategoryId).eq("state", "todo"),
-    );
-
-    const finalTasks = tasks.filter((task) => !exceptTaskIds.has(task.id));
-
-    const templates = yield* selectFrom(
-      taskTemplatesTable,
-      "byCategoryIdOrderStates",
-    ).where((q) => q.eq("projectCategoryId", projectCategoryId));
-
-    const allCards = [...finalTasks, ...templates];
-
-    return allCards
-      .sort((a, b) => {
-        if (a.orderToken > b.orderToken) {
-          return 1;
-        }
-        if (a.orderToken < b.orderToken) {
-          return -1;
-        }
-
-        return 0;
-      })
-      .map((card) => card.id);
-  },
-});
-
 export const projectCategoryCards = selector({
   name: "projectCategoryCards",
   args: { projectCategoryId: v.string() },
-  handler: function* projectCategoryCards({ projectCategoryId }) {
-    // TODO: use merge sort
+  memoization: { selfChild: true },
+  handler: function* ({ projectCategoryId }) {
+    // TODO: make separate table that will maintain list
+    // of all cards in a project category
+    // or you merge sort
     const tasks = yield* selectFrom(
       tasksTable,
       "byCategoryIdOrderStates",
@@ -210,46 +168,54 @@ export const projectCategoryCardsForDisplay = selector({
       cardWrappers.map((wrapper) => [`${wrapper.type}:${wrapper.id}`, wrapper]),
     );
 
-    const hasChecklistMap = new Map<string, boolean>();
-    for (const c of cards) {
-      const has = yield* hasChecklistItems({
-        parentType: c.type,
-        parentId: c.id,
-      });
-      hasChecklistMap.set(`${c.id}:${c.type}`, has);
-    }
+    const checklistItems = cards.length
+      ? yield* selectFrom(checklistItemsTable, "byParentOrder").where((q) =>
+          cards.map((card) =>
+            q.eq("parentType", card.type).eq("parentId", card.id),
+          ),
+        )
+      : [];
+    const hasChecklistMap = new Map(
+      checklistItems.map((item) => [
+        `${item.parentId}:${item.parentType}`,
+        true,
+      ]),
+    );
 
-    return cards.map((card) => {
-      const category = categoryMap.get(card.projectCategoryId);
-      if (!category) throw new Error("failed to find project category");
+    return cards
+      .map((card) => {
+        const category = categoryMap.get(card.projectCategoryId);
+        if (!category) return;
 
-      const project = projectMap.get(category.projectId);
-      if (!project) throw new Error("failed to find project");
+        const project = projectMap.get(category.projectId);
+        if (!project) return;
 
-      const cardWrapper =
-        wrapperMap.get(`${card.type}:${card.id}`) ||
-        wrapperMap.get(`projection:${card.id}`);
-      if (!cardWrapper) throw new Error("failed to find card wrapper");
+        const cardWrapper =
+          wrapperMap.get(`${card.type}:${card.id}`) ||
+          wrapperMap.get(`projection:${card.id}`) ||
+          wrapperMap.get(`${stashProjectionType}:${card.id}`);
+        if (!cardWrapper) return;
 
-      const projection = projectionMap.get(card.id);
-      const dailyList = projection
-        ? dailyListMap.get(projection.dailyListId)
-        : undefined;
-      const dateOfTask = dailyList
-        ? parse(dailyList.date, dailyDateFormat, new Date())
-        : undefined;
+        const projection = projectionMap.get(card.id);
+        const dailyList = projection
+          ? dailyListMap.get(projection.dailyListId)
+          : undefined;
+        const dateOfTask = dailyList
+          ? parse(dailyList.date, dailyDateFormat, new Date())
+          : undefined;
 
-      return {
-        card,
-        category,
-        project,
-        cardWrapper,
-        dailyList,
-        dateOfTask,
-        lastScheduleTime: dateOfTask,
-        hasChecklist: hasChecklistMap.get(`${card.id}:${card.type}`) ?? false,
-      };
-    });
+        return {
+          card,
+          category,
+          project,
+          cardWrapper,
+          dailyList,
+          dateOfTask,
+          lastScheduleTime: dateOfTask,
+          hasChecklist: hasChecklistMap.get(`${card.id}:${card.type}`) ?? false,
+        };
+      })
+      .filter((card) => !!card);
   },
 });
 
@@ -267,17 +233,6 @@ export const projectCategoryCardsForDisplayChildren = selector({
   },
 });
 
-export const projectCategoryCardIdsWithTypes = selector({
-  name: "projectCategoryCardIdsWithTypes",
-  args: { projectCategoryId: v.string() },
-  handler: function* projectCategoryCardIdsWithTypes({ projectCategoryId }) {
-    return (yield* projectCategoryCards({ projectCategoryId })).map((card) => ({
-      id: card.id,
-      type: card.type as "task" | "template",
-    }));
-  },
-});
-
 export const projectCategoryCardIds = selector({
   name: "projectCategoryCardIds",
   args: { projectCategoryId: v.string() },
@@ -288,61 +243,25 @@ export const projectCategoryCardIds = selector({
   },
 });
 
-export const doneProjectCategoryCardIds = selector({
-  name: "doneProjectCategoryCardIds",
-  args: { projectCategoryId: v.string() },
-  handler: function* doneProjectCategoryCardIds({ projectCategoryId }) {
-    const tasks = yield* selectFrom(
-      tasksTable,
-      "byCategoryIdOrderStates",
-    ).where((q) =>
-      q.eq("projectCategoryId", projectCategoryId).eq("state", "done"),
-    );
-
-    return tasks
-      .sort((a, b) => b.lastToggledAt - a.lastToggledAt)
-      .map((p) => p.id);
-  },
-});
-
 export const doneProjectCategoryCardsForDisplay = selector({
   name: "doneProjectCategoryCardsForDisplay",
-  args: { projectCategoryId: v.string() },
-  handler: function* doneProjectCategoryCardsForDisplay({ projectCategoryId }) {
-    const tasks = yield* selectFrom(
-      tasksTable,
-      "byCategoryIdOrderStates",
-    ).where((q) =>
-      q.eq("projectCategoryId", projectCategoryId).eq("state", "done"),
-    );
-    const cards = (tasks as Task[]).sort(
-      (a, b) => b.lastToggledAt - a.lastToggledAt,
-    );
+  args: { projectCategoryId: v.string(), limited: v.boolean() },
+  handler: function* doneProjectCategoryCardsForDisplay({
+    projectCategoryId,
+    limited,
+  }) {
+    const tasks = yield* selectFrom(tasksTable, "byCategoryIdStatesToggledAt")
+      .where((q) =>
+        q.eq("projectCategoryId", projectCategoryId).eq("state", "done"),
+      )
+      // fetch one more, so UI will show "Show more" button and limit to show only 5 cards
+      .limit(limited ? 6 : 9999)
+      .order("desc");
 
     return yield* projectCategoryCardsForDisplay({
-      cards,
-      cardWrappers: cards,
+      cards: tasks,
+      cardWrappers: tasks,
     });
-  },
-});
-
-export const doneProjectCategoryCardIdsExceptDailies = selector({
-  name: "doneProjectCategoryCardIdsExceptDailies",
-  args: {
-    projectCategoryId: v.string(),
-    exceptDailyListIds: v.array(v.string()),
-  },
-  handler: function* doneProjectCategoryCardIdsExceptDailies({
-    projectCategoryId,
-    exceptDailyListIds,
-  }): Generator<unknown, string[], unknown> {
-    const exceptTaskIds = yield* dailyListAllTaskIds({
-      dailyListIds: exceptDailyListIds,
-    });
-
-    const taskIds = yield* doneProjectCategoryCardIds({ projectCategoryId });
-
-    return taskIds.filter((id) => !exceptTaskIds.has(id));
   },
 });
 

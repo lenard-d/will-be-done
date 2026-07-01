@@ -1,12 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
-  useDispatch,
-  useSelect,
-  useSyncSelector,
-} from "@will-be-done/hyperdb-lib";
-import { flushSync } from "react-dom";
-import {
-  appCanDrop,
   createCategory,
   createProjectCategoryTask,
   deleteCategories,
@@ -75,30 +70,29 @@ const CategorySection = ({
   categoryId: string;
   projectId: string;
 }) => {
-  const dispatch = useDispatch();
-  const select = useSelect();
+  const dispatch = useAsyncDispatch();
   const columnRef = useRef<HTMLDivElement>(null);
   const [isDndOver, setIsDndOver] = useState(false);
   const [isPlaceholderFocused, setIsPlaceholderFocused] = useState(false);
 
-  const category = useSyncSelector({
+  const { data: category } = useAsyncSelector({
     selector: projectCategoryByIdOrDefault,
     args: { id: categoryId },
   });
 
-  const cardsForDisplay = useSyncSelector({
+  const { data: cardsForDisplay = [] } = useAsyncSelector({
     selector: projectCategoryCardsForDisplayChildren,
-    args: { projectCategoryId: category.id },
-  });
-
-  const doneCardsForDisplay = useSyncSelector({
-    selector: doneProjectCategoryCardsForDisplay,
-    args: { projectCategoryId: categoryId },
+    args: { projectCategoryId: category?.id ?? categoryId },
   });
 
   const [isShowMore, setIsShowMore] = useState(false);
+  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
+    selector: doneProjectCategoryCardsForDisplay,
+    args: { projectCategoryId: categoryId, limited: !isShowMore },
+  });
 
   useEffect(() => {
+    if (!category) return;
     invariant(columnRef.current);
     return dropTargetForElements({
       element: columnRef.current,
@@ -109,14 +103,7 @@ const CategorySection = ({
       canDrop: ({ source }) => {
         const data = source.data;
         if (!isModelDNDData(data)) return false;
-        return select(
-          appCanDrop({
-            id: categoryId,
-            modelType: category.type,
-            dropId: data.modelId,
-            dropModelType: data.modelType,
-          }),
-        );
+        return true;
       },
       getIsSticky: () => true,
       onDragEnter: () => setIsDndOver(true),
@@ -124,7 +111,7 @@ const CategorySection = ({
       onDragStart: () => setIsDndOver(true),
       onDrop: () => setIsDndOver(false),
     });
-  }, [categoryId, category.type, select]);
+  }, [category, categoryId]);
 
   const visibleDoneIds = useMemo(() => {
     if (isShowMore) return doneCardsForDisplay;
@@ -132,40 +119,40 @@ const CategorySection = ({
   }, [doneCardsForDisplay, isShowMore]);
 
   const handleTitleClick = async () => {
+    if (!category) return;
     const newTitle = await promptDialog("Section name", category.title);
     if (newTitle == null || newTitle === "") return;
-    dispatch(updateCategory({ categoryId, category: { title: newTitle } }));
+    await dispatch(
+      updateCategory({ categoryId, category: { title: newTitle } }),
+    );
   };
 
   const handleAddTask = () => {
     prepareTextInputFocus();
 
-    let focusKey: ReturnType<typeof buildFocusKey> | undefined;
-
-    // eslint-disable-next-line react-dom/no-flush-sync -- iOS opens the keyboard only when the editable task is focused during the tap.
-    flushSync(() => {
-      const task = dispatch(
+    void (async () => {
+      const task = await dispatch(
         createProjectCategoryTask({ categoryId, position: "prepend" }),
       );
-      focusKey = buildFocusKey(task.id, "task");
+      const focusKey = buildFocusKey(task.id, "task");
       useFocusStore.getState().editByKey(focusKey);
-    });
 
-    if (!focusKey) return;
+      if (focusTaskTitleTextareaByKey(focusKey)) return;
 
-    const key = focusKey;
-    if (focusTaskTitleTextareaByKey(key)) return;
-
-    window.requestAnimationFrame(() => {
-      focusTaskTitleTextareaByKey(key);
-    });
+      window.requestAnimationFrame(() => {
+        focusTaskTitleTextareaByKey(focusKey);
+      });
+    })();
   };
 
   const handleDelete = () => {
+    if (!category) return;
     if (confirm(`Delete category "${category.title}"?`)) {
-      dispatch(deleteCategories({ ids: [categoryId] }));
+      void dispatch(deleteCategories({ ids: [categoryId] }));
     }
   };
+
+  if (!category) return null;
 
   return (
     <div className="mb-5">
@@ -189,7 +176,7 @@ const CategorySection = ({
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
             type="button"
-            onClick={() => dispatch(moveLeft({ categoryId: categoryId }))}
+            onClick={() => void dispatch(moveLeft({ categoryId: categoryId }))}
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move up"
           >
@@ -197,7 +184,7 @@ const CategorySection = ({
           </button>
           <button
             type="button"
-            onClick={() => dispatch(moveRight({ categoryId: categoryId }))}
+            onClick={() => void dispatch(moveRight({ categoryId: categoryId }))}
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move down"
           >
@@ -328,13 +315,13 @@ export const ProjectTaskPanel = ({
   projectId: string;
   embedded?: boolean;
 }) => {
-  const dispatch = useDispatch();
-  const project = useSyncSelector({
+  const dispatch = useAsyncDispatch();
+  const { data: project } = useAsyncSelector({
     selector: projectByIdOrDefault,
     args: { id: projectId },
   });
 
-  const categories = useSyncSelector({
+  const { data: categories = [] } = useAsyncSelector({
     selector: projectCategoriesByProjectId,
     args: { projectId: projectId },
   });
@@ -342,7 +329,7 @@ export const ProjectTaskPanel = ({
   const handleAddSection = async () => {
     const title = await promptDialog("Section name");
     if (!title) return;
-    dispatch(
+    await dispatch(
       createCategory({
         categoryDraft: { projectId, title },
         position: "append",
@@ -364,6 +351,8 @@ export const ProjectTaskPanel = ({
       </div>
     );
   }
+
+  if (!project) return null;
 
   return (
     <div className="h-full flex flex-col">

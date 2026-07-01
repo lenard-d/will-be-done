@@ -4,7 +4,7 @@ import {
   selectFrom,
   upsert,
   v,
-} from "@will-be-done/hyperdb-lib";
+} from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { uuidv7 } from "uuidv7";
 import {
@@ -41,18 +41,33 @@ export const getBackupById = selector({
 
 export const getBackupsByTier = selector({
   name: "getBackupsByTier",
-  args: { tier: v.union(v.literal("hourly"), v.literal("daily"), v.literal("weekly"), v.literal("monthly")) },
+  args: {
+    tier: v.union(
+      v.literal("hourly"),
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+    ),
+  },
   handler: function* getBackupsByTier({ tier }) {
-    const backups = yield* selectFrom(backupStateTable, "byTierScheduledAt").where((q) =>
-      q.eq("tier", tier),
-    );
+    const backups = yield* selectFrom(
+      backupStateTable,
+      "byTierScheduledAt",
+    ).where((q) => q.eq("tier", tier));
     return backups.reverse() as BackupState[];
   },
 });
 
 export const getCompletedBackupsByTier = selector({
   name: "getCompletedBackupsByTier",
-  args: { tier: v.union(v.literal("hourly"), v.literal("daily"), v.literal("weekly"), v.literal("monthly")) },
+  args: {
+    tier: v.union(
+      v.literal("hourly"),
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+    ),
+  },
   handler: function* getCompletedBackupsByTier({ tier }) {
     const allBackups = yield* getBackupsByTier({ tier });
     return allBackups.filter((b) => b.status === "completed");
@@ -61,7 +76,14 @@ export const getCompletedBackupsByTier = selector({
 
 export const getTierState = selector({
   name: "getTierState",
-  args: { tier: v.union(v.literal("hourly"), v.literal("daily"), v.literal("weekly"), v.literal("monthly")) },
+  args: {
+    tier: v.union(
+      v.literal("hourly"),
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+    ),
+  },
   handler: function* getTierState({ tier }) {
     const states = yield* selectFrom(backupTierStateTable, "byTier")
       .where((q) => q.eq("tier", tier))
@@ -73,7 +95,12 @@ export const getTierState = selector({
 export const createBackup = action({
   name: "createBackup",
   args: {
-    tier: v.union(v.literal("hourly"), v.literal("daily"), v.literal("weekly"), v.literal("monthly")),
+    tier: v.union(
+      v.literal("hourly"),
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+    ),
     scheduledAt: v.string(),
   },
   handler: function* createBackup({ tier, scheduledAt }) {
@@ -160,10 +187,21 @@ export const failBackup = action({
 export const updateTierState = action({
   name: "updateTierState",
   args: {
-    tier: v.union(v.literal("hourly"), v.literal("daily"), v.literal("weekly"), v.literal("monthly")),
+    tier: v.union(
+      v.literal("hourly"),
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+    ),
     updates: v.partial(backupTierStateTable.v()),
   },
-  handler: function* updateTierState({ tier, updates }: { tier: BackupTier; updates: Partial<Omit<BackupTierState, "id" | "tier">> }) {
+  handler: function* updateTierState({
+    tier,
+    updates,
+  }: {
+    tier: BackupTier;
+    updates: Partial<Omit<BackupTierState, "id" | "tier">>;
+  }) {
     const existing = yield* getTierState({ tier });
 
     if (existing) {
@@ -187,7 +225,12 @@ export const createBackupFile = action({
   name: "createBackupFile",
   args: {
     backupId: v.string(),
-    tier: v.union(v.literal("hourly"), v.literal("daily"), v.literal("weekly"), v.literal("monthly")),
+    tier: v.union(
+      v.literal("hourly"),
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+    ),
     scheduledAt: v.string(),
     fileName: v.string(),
     s3Key: v.string(),
@@ -247,12 +290,17 @@ export const getBackupFiles = selector({
 export const getBackupFilesByTierAndTime = selector({
   name: "getBackupFilesByTierAndTime",
   args: {
-    tier: v.union(v.literal("hourly"), v.literal("daily"), v.literal("weekly"), v.literal("monthly")),
+    tier: v.union(
+      v.literal("hourly"),
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+    ),
     scheduledAt: v.string(),
   },
   handler: function* getBackupFilesByTierAndTime({ tier, scheduledAt }) {
-    const files = yield* selectFrom(backupFileTable, "byTierScheduledAt").where((q) =>
-      q.eq("tier", tier).eq("scheduledAt", scheduledAt),
+    const files = yield* selectFrom(backupFileTable, "byTierScheduledAt").where(
+      (q) => q.eq("tier", tier).eq("scheduledAt", scheduledAt),
     );
     return files as BackupFile[];
   },
@@ -269,7 +317,9 @@ export const deleteBackup = action({
 export const deleteBackupWithFiles = action({
   name: "deleteBackupWithFiles",
   args: { id: v.string() },
-  handler: function* deleteBackupWithFiles({ id }): Generator<unknown, void, unknown> {
+  handler: function* deleteBackupWithFiles({
+    id,
+  }): Generator<unknown, void, unknown> {
     const files = yield* getBackupFiles({ backupId: id });
 
     const fileIds = files.map((f) => f.id);
@@ -280,4 +330,3 @@ export const deleteBackupWithFiles = action({
     yield* deleteRows(backupStateTable, [id]);
   },
 });
-

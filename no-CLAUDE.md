@@ -5,23 +5,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Root Level Commands
-- `bun dev:client` - Start the web client in development mode (Vite dev server)
-- `bun dev:server` - Start the API server in development mode (Fastify + Bun)
+- `pnpm dev:client` - Start the web client in development mode (Vite dev server)
+- `pnpm dev:server` - Start the API server in development mode (Fastify + Bun)
 
 ### Web Client (apps/web/)
-- `bun dev` - Start Vite development server with React 19
-- `bun build` - Build for production (TypeScript check + Vite build)
-- `bun ts` - Run TypeScript compiler check
-- `bun lint` - Run ESLint
-- `bun lint:fix` - Run ESLint with auto-fix
-- `bun test` - Run Vitest tests
-- `bun format` - Format code with Prettier
+- `pnpm dev` - Start Vite development server with React 19
+- `pnpm build` - Build for production (TypeScript check + Vite build)
+- `pnpm ts` - Run TypeScript compiler check
+- `pnpm lint` - Run ESLint
+- `pnpm lint:fix` - Run ESLint with auto-fix
+- `pnpm test` - Run Vitest tests
+- `pnpm format` - Format code with Prettier
 
 ### API Server (apps/api/)
-- `bun dev` - Start development server with Bun (runs src/start.ts)
+- `pnpm dev` - Start development server with Bun (runs src/start.ts)
 
 ### Slices Library (apps/slices/)
-- `bun ts` - Run TypeScript compiler check
+- `pnpm ts` - Run TypeScript compiler check
 
 ## Architecture Overview
 
@@ -325,8 +325,8 @@ The system tracks three types of changes:
 ## Development Workflow
 
 ### Starting Development
-1. Start API server: `bun dev:server` (runs on port 3000)
-2. Start web client: `bun dev:client` (runs on Vite dev server, proxies API)
+1. Start API server: `pnpm dev:server` (runs on port 3000)
+2. Start web client: `pnpm dev:client` (runs on Vite dev server, proxies API)
 3. Access application at `http://localhost:5173` (or Vite's assigned port)
 
 ### Common Tasks

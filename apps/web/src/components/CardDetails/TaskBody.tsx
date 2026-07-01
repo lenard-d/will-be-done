@@ -8,7 +8,8 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { format } from "date-fns";
-import { useDispatch, useSyncSelector } from "@will-be-done/hyperdb-lib";
+import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   createTaskTemplateFromTask,
@@ -36,6 +37,7 @@ import {
   CategoryDetailRow,
   EditableDescription,
 } from "./shared.tsx";
+import { useOpenProject } from "@/hooks/useOpenProject.ts";
 
 export function TaskBody({
   task,
@@ -52,30 +54,33 @@ export function TaskBody({
   setIsEditingDescription: (v: boolean) => void;
   onCardIdChange?: (cardId: string) => void;
 }) {
-  const dispatch = useDispatch();
+  const dispatch = useAsyncDispatch();
   const taskId = task.id;
+  const openProject = useOpenProject();
 
-  const project = useSyncSelector({
+  const { data: project } = useAsyncSelector({
     selector: projectOfCategoryOrDefault,
     args: { categoryId: task.projectCategoryId },
   });
-  const projectCategories = useSyncSelector({
+  const { data: projectCategories = [] } = useAsyncSelector({
     selector: projectCategoriesByProjectId,
-    args: { projectId: project.id },
+    args: { projectId: project?.id ?? "" },
+    enabled: !!project,
+    defaultValue: [],
   });
-  const scheduleDate = useSyncSelector({
+  const { data: scheduleDate } = useAsyncSelector({
     selector: dailyProjectionDateOfTask,
     args: { taskId: taskId },
   });
 
   const taskTemplateId = task.templateId ?? null;
-  const template = useSyncSelector({
+  const { data: template } = useAsyncSelector({
     selector: taskTemplateById,
     args: { id: taskTemplateId ?? "" },
     enabled: !!taskTemplateId,
     defaultValue: undefined,
   });
-  const ruleText = useSyncSelector({
+  const { data: ruleText = "" } = useAsyncSelector({
     selector: taskTemplateRuleText,
     args: { id: taskTemplateId ?? "" },
     enabled: !!taskTemplateId,
@@ -96,7 +101,7 @@ export function TaskBody({
     setIsEditingTitle,
     onSave: useCallback(
       (trimmed: string) =>
-        dispatch(updateTask({ id: taskId, task: { title: trimmed } })),
+        void dispatch(updateTask({ id: taskId, task: { title: trimmed } })),
       [dispatch, taskId],
     ),
   });
@@ -113,7 +118,7 @@ export function TaskBody({
     setIsEditingDescription,
     onSave: useCallback(
       (content: string) =>
-        dispatch(updateTask({ id: taskId, task: { content } })),
+        void dispatch(updateTask({ id: taskId, task: { content } })),
       [dispatch, taskId],
     ),
   });
@@ -125,7 +130,7 @@ export function TaskBody({
         "Remove repeat template? This will unlink all generated tasks.",
       )
     ) {
-      dispatch(deleteTemplates({ taskTemplateIds: [task.templateId] }));
+      void dispatch(deleteTemplates({ taskTemplateIds: [task.templateId] }));
     }
   }, [task.templateId, dispatch]);
 
@@ -133,7 +138,7 @@ export function TaskBody({
     (ruleString: string) => {
       setIsRepeatModalOpen(false);
       if (task.templateId) {
-        dispatch(
+        void dispatch(
           updateTemplate({
             id: task.templateId,
             template: {
@@ -142,24 +147,28 @@ export function TaskBody({
           }),
         );
       } else {
-        const template = dispatch(
-          createTaskTemplateFromTask({
-            task: task,
-            now: Date.now(),
-            data: {
-              repeatRule: ruleString,
-            },
-          }),
-        );
+        void (async () => {
+          const template = await dispatch(
+            createTaskTemplateFromTask({
+              task: task,
+              now: Date.now(),
+              data: {
+                repeatRule: ruleString,
+              },
+            }),
+          );
 
-        useFocusStore
-          .getState()
-          .focusByKey(buildFocusKey(template.id, template.type));
-        onCardIdChange?.(template.id);
+          useFocusStore
+            .getState()
+            .focusByKey(buildFocusKey(template.id, template.type));
+          onCardIdChange?.(template.id);
+        })();
       }
     },
     [task, dispatch, onCardIdChange],
   );
+
+  if (!project) return null;
 
   return (
     <div className="px-3 py-3 space-y-3">
@@ -167,7 +176,7 @@ export function TaskBody({
         icon={
           <CheckboxComp
             checked={task.state === "done"}
-            onChange={() => dispatch(toggleTaskState({ taskId: taskId }))}
+            onChange={() => void dispatch(toggleTaskState({ taskId: taskId }))}
           />
         }
         isEditing={isEditingTitle}
@@ -187,6 +196,7 @@ export function TaskBody({
       <div className="space-y-2 text-xs">
         <ProjectDetailRow
           project={project}
+          onOpenClick={() => openProject(project.id)}
           onEditClick={() => setIsMoveProjectModalOpen(true)}
         />
 
@@ -194,7 +204,7 @@ export function TaskBody({
           projectCategoryId={task.projectCategoryId}
           projectCategories={projectCategories}
           onChange={(categoryId) =>
-            dispatch(
+            void dispatch(
               updateTask({
                 id: taskId,
                 task: {
@@ -300,7 +310,7 @@ export function TaskBody({
         <MoveModal
           setIsOpen={setIsMoveProjectModalOpen}
           handleMove={(projectId) => {
-            dispatch(
+            void dispatch(
               moveTaskToProject({ taskId: taskId, projectId: projectId }),
             );
             setIsMoveProjectModalOpen(false);

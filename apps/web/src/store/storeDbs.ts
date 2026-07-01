@@ -1,10 +1,11 @@
-import { BptreeInmemDriver } from "@will-be-done/hyperdb-lib/drivers/inmemory";
+import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
+import { DB, execAsync, HybridDB, SubscribableDB } from "@will-be-done/hyperdb";
+import { changesTable } from "@will-be-done/slices/common";
 import {
-  DB,
-  execAsync,
-  execSync,
-  SubscribableDB,
-} from "@will-be-done/hyperdb-lib";
+  preloadEntities,
+  taskProjectionsTable,
+  tasksTable,
+} from "@will-be-done/slices/space";
 import { dbIdTrait } from "@will-be-done/slices/traits";
 import { getDevtoolsEnabled } from "@/lib/devtools";
 import { openPersistentDriver } from "./persistentDriver";
@@ -22,7 +23,7 @@ export const createStoreDbs = async (
   const persistentDB = new DB(persistentDriver, {
     traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
     tracer,
-    runtimeValidation: process.env.NODE_ENV === "development",
+    runtimeRowsValidation: process.env.NODE_ENV === "development",
     freezeArgs: process.env.NODE_ENV === "development",
     freezeRows: process.env.NODE_ENV === "development",
     dbName: "persistent",
@@ -30,15 +31,39 @@ export const createStoreDbs = async (
 
   await execAsync(persistentDB.loadTables(syncConfig.persistDBTables));
 
-  const syncDB = new DB(new BptreeInmemDriver(), {
+  const cacheDB = new DB(new BptreeInmemDriver(), {
     traits: [dbIdTrait(syncConfig.dbType, syncConfig.dbId)],
     tracer,
-    dbName: "in-mem",
+    dbName: "hybrid-cache",
   });
 
-  execSync(syncDB.loadTables(syncConfig.inmemDBTables));
+  const hybridDB = new HybridDB(persistentDB, cacheDB);
 
-  const syncSubDb = new SubscribableDB(syncDB);
+  const syncSubDb = new SubscribableDB(hybridDB);
+  await execAsync(syncSubDb.loadTables(syncConfig.persistDBTables));
 
-  return { persistentDB, syncDB, syncSubDb };
+  const canPreloadChanges = syncConfig.persistDBTables.includes(changesTable);
+  const canPreloadTaskProjections =
+    syncConfig.persistDBTables.includes(taskProjectionsTable);
+
+  syncSubDb.afterScan(
+    function* (_db, table, _indexName, _clauses, _selectOptions, results) {
+      if (
+        !canPreloadChanges ||
+        table === changesTable ||
+        results.length === 0
+      ) {
+        return;
+      }
+
+      yield* preloadEntities({
+        ids: results.map((row) => row.id),
+        tableName: table.tableName,
+        preloadTaskProjections:
+          table === tasksTable && canPreloadTaskProjections,
+      });
+    },
+  );
+
+  return { persistentDB, syncSubDb };
 };
