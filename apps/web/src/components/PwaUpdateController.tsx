@@ -3,7 +3,19 @@ import { toast } from "sonner";
 import { useRegisterSW } from "virtual:pwa-register/react";
 
 const UPDATE_TOAST_ID = "pwa-update-available";
-const UPDATE_CHECK_INTERVAL_MS = 10_000;
+const UPDATE_TOAST_PREVIEW_ID = "pwa-update-available-preview";
+const UPDATE_TOAST_PREVIEW_PARAM = "pwa-update-toast";
+const UPDATE_CHECK_INTERVAL_MS = 30_000;
+const shouldPreviewUpdateToastOnLoad =
+  import.meta.env.DEV &&
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).has(UPDATE_TOAST_PREVIEW_PARAM);
+
+type ShowUpdateToastOptions = {
+  id: string;
+  onReload: () => void;
+  onDismiss: () => void;
+};
 
 function isManualBrowserReload() {
   const [navigationEntry] = performance.getEntriesByType(
@@ -15,6 +27,29 @@ function isManualBrowserReload() {
   }
 
   return false;
+}
+
+function shouldPreviewUpdateToast() {
+  return shouldPreviewUpdateToastOnLoad;
+}
+
+function showUpdateToast({ id, onReload, onDismiss }: ShowUpdateToastOptions) {
+  toast("New version available", {
+    id,
+    description: "Reload to start using the latest version.",
+    duration: Infinity,
+    action: {
+      label: "Reload",
+      onClick: onReload,
+    },
+    cancel: {
+      label: "Dismiss",
+      onClick: () => {
+        onDismiss();
+        toast.dismiss(id);
+      },
+    },
+  });
 }
 
 export function PwaUpdateController() {
@@ -36,6 +71,26 @@ export function PwaUpdateController() {
       console.error("Service worker registration failed", error);
     },
   });
+
+  useEffect(() => {
+    if (!shouldPreviewUpdateToast()) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      showUpdateToast({
+        id: UPDATE_TOAST_PREVIEW_ID,
+        onReload: () => {
+          toast.dismiss(UPDATE_TOAST_PREVIEW_ID);
+        },
+        onDismiss: () => {},
+      });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   useEffect(() => {
     if (!registration) {
@@ -118,23 +173,14 @@ export function PwaUpdateController() {
       return;
     }
 
-    toast("New version available", {
+    showUpdateToast({
       id: UPDATE_TOAST_ID,
-      description: "Reload to start using the latest frontend.",
-      duration: Infinity,
-      action: {
-        label: "Reload",
-        onClick: () => {
-          setUpdateToastDismissed(true);
-          void updateServiceWorker(true);
-        },
+      onReload: () => {
+        setUpdateToastDismissed(true);
+        void updateServiceWorker(true);
       },
-      cancel: {
-        label: "Dismiss",
-        onClick: () => {
-          setUpdateToastDismissed(true);
-          toast.dismiss(UPDATE_TOAST_ID);
-        },
+      onDismiss: () => {
+        setUpdateToastDismissed(true);
       },
     });
   }, [needRefresh, updateServiceWorker, updateToastDismissed]);
