@@ -148,6 +148,7 @@ export const PreloadedTaskComp = ({
   newTaskParams,
   displayLastScheduleTime,
   centerScheduleDate,
+  isOnTimeline,
 }: {
   card: Card;
   category: ProjectCategory;
@@ -161,6 +162,7 @@ export const PreloadedTaskComp = ({
   newTaskParams?: Partial<Task>;
   displayLastScheduleTime?: boolean;
   centerScheduleDate?: boolean;
+  isOnTimeline?: boolean;
 }) => {
   const dispatch = useAsyncDispatch();
 
@@ -1095,11 +1097,19 @@ export const PreloadedTaskComp = ({
           "[&[data-suppress-focus-visible=true]]:focus-visible:outline-none",
           isFocused
             ? isTask(card) && card.state === "done"
-              ? "ring-2 ring-done-panel-selected text-done-content"
-              : "ring-2 ring-accent text-content"
+              ? isOnTimeline
+                ? "ring-ring outline-2 outline-dashed outline-done-panel-selected focus-visible:outline-dashed text-done-content"
+                : "ring-2 ring-done-panel-selected text-done-content"
+              : isOnTimeline
+                ? "ring-ring outline-2 outline-dashed outline-accent focus-visible:outline-dashed text-content"
+                : "ring-2 ring-accent text-content"
             : isTask(card) && card.state === "done"
-              ? "ring-done-ring text-done-content hover:ring-ring-hover"
-              : "ring-ring text-content hover:ring-ring-hover",
+              ? isOnTimeline
+                ? "ring-done-ring outline-2 outline-dashed outline-done-panel-selected text-done-content hover:ring-ring-hover"
+                : "ring-done-ring text-done-content hover:ring-ring-hover"
+              : isOnTimeline
+                ? "ring-ring outline-2 outline-dashed outline-content-tinted-2 text-content hover:ring-ring-hover"
+                : "ring-ring text-content hover:ring-ring-hover",
         )}
         style={{}}
         onClick={() =>

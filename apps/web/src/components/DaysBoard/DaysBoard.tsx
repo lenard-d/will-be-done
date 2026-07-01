@@ -374,6 +374,7 @@ const BoardView = ({
               <ProjectView
                 selectedProjectId={selectedProjectId}
                 projectLink={ProjectLink}
+                selectedDate={selectedDate}
               />
             </div>
           </div>

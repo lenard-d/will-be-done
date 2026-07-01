@@ -1,6 +1,7 @@
 import { PreloadedTaskComp } from "../Task/Task.tsx";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import { useMemo, useState } from "react";
+import { addDays, startOfDay } from "date-fns";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { projectItemsExceptTaskIds } from "./selectors.ts";
@@ -37,12 +38,18 @@ const ProjectTasksColumn = ({
   project,
   category,
   exceptTaskIds,
+  weekDayTimes,
 }: {
   project: Project;
   category: ProjectCategory;
   exceptTaskIds?: Set<string>;
+  weekDayTimes?: Set<number>;
 }) => {
   const dispatch = useAsyncDispatch();
+
+  const isOnDisplayedWeek = (lastScheduleTime: Date | undefined) =>
+    !!lastScheduleTime &&
+    !!weekDayTimes?.has(startOfDay(lastScheduleTime).getTime());
 
   const { data: cardsForDisplay = [] } = useAsyncSelector({
     selector: projectCategoryCardsForDisplayChildren,
@@ -241,6 +248,7 @@ const ProjectTasksColumn = ({
               displayedUnderProjectId={project.id}
               hasCheclistItems={displayData.hasChecklist}
               displayLastScheduleTime
+              isOnTimeline={isOnDisplayedWeek(displayData.lastScheduleTime)}
             />
           );
         })}
@@ -256,6 +264,7 @@ const ProjectTasksColumn = ({
               displayedUnderProjectId={project.id}
               hasCheclistItems={displayData.hasChecklist}
               displayLastScheduleTime
+              isOnTimeline={isOnDisplayedWeek(displayData.lastScheduleTime)}
             />
           );
         })}
@@ -275,8 +284,10 @@ const ProjectTasksColumn = ({
 
 export const ProjectItemsList = ({
   project,
+  selectedDate,
 }: {
   project: Project;
+  selectedDate?: Date;
 }) => {
   const { data: categories = [] } = useAsyncSelector({
     selector: projectCategoriesByProjectId,
@@ -287,6 +298,14 @@ export const ProjectItemsList = ({
     args: {},
   });
 
+  const weekDayTimes = useMemo(() => {
+    if (!selectedDate) return undefined;
+    const start = startOfDay(selectedDate);
+    return new Set(
+      Array.from({ length: 7 }, (_, i) => addDays(start, i).getTime()),
+    );
+  }, [selectedDate]);
+
   return (
     <>
       <TasksColumnGrid columnsCount={categories.length}>
@@ -296,6 +315,7 @@ export const ProjectItemsList = ({
             category={group}
             project={project}
             exceptTaskIds={exceptTaskIds}
+            weekDayTimes={weekDayTimes}
           />
         ))}
       </TasksColumnGrid>
