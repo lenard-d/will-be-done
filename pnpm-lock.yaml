@@ -440,6 +440,9 @@ importers:
       wa-sqlite:
         specifier: git+https://github.com/rhashimoto/wa-sqlite.git#idbbatchatomic-skip-writes
         version: https://codeload.github.com/rhashimoto/wa-sqlite/tar.gz/c7375512180a15783434d54c35bdc6313bd3b866
+      workbox-window:
+        specifier: ^7.4.1
+        version: 7.4.1
       zod:
         specifier: ^4.1.13
         version: 4.4.3
