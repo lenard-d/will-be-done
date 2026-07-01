@@ -94,7 +94,6 @@ export const getChangesetAfter = selector({
   name: "getChangesetAfter",
   args: {
     after: v.string(),
-    requesterClientId: v.optional(v.string()),
     registeredSyncableTableNameMap: v.record(
       v.string(),
       tableDefinitionArgSchema,
@@ -102,7 +101,6 @@ export const getChangesetAfter = selector({
   },
   handler: function* getChangesetAfter({
     after,
-    requesterClientId,
     registeredSyncableTableNameMap,
   }) {
     const allChangesToSend = yield* allChangesAfter({ after });
@@ -115,10 +113,7 @@ export const getChangesetAfter = selector({
       }
     }
 
-    const changesToSend =
-      requesterClientId == null
-        ? allChangesToSend
-        : allChangesToSend.filter((c) => c.clientId !== requesterClientId);
+    const changesToSend = allChangesToSend;
 
     if (changesToSend.length === 0) {
       return { changesets: [], maxClock };

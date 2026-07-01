@@ -679,7 +679,7 @@ describe("first-creator-wins merge", () => {
     expect(changesets[0]!.data).toHaveLength(1205);
   });
 
-  it("filters changes from the requesting client while preserving max clock", () => {
+  it("returns requester changes so server-merged state is not skipped", () => {
     resetClock();
     const db = createDB();
 
@@ -713,7 +713,6 @@ describe("first-creator-wins merge", () => {
       function* () {
         return yield* getChangesetAfter({
           after: "",
-          requesterClientId: "local-client",
           registeredSyncableTableNameMap: registeredTables,
         });
       },
@@ -722,7 +721,9 @@ describe("first-creator-wins merge", () => {
 
     expect(maxClock).toBe("0000000030-0001-local");
     expect(changesets).toHaveLength(1);
-    expect(changesets[0]!.data).toHaveLength(1);
-    expect(changesets[0]!.data[0]!.change.entityId).toBe("remote-change");
+    expect(changesets[0]!.data.map((d) => d.change.entityId).sort()).toEqual([
+      "own-change",
+      "remote-change",
+    ]);
   });
 });
