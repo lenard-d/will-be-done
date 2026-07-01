@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { addDays, startOfDay } from "date-fns";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
-import { projectItemsExceptTaskIds } from "./selectors.ts";
 import {
   createCategory,
   createProjectCategoryTask,
@@ -37,12 +36,10 @@ import { promptDialog } from "@/components/ui/prompt-dialog-service";
 const ProjectTasksColumn = ({
   project,
   category,
-  exceptTaskIds,
   weekDayTimes,
 }: {
   project: Project;
   category: ProjectCategory;
-  exceptTaskIds?: Set<string>;
   weekDayTimes?: Set<number>;
 }) => {
   const dispatch = useAsyncDispatch();
@@ -85,17 +82,11 @@ const ProjectTasksColumn = ({
   };
 
   const finalDoneIds = useMemo(() => {
-    const ids = (() => {
-      if (isShowMore) {
-        return doneCardsForDisplay;
-      }
-      return doneCardsForDisplay.slice(0, 5);
-    })();
-
-    return exceptTaskIds
-      ? ids.filter((displayData) => !exceptTaskIds.has(displayData.card.id))
-      : ids;
-  }, [doneCardsForDisplay, exceptTaskIds, isShowMore]);
+    if (isShowMore) {
+      return doneCardsForDisplay;
+    }
+    return doneCardsForDisplay.slice(0, 5);
+  }, [doneCardsForDisplay, isShowMore]);
 
   return (
     <TasksColumn
@@ -231,12 +222,7 @@ const ProjectTasksColumn = ({
       }
     >
       <div className="flex flex-col gap-4 w-full py-4">
-        {(exceptTaskIds
-          ? cardsForDisplay.filter(
-              (displayData) => !exceptTaskIds.has(displayData.card.id),
-            )
-          : []
-        ).map((displayData) => {
+        {cardsForDisplay.map((displayData) => {
           return (
             <PreloadedTaskComp
               key={displayData.cardWrapper.id}
@@ -293,10 +279,6 @@ export const ProjectItemsList = ({
     selector: projectCategoriesByProjectId,
     args: { projectId: project.id },
   });
-  const { data: exceptTaskIds = new Set<string>() } = useAsyncSelector({
-    selector: projectItemsExceptTaskIds,
-    args: {},
-  });
 
   const weekDayTimes = useMemo(() => {
     if (!selectedDate) return undefined;
@@ -314,7 +296,6 @@ export const ProjectItemsList = ({
             key={group.id}
             category={group}
             project={project}
-            exceptTaskIds={exceptTaskIds}
             weekDayTimes={weekDayTimes}
           />
         ))}
