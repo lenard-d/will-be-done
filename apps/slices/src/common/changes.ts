@@ -113,13 +113,11 @@ export const getChangesetAfter = selector({
       }
     }
 
-    const changesToSend = allChangesToSend;
-
-    if (changesToSend.length === 0) {
+    if (allChangesToSend.length === 0) {
       return { changesets: [], maxClock };
     }
 
-    const groupedChanges = groupBy(changesToSend, (c) => c.tableName);
+    const groupedChanges = groupBy(allChangesToSend, (c) => c.tableName);
 
     for (const [tableName, changes] of Object.entries(groupedChanges)) {
       const table = registeredSyncableTableNameMap[tableName] as

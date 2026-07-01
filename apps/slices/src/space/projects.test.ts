@@ -494,6 +494,8 @@ describe("moving stashed tasks through app drops", () => {
       [],
     );
 
+    expect(taskIds).toContain(stashedTask.id);
+    expect(taskIds).toContain(targetTask.id);
     expect(taskIds.indexOf(stashedTask.id)).toBeLessThan(
       taskIds.indexOf(targetTask.id),
     );
