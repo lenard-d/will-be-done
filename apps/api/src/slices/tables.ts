@@ -76,8 +76,7 @@ export const backupFileTable = defineTable("backup_file", {
   createdAt: v.string(),
 })
   .index("byBackupId", ["backupId"])
-  .index("byTierScheduledAt", ["tier", "scheduledAt"])
-  .index("byS3Key", ["s3Key"], { type: "hash" });
+  .index("byTierScheduledAt", ["tier", "scheduledAt"]);
 export type BackupFile = ExtractSchema<typeof backupFileTable>;
 
 export const backupTierStateTable = defineTable("backup_tier_state", {
@@ -88,5 +87,5 @@ export const backupTierStateTable = defineTable("backup_tier_state", {
   lastCompletedAt: nullableString(),
   consecutiveFailures: v.number(),
   isBackupInProgress: v.boolean(),
-}).index("byTier", ["tier"], { type: "hash" });
+}).index("byTier", ["tier"]);
 export type BackupTierState = ExtractSchema<typeof backupTierStateTable>;

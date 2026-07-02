@@ -140,7 +140,7 @@ function* refreshScheduledTodoTasksForDailyLists(
 
   const projections = yield* selectFrom(
     taskProjectionsTable,
-    "byDailyListId",
+    "byDailyListIdTokenOrdered",
   ).where((q) =>
     uniqueDailyListIds.map((dailyListId) => q.eq("dailyListId", dailyListId)),
   );

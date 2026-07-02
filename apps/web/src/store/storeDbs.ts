@@ -37,7 +37,9 @@ export const createStoreDbs = async (
     dbName: "hybrid-cache",
   });
 
-  const hybridDB = new HybridDB(persistentDB, cacheDB);
+  const hybridDB = new HybridDB(persistentDB, cacheDB, {
+    debug: (e) => console.debug("skip-cache", e),
+  });
 
   const syncSubDb = new SubscribableDB(hybridDB);
   await execAsync(syncSubDb.loadTables(syncConfig.persistDBTables));

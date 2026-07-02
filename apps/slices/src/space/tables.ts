@@ -35,7 +35,7 @@ export const tasksTable = defineTable("tasks", {
     "state",
     "lastToggledAt",
   ])
-  .index("byTemplateId", ["templateId"], { type: "hash" });
+  .index("byTemplateId", ["templateId"]);
 registerSpaceSyncableTable(tasksTable, taskType);
 
 export type Task = ExtractSchema<typeof tasksTable>;
@@ -75,8 +75,7 @@ export const projectsTable = defineTable("projects", {
   createdAt: v.number(),
 })
   .index("byIds", ["id"])
-  .index("byOrderToken", ["orderToken"])
-  .index("byIsInbox", ["isInbox"], { type: "hash" });
+  .index("byOrderToken", ["orderToken"]);
 registerSpaceSyncableTable(projectsTable, projectType);
 export type Project = ExtractSchema<typeof projectsTable>;
 export const isProject = isObjectType<Project>(projectType);
@@ -88,7 +87,7 @@ export const dailyListsTable = defineTable("daily_lists", {
   date: v.string(),
 })
   .index("byIds", ["id"])
-  .index("byDate", ["date"], { type: "hash" });
+  .index("byDate", ["date"], { type: "uniqhash" });
 registerSpaceSyncableTable(dailyListsTable, dailyListType);
 
 export type DailyList = ExtractSchema<typeof dailyListsTable>;
@@ -103,7 +102,6 @@ export const taskProjectionsTable = defineTable("task_projections", {
   createdAt: v.number(),
 })
   .index("byIds", ["id"])
-  .index("byDailyListId", ["dailyListId"], { type: "hash" })
   .index("byDailyListIdTokenOrdered", ["dailyListId", "orderToken"]);
 registerSpaceSyncableTable(taskProjectionsTable, projectionType);
 
@@ -147,7 +145,7 @@ export const scheduledTodoTasksTable = defineTable("scheduled_todo_tasks", {
 })
   .index("byIds", ["id"])
   .index("byScheduledAt", ["scheduledAt"])
-  .index("byProjectCategoryId", ["projectCategoryId"], { type: "hash" });
+  .index("byProjectCategoryId", ["projectCategoryId"]);
 export type ScheduledTodoTask = ExtractSchema<typeof scheduledTodoTasksTable>;
 
 export const spaceMigrationsTable = defineTable("space_migrations", {

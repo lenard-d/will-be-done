@@ -10,7 +10,6 @@ export const changesTable = defineTable("changes", {
   clientId: v.string(),
   changes: v.record(v.string(), v.string()),
 })
-  .index("byEntityId", ["entityId"], { type: "hash" })
   .index("byEntityIdAndTableName", ["entityId", "tableName"])
   .index("byUpdatedAt", ["updatedAt"]);
 export type Change = ExtractSchema<typeof changesTable>;
