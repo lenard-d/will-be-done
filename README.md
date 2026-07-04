@@ -8,6 +8,8 @@ It is also local-first: your tasks stay available offline, changes feel instant,
 
 I want it to feel fast in the same way Linear feels fast. The app should open straight into your tasks, without a big loading spinner first. It reads from local persistent storage on demand, so startup should stay quick even after years of saved tasks.
 
+Under the hood, Will Be Done runs on [HyperDB](https://github.com/will-be-done/hyperdb), my own local-first database layer. I built it after more than two years of researching what kind of database would actually fit the apps I want to make: offline-first, reactive, fast at startup, and able to share the same typed data logic between the browser and the server.
+
 [Try the live demo](https://demo.will-be-done.app) | [Use the cloud app](https://app.will-be-done.app/signup) | [Download desktop app](https://github.com/will-be-done/will-be-done/releases)
 
 <img width="3002" height="1908" alt="Will Be Done weekly planning view" src="https://github.com/user-attachments/assets/b36b1797-83f5-4eca-92c3-75dd7b42a2ac" />
