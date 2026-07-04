@@ -6,7 +6,10 @@ import { createLocalPersistQueue } from "./localPersistQueue";
 import { getClientId, getDbName, initClock } from "./syncClock";
 import { registerSyncChangeHooks } from "./syncChangeHooks";
 import { Syncer } from "./syncer";
-import { getPersistentDriverKind } from "./persistentDriver";
+import {
+  getPersistentDriverKind,
+  resolvePersistentDriverKind,
+} from "./persistentDriver";
 import { resetEmptyPersistedSyncCursor } from "./syncActions";
 import { createStoreDbs } from "./storeDbs";
 import type { SyncConfig } from "./syncTypes";
@@ -33,7 +36,8 @@ export const initDbStore = async (
   syncConfig: SyncConfig,
 ): Promise<SubscribableDB> => {
   const dbName = getDbName(syncConfig);
-  const cacheKey = `${dbName}:${getPersistentDriverKind(dbName)}`;
+  const persistentDriverKind = await resolvePersistentDriverKind(dbName);
+  const cacheKey = `${dbName}:${persistentDriverKind}`;
 
   await lock.acquireAsync();
   try {
@@ -41,7 +45,7 @@ export const initDbStore = async (
       return initedDbs[cacheKey];
     }
 
-    const clientId = getClientId(dbName);
+    const clientId = getClientId(dbName, persistentDriverKind);
     const nextClock = initClock(clientId);
     const { persistentDB, syncSubDb } = await createStoreDbs(
       dbName,

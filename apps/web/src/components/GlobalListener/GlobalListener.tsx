@@ -197,10 +197,10 @@ export function GlobalListener() {
                 if (!isModelDNDData(t.data)) {
                   return [] as const;
                 }
-                const entity = await selectAsync(
-                  db,
-                  appById({ id: t.data.modelId, modelType: t.data.modelType }),
-                );
+                const entity = await selectAsync(db, {
+                  selector: appById,
+                  args: { id: t.data.modelId, modelType: t.data.modelType },
+                });
                 if (!entity) {
                   // Virtual models (e.g. stash) have no DB row — use DnD data directly
                   return [

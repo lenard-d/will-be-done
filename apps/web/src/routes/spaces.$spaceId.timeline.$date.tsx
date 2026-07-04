@@ -5,7 +5,7 @@ import { addDays, parse, startOfDay } from "date-fns";
 import { GlobalLayout } from "@/components/Layout/GlobalLayout.tsx";
 import { Board } from "@/components/DaysBoard/DaysBoard.tsx";
 import { selectedProject } from "@/components/ProjectView/selectors.ts";
-import { asyncDispatch, preloadSelector } from "@will-be-done/hyperdb";
+import { asyncDispatch, preloadSelectorAsync } from "@will-be-done/hyperdb";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
   createManyDailyListsIfNotPresent,
@@ -42,54 +42,60 @@ export const Route = createFileRoute("/spaces/$spaceId/timeline/$date")({
 
     await asyncDispatch(db, createManyDailyListsIfNotPresent({ dates }));
 
-    const dailyLists = await preloadSelector(db, dailyListsByDates, {
-      dates,
+    const dailyLists = await preloadSelectorAsync(db, {
+      selector: dailyListsByDates,
+      args: { dates },
     });
 
-    const inboxProjectId = await preloadSelector(db, getInboxProjectId, {});
+    const inboxProjectId = await preloadSelectorAsync(db, {
+      selector: getInboxProjectId,
+      args: {},
+    });
     const selectedProjectId =
       deps.projectId === "inbox" ? inboxProjectId : deps.projectId;
-    const project = await preloadSelector(db, selectedProject, {
-      selectedProjectId,
+    const project = await preloadSelectorAsync(db, {
+      selector: selectedProject,
+      args: { selectedProjectId },
     });
 
     appendPromise(
-      preloadSelector(db, projectsWithTaskStats, {
-        currentDate: startOfDay(new Date()).getTime(),
+      preloadSelectorAsync(db, {
+        selector: projectsWithTaskStats,
+        args: { currentDate: startOfDay(new Date()).getTime() },
       }),
     );
 
-    const projectCategories = await preloadSelector(
-      db,
-      projectCategoriesByProjectId,
-      {
-        projectId: project.id,
-      },
-    );
+    const projectCategories = await preloadSelectorAsync(db, {
+      selector: projectCategoriesByProjectId,
+      args: { projectId: project.id },
+    });
 
     for (const category of projectCategories) {
       appendPromise(
-        preloadSelector(db, projectCategoryCardsForDisplayChildren, {
-          projectCategoryId: category.id,
+        preloadSelectorAsync(db, {
+          selector: projectCategoryCardsForDisplayChildren,
+          args: { projectCategoryId: category.id },
         }),
       );
       appendPromise(
-        preloadSelector(db, doneProjectCategoryCardsForDisplay, {
-          projectCategoryId: category.id,
-          limited: true,
+        preloadSelectorAsync(db, {
+          selector: doneProjectCategoryCardsForDisplay,
+          args: { projectCategoryId: category.id, limited: true },
         }),
       );
     }
 
     for (const dailyList of dailyLists) {
       appendPromise(
-        preloadSelector(db, dailyProjectionChildrenForDisplay, {
-          dailyListId: dailyList.id,
+        preloadSelectorAsync(db, {
+          selector: dailyProjectionChildrenForDisplay,
+          args: { dailyListId: dailyList.id },
         }),
       );
       appendPromise(
-        preloadSelector(db, doneDailyProjectionChildrenForDisplay, {
-          dailyListId: dailyList.id,
+        preloadSelectorAsync(db, {
+          selector: doneDailyProjectionChildrenForDisplay,
+          args: { dailyListId: dailyList.id },
         }),
       );
     }

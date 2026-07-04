@@ -1,5 +1,5 @@
 import { DB } from "@will-be-done/hyperdb";
-import { select } from "@will-be-done/hyperdb";
+import { selectSync } from "@will-be-done/hyperdb";
 import type { BackupManager } from "./BackupManager";
 import type { BackupTier, BackupConfig } from "./types";
 import { ScheduledTimeCalculator } from "./ScheduledTimeCalculator";
@@ -45,7 +45,10 @@ export class BackupScheduler {
       const tierStates = new Map();
 
       for (const tier of allTiers) {
-        const state = select(this.mainDB, getTierState({ tier }));
+        const state = selectSync(this.mainDB, {
+          selector: getTierState,
+          args: { tier },
+        });
         tierStates.set(tier, state);
       }
 

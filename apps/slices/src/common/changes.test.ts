@@ -3,12 +3,12 @@ import {
   DB,
   execSync,
   syncDispatch,
-  runSelector,
   deleteRows,
   insert,
   upsert,
   createAction,
   createSelector,
+  selectSync,
   selectFrom,
   defineTable,
   Row,
@@ -25,6 +25,19 @@ import {
 
 const action = createAction();
 const selector = createSelector();
+
+function runSelector<T>(
+  db: DB,
+  handler: () => Generator<unknown, T, unknown>,
+  _deps: unknown[],
+): T {
+  const testSelector = selector({
+    name: "testSelector",
+    args: {},
+    handler,
+  });
+  return selectSync(db, { selector: testSelector, args: {} });
+}
 
 // A simple test table
 const testTable = defineTable("testItems", {

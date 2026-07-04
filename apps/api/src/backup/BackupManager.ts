@@ -3,7 +3,7 @@ import { readdirSync, unlinkSync, existsSync, mkdirSync } from "fs";
 import { stat, readFile, writeFile } from "fs/promises";
 import path from "path";
 import type { DB } from "@will-be-done/hyperdb";
-import { syncDispatch, select } from "@will-be-done/hyperdb";
+import { syncDispatch, selectSync } from "@will-be-done/hyperdb";
 import { S3Client } from "./S3Client";
 import { RetentionPolicy } from "./RetentionPolicy";
 import { ScheduledTimeCalculator } from "./ScheduledTimeCalculator";
@@ -265,7 +265,10 @@ export class BackupManager {
           );
         }
 
-        const tierState = select(this.mainDB, getTierState({ tier }));
+        const tierState = selectSync(this.mainDB, {
+          selector: getTierState,
+          args: { tier },
+        });
         const consecutiveFailures = (tierState?.consecutiveFailures || 0) + 1;
 
         syncDispatch(
@@ -286,7 +289,10 @@ export class BackupManager {
       console.log(`[Backup] Running cleanup for ${tier} backups`);
 
       // Get all completed backups for this tier
-      const backups = select(this.mainDB, getCompletedBackupsByTier({ tier }));
+      const backups = selectSync(this.mainDB, {
+        selector: getCompletedBackupsByTier,
+        args: { tier },
+      });
 
       const retentionCount = this.retentionPolicy.getRetentionCount(tier);
 
@@ -301,10 +307,10 @@ export class BackupManager {
         for (const backup of backupsToDelete) {
           try {
             // Get all files for this backup
-            const files = select(
-              this.mainDB,
-              getBackupFiles({ backupId: backup.id }),
-            );
+            const files = selectSync(this.mainDB, {
+              selector: getBackupFiles,
+              args: { backupId: backup.id },
+            });
 
             if (files.length > 0) {
               // Delete all files from S3

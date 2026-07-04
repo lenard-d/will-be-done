@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { parse, startOfDay } from "date-fns";
 import { DateView } from "@/components/DateView/DateView.tsx";
-import { asyncDispatch, preloadSelector } from "@will-be-done/hyperdb";
+import { asyncDispatch, preloadSelectorAsync } from "@will-be-done/hyperdb";
 import {
   createManyDailyListsIfNotPresent,
   dailyListsByDates,
@@ -27,21 +27,26 @@ export const Route = createFileRoute(
 
     await asyncDispatch(db, createManyDailyListsIfNotPresent({ dates }));
 
-    const dailyLists = await preloadSelector(db, dailyListsByDates, {
-      dates,
+    const dailyLists = await preloadSelectorAsync(db, {
+      selector: dailyListsByDates,
+      args: { dates },
     });
 
-    appendPromise(preloadSelector(db, inboxProjectId, {}));
+    appendPromise(
+      preloadSelectorAsync(db, { selector: inboxProjectId, args: {} }),
+    );
 
     for (const dailyList of dailyLists) {
       appendPromise(
-        preloadSelector(db, dailyProjectionChildrenForDisplay, {
-          dailyListId: dailyList.id,
+        preloadSelectorAsync(db, {
+          selector: dailyProjectionChildrenForDisplay,
+          args: { dailyListId: dailyList.id },
         }),
       );
       appendPromise(
-        preloadSelector(db, doneDailyProjectionChildrenForDisplay, {
-          dailyListId: dailyList.id,
+        preloadSelectorAsync(db, {
+          selector: doneDailyProjectionChildrenForDisplay,
+          args: { dailyListId: dailyList.id },
         }),
       );
     }

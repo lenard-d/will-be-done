@@ -8,8 +8,12 @@ const PERSISTENT_DRIVER_CHANGED = "will-be-done:persistent-driver-changed";
 
 const PERSISTENT_DRIVER_KEY = "will-be-done:persistent-driver";
 
+const resolvedPersistentDriverKinds: Record<string, PersistentDriverKind> = {};
+
 const legacyPersistentDriverKey = (dbName: string) =>
   `${PERSISTENT_DRIVER_KEY}:${dbName}`;
+
+const waSqliteIndexedDbName = (dbName: string) => `db-${dbName}`;
 
 const isPersistentDriverKind = (
   value: string | null,
@@ -44,17 +48,69 @@ function getLegacyPersistentDriverKind(
   return foundLegacyKind;
 }
 
-export function getPersistentDriverKind(dbName?: string): PersistentDriverKind {
+function getStoredPersistentDriverKind(
+  dbName?: string,
+): PersistentDriverKind | null {
   if (typeof window === "undefined") return "wa-sqlite";
 
   try {
     const value = localStorage.getItem(PERSISTENT_DRIVER_KEY);
     if (isPersistentDriverKind(value)) return value;
 
-    return getLegacyPersistentDriverKind(dbName) ?? "wa-sqlite";
+    return getLegacyPersistentDriverKind(dbName);
   } catch {
-    return "wa-sqlite";
+    return null;
   }
+}
+
+function notifyPersistentDriverKindChanged(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(PERSISTENT_DRIVER_CHANGED));
+  }
+}
+
+export function getPersistentDriverKind(dbName?: string): PersistentDriverKind {
+  const storedKind = getStoredPersistentDriverKind(dbName);
+  if (storedKind) return storedKind;
+
+  if (dbName && resolvedPersistentDriverKinds[dbName]) {
+    return resolvedPersistentDriverKinds[dbName];
+  }
+
+  if (typeof window === "undefined") return "wa-sqlite";
+
+  return "indexeddb";
+}
+
+async function hasExistingWaSqliteDatabase(dbName: string): Promise<boolean> {
+  if (typeof indexedDB === "undefined" || !indexedDB.databases) {
+    return true;
+  }
+
+  try {
+    const databases = await indexedDB.databases();
+    return databases.some(({ name }) => name === waSqliteIndexedDbName(dbName));
+  } catch {
+    return true;
+  }
+}
+
+export async function resolvePersistentDriverKind(
+  dbName: string,
+): Promise<PersistentDriverKind> {
+  const storedKind = getStoredPersistentDriverKind(dbName);
+  if (storedKind) return storedKind;
+
+  const nextKind = (await hasExistingWaSqliteDatabase(dbName))
+    ? "wa-sqlite"
+    : "indexeddb";
+
+  if (resolvedPersistentDriverKinds[dbName] !== nextKind) {
+    resolvedPersistentDriverKinds[dbName] = nextKind;
+    notifyPersistentDriverKindChanged();
+  }
+
+  return nextKind;
 }
 
 export function setPersistentDriverKind(kind: PersistentDriverKind): void {
@@ -64,9 +120,7 @@ export function setPersistentDriverKind(kind: PersistentDriverKind): void {
     // Ignore storage failures so the navigation can still continue.
   }
 
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event(PERSISTENT_DRIVER_CHANGED));
-  }
+  notifyPersistentDriverKindChanged();
 }
 
 function subscribeToPersistentDriverKind(
@@ -101,7 +155,7 @@ export function usePersistentDriverKind(): PersistentDriverKind {
 }
 
 export async function openPersistentDriver(dbName: string) {
-  if (getPersistentDriverKind(dbName) === "indexeddb") {
+  if ((await resolvePersistentDriverKind(dbName)) === "indexeddb") {
     return openIndexedDBDriver(dbName);
   }
 

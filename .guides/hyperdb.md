@@ -5,8 +5,9 @@ Good deep links:
 
 - Quickstart: https://hyperdb.will-be-done.app/start/quickstart/
 - Schemas: https://hyperdb.will-be-done.app/database/schemas/
+- Selectors: https://hyperdb.will-be-done.app/database/selectors/
 - Reading data: https://hyperdb.will-be-done.app/database/reading-data/
-- Writing data: https://hyperdb.will-be-done.app/database/writing-data/
+- Actions: https://hyperdb.will-be-done.app/database/actions/
 - React: https://hyperdb.will-be-done.app/integrations/react/
 - Drivers: https://hyperdb.will-be-done.app/runtime/drivers/
 
@@ -28,8 +29,8 @@ and views that should re-run only when the exact index ranges they read change.
   actions, runtimes, command executors, `HybridDB`, `SubscribableDB`, tracing
   setup, and core types.
 - `@will-be-done/hyperdb/react`: `DBProvider`, `useDB`, `useOptionalDB`,
-  `useSyncSelector`, `useAsyncSelector`, `useDispatch`, `useAsyncDispatch`,
-  `useSelect`, and `useAsyncSelect`.
+  `useSyncSelector`, `useAsyncSelector`, `useSyncDispatch`, `useAsyncDispatch`,
+  `useSelectSync`, and `useSelectAsync`.
 - `@will-be-done/hyperdb/tracing`: tracing store, tracer configuration, and
   trace metadata helpers.
 - `@will-be-done/hyperdb/drivers/inmemory`: `BptreeInmemDriver`.
@@ -49,7 +50,10 @@ import {
   SubscribableDB,
   asyncDispatch,
   createAction,
+  createAsyncSelectorStore,
+  createCachedSelectorStoreAsync,
   createSelector,
+  createCachedSelectorStoreSync,
   defineTable,
   deleteRows,
   execAsync,
@@ -58,9 +62,10 @@ import {
   getCurrentTraits,
   insert,
   or,
-  preloadSelector,
-  select,
+  preloadSelectorAsync,
   selectAsync,
+  selectCachedMaybeAsync,
+  selectSync,
   selectFrom,
   syncDispatch,
   upsert,
@@ -72,9 +77,9 @@ import {
 
 ## Schema Pattern
 
-Every table needs a string `id`. HyperDB creates a built-in hash index named
-`byId`. Add B-tree indexes for sorted/range reads and hash indexes for exact
-single-column lookups.
+Every table needs a string `id`. HyperDB creates a built-in `uniqhash` index
+named `byId`. Add B-tree indexes for sorted/range reads and `uniqhash` indexes
+for exact values that must be unique.
 
 ```ts
 import { defineTable, v, type ExtractSchema } from "@will-be-done/hyperdb";
@@ -83,11 +88,13 @@ export const tasksTable = defineTable("tasks", {
   id: v.string(),
   projectId: v.string(),
   title: v.string(),
+  slug: v.string(),
   state: v.union(v.literal("todo"), v.literal("done")),
   orderToken: v.string(),
   completedAt: v.optional(v.number()),
 })
   .index("byProjectOrder", ["projectId", "orderToken"])
+  .index("bySlug", ["slug"], { type: "uniqhash" })
   .index("byIds", ["id"]);
 
 export type Task = ExtractSchema<typeof tasksTable>;
@@ -132,19 +139,53 @@ export const projectTasks = selector({
 OR queries can return an array or use `or(...)`:
 
 ```ts
-yield* selectFrom(tasksTable, "byProjectOrder").where((q) =>
-  or(q.eq("projectId", "p1"), q.eq("projectId", "p2")),
+yield *
+  selectFrom(tasksTable, "byProjectOrder").where((q) =>
+    or(q.eq("projectId", "p1"), q.eq("projectId", "p2")),
+  );
+```
+
+Run selectors outside React with `selectSync`, `selectAsync`,
+`selectCachedMaybeAsync`, or `preloadSelectorAsync`. Use sync helpers with sync
+drivers and async helpers with async drivers:
+
+```ts
+const rows = selectSync(db, {
+  selector: projectTasks,
+  args: { projectId: "p1" },
+});
+const asyncRows = await selectAsync(db, {
+  selector: projectTasks,
+  args: { projectId: "p1" },
+});
+const cachedRows = await Promise.resolve(
+  selectCachedMaybeAsync(db, {
+    selector: projectTasks,
+    args: { projectId: "p1" },
+  }),
 );
 ```
 
-Run selectors outside React with `select`, `selectAsync`, or
-`preloadSelector`. Use sync helpers with sync drivers and async helpers with
-async drivers:
+For subscriptions outside React, use a selector store. Pick sync vs async by
+whether the selector may yield a promise, and cached vs uncached by whether the
+root selector result should be shared:
 
 ```ts
-const rows = select(db, projectTasks({ projectId: "p1" }));
-const asyncRows = await selectAsync(db, projectTasks({ projectId: "p1" }));
+const store = createCachedSelectorStoreAsync(db, {
+  selector: projectTasks,
+  args: { projectId: "p1" },
+  defaultValue: [],
+});
+
+const unsubscribe = store.subscribe(() => {
+  const snapshot = store.getSnapshot();
+  if (snapshot.status === "success") console.log(snapshot.data);
+});
 ```
+
+Store helpers: `createSelectorStoreSync` (sync uncached),
+`createCachedSelectorStoreSync` (sync cached), `createAsyncSelectorStore`
+(async uncached), and `createCachedSelectorStoreAsync` (async cached).
 
 ## Actions And Writes
 
@@ -153,10 +194,10 @@ that run inside a transaction. Use `insert`, `upsert`, and `deleteRows`.
 
 ```ts
 import {
+  asyncDispatch,
   createAction,
   insert,
   selectFrom,
-  syncDispatch,
   upsert,
   v,
 } from "@will-be-done/hyperdb";
@@ -171,7 +212,7 @@ export const createTask = action({
   args: { id: v.string(), projectId: v.string(), title: v.string() },
   handler: function* ({ id, projectId, title }) {
     yield* insert(tasksTable, [
-      { id, projectId, title, state: "todo", orderToken: id },
+      { id, projectId, title, slug: id, state: "todo", orderToken: id },
     ]);
   },
 });
@@ -188,13 +229,16 @@ export const completeTask = action({
   },
 });
 
-syncDispatch(db, createTask({ id: "t1", projectId: "p1", title: "Ship" }));
+await asyncDispatch(
+  db,
+  createTask({ id: "t1", projectId: "p1", title: "Ship" }),
+);
 ```
 
-Use `syncDispatch(db, action(...))` for synchronous drivers and
-`await asyncDispatch(db, action(...))` for asynchronous drivers. `insert` fails
-on duplicate ids, `upsert` replaces whole rows by id, and `deleteRows` deletes
-by id.
+Use `await asyncDispatch(db, action(...))` for HybridDB and other asynchronous
+drivers. Use `syncDispatch(db, action(...))` only for synchronous drivers.
+`insert` fails on duplicate ids, `upsert` replaces whole rows by id, and
+`deleteRows` deletes by id.
 
 ## HybridDB Setup
 
@@ -227,10 +271,32 @@ export async function createAppDB() {
 ```
 
 Use a B-tree full-scan index such as `byIds` for `preloadTables`; the built-in
-`byId` index is a hash index for exact id lookups. `SubscribableDB` adds
+`byId` index is a `uniqhash` index for exact id lookups. `SubscribableDB` adds
 revisions, subscriptions, selector invalidation, and lifecycle hooks. Pure
 in-memory apps can skip `HybridDB` and use `new SubscribableDB(new DB(new
 BptreeInmemDriver()))`.
+
+HybridDB readwrite transactions commit to the in-memory cache first and flush
+their final row changes to the persistent primary afterward. This keeps
+`asyncDispatch` responsive for UI writes. Cached scan intervals keep reading
+from memory while persistence is pending; partially cached scans load only the
+uncovered portions from the primary store and wait for pending flushes only when
+pending old or new row values can affect those primary-read portions. Exact
+`uniqhash` lookups are marked cached when rows are loaded from
+persistence or when the cache transaction commits, so `byId` and other unique
+equality reads can return from memory while persistence is still pending.
+Write transaction scans reuse coverage already known by the committed cache.
+
+Use `new HybridDB(primary, cache, { debug: true })` to log why an uncached scan
+fell through to persistence, waited for pending persistence, or retried a
+failed background flush. Use a callback for structured `HybridDBDebugEvent`
+objects.
+
+If a background flush keeps failing past its bounded retries, HybridDB enters a
+permanent crashed state: `hybrid.isCrashed` becomes `true` and every subsequent
+read, write, or transaction (including cache-only reads) throws
+`HybridDBCrashedError` with the persistence error as its `cause`. Recover by
+creating a new `HybridDB` and reloading tables.
 
 ## React Pattern
 
@@ -282,8 +348,11 @@ export function App({ db }: { db: SubscribableDB }) {
 
 Use `useAsyncSelector` and `useAsyncDispatch` with HybridDB. `useAsyncSelector`
 returns a React Query-style result with `data`, `status`, `error`, fetching
-flags, and `refetch()`. Use `useSyncSelector` / `useDispatch` only for purely
-synchronous drivers.
+flags, and `refetch()`. Its initial snapshot attempts the selector once: sync
+results are visible immediately, while promise results show `defaultValue`,
+`initialData`, or `placeholderData` until that promise resolves. `defaultValue`
+may be a value or a zero-argument function that returns the value. Use
+`useSyncSelector` / `useSyncDispatch` only for purely synchronous drivers.
 
 ## Rules Of Thumb
 
@@ -296,10 +365,8 @@ synchronous drivers.
   cache, async selectors, and async dispatch.
 - Use B-tree indexes for ordering, ranges, composite keys, and full-table
   preloading.
-- Use hash indexes only for exact single-column equality.
+- Use `uniqhash` when an exact single-column value must be unique.
 - For partial updates, read the current row and `upsert` the complete next row.
-- Keep schema, selectors, and actions in shared modules so client and server can
+- Keep schema, selectors, and actions in shared modules/packages so client and server can
   import the same data layer.
-- Add `@will-be-done/hyperdb-devtool` during development when debugging slow
-  selectors or unexpected invalidation.
 

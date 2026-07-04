@@ -1,11 +1,12 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { SqlDriver } from "@will-be-done/hyperdb/drivers/sqlite";
-import { DB, syncDispatch, execSync, select } from "@will-be-done/hyperdb";
+import { DB, syncDispatch, execSync, selectSync } from "@will-be-done/hyperdb";
 import {
   backupStateTable,
   backupTierStateTable,
   backupFileTable,
+  type BackupTier,
   getBackupById,
   getBackupsByTier,
   getCompletedBackupsByTier,
@@ -23,6 +24,24 @@ import {
 
 describe("backup", () => {
   let db: DB;
+  const selectBackupById = (id: string) =>
+    selectSync(db, { selector: getBackupById, args: { id } });
+  const selectBackupsByTier = (tier: BackupTier) =>
+    selectSync(db, { selector: getBackupsByTier, args: { tier } });
+  const selectCompletedBackupsByTier = (tier: BackupTier) =>
+    selectSync(db, { selector: getCompletedBackupsByTier, args: { tier } });
+  const selectBackupFiles = (backupId: string) =>
+    selectSync(db, { selector: getBackupFiles, args: { backupId } });
+  const selectBackupFilesByTierAndTime = (
+    tier: BackupTier,
+    scheduledAt: string,
+  ) =>
+    selectSync(db, {
+      selector: getBackupFilesByTierAndTime,
+      args: { tier, scheduledAt },
+    });
+  const selectTierState = (tier: BackupTier) =>
+    selectSync(db, { selector: getTierState, args: { tier } });
 
   beforeEach(() => {
     // Create a fresh in-memory database for each test
@@ -77,7 +96,7 @@ describe("backup", () => {
         createBackup({ tier: "hourly", scheduledAt }),
       );
 
-      const backup = select(db, getBackupById({ id: backupId }));
+      const backup = selectBackupById(backupId);
 
       expect(backup).toBeDefined();
       expect(backup?.id).toBe(backupId);
@@ -102,7 +121,7 @@ describe("backup", () => {
 
       syncDispatch(db, startBackup({ id: backupId }));
 
-      const backup = select(db, getBackupById({ id: backupId }));
+      const backup = selectBackupById(backupId);
       expect(backup?.status).toBe("running");
       expect(backup?.startedAt).toBeDefined();
       expect(backup?.startedAt).not.toBeNull();
@@ -133,7 +152,7 @@ describe("backup", () => {
         }),
       );
 
-      const backup = select(db, getBackupById({ id: backupId }));
+      const backup = selectBackupById(backupId);
       expect(backup?.status).toBe("completed");
       expect(backup?.completedAt).toBeDefined();
       expect(backup?.totalSizeBytes).toBe(1024000);
@@ -168,7 +187,7 @@ describe("backup", () => {
         failBackup({ id: backupId, error: "Connection timeout" }),
       );
 
-      const backup = select(db, getBackupById({ id: backupId }));
+      const backup = selectBackupById(backupId);
       expect(backup?.status).toBe("failed");
       expect(backup?.completedAt).toBeDefined();
       expect(backup?.error).toBe("Connection timeout");
@@ -205,7 +224,7 @@ describe("backup", () => {
         }),
       );
 
-      const hourlyBackups = select(db, getBackupsByTier({ tier: "hourly" }));
+      const hourlyBackups = selectBackupsByTier("hourly");
 
       expect(hourlyBackups).toHaveLength(2);
       // Should be in descending order (newest first)
@@ -214,7 +233,7 @@ describe("backup", () => {
     });
 
     test("returns empty array when no backups exist for tier", () => {
-      const backups = select(db, getBackupsByTier({ tier: "weekly" }));
+      const backups = selectBackupsByTier("weekly");
       expect(backups).toEqual([]);
     });
   });
@@ -252,10 +271,7 @@ describe("backup", () => {
         }),
       ); // Still pending
 
-      const completedBackups = select(
-        db,
-        getCompletedBackupsByTier({ tier: "hourly" }),
-      );
+      const completedBackups = selectCompletedBackupsByTier("hourly");
 
       expect(completedBackups).toHaveLength(1);
       expect(completedBackups[0].id).toBe(id1);
@@ -289,7 +305,7 @@ describe("backup", () => {
         }),
       );
 
-      const files = select(db, getBackupFiles({ backupId }));
+      const files = selectBackupFiles(backupId);
 
       expect(files).toHaveLength(1);
       expect(files[0].id).toBe(fileId);
@@ -349,7 +365,7 @@ describe("backup", () => {
         }),
       );
 
-      const files = select(db, getBackupFiles({ backupId }));
+      const files = selectBackupFiles(backupId);
 
       expect(files).toHaveLength(2);
       expect(files.map((f) => f.fileName).sort()).toEqual([
@@ -359,7 +375,7 @@ describe("backup", () => {
     });
 
     test("returns empty array when no files exist", () => {
-      const files = select(db, getBackupFiles({ backupId: "nonexistent-id" }));
+      const files = selectBackupFiles("nonexistent-id");
       expect(files).toEqual([]);
     });
   });
@@ -412,12 +428,9 @@ describe("backup", () => {
         }),
       );
 
-      const files = select(
-        db,
-        getBackupFilesByTierAndTime({
-          tier: "hourly",
-          scheduledAt: "2026-02-03T12:00:00.000Z",
-        }),
+      const files = selectBackupFilesByTierAndTime(
+        "hourly",
+        "2026-02-03T12:00:00.000Z",
       );
 
       expect(files).toHaveLength(1);
@@ -469,14 +482,14 @@ describe("backup", () => {
       );
 
       // Verify files exist
-      expect(select(db, getBackupFiles({ backupId }))).toHaveLength(2);
+      expect(selectBackupFiles(backupId)).toHaveLength(2);
 
       // Delete backup with files
       syncDispatch(db, deleteBackupWithFiles({ id: backupId }));
 
       // Verify both backup and files are deleted
-      expect(select(db, getBackupById({ id: backupId }))).toBeUndefined();
-      expect(select(db, getBackupFiles({ backupId }))).toHaveLength(0);
+      expect(selectBackupById(backupId)).toBeUndefined();
+      expect(selectBackupFiles(backupId)).toHaveLength(0);
     });
   });
 
@@ -496,7 +509,7 @@ describe("backup", () => {
         }),
       );
 
-      const tierState = select(db, getTierState({ tier: "hourly" }));
+      const tierState = selectTierState("hourly");
 
       expect(tierState).toBeDefined();
       expect(tierState?.tier).toBe("hourly");
@@ -531,7 +544,7 @@ describe("backup", () => {
         }),
       );
 
-      const tierState = select(db, getTierState({ tier: "hourly" }));
+      const tierState = selectTierState("hourly");
 
       expect(tierState?.lastScheduledTime).toBe("2026-02-03T16:00:00.000Z");
       expect(tierState?.nextScheduledTime).toBe("2026-02-03T20:00:00.000Z");
@@ -563,7 +576,7 @@ describe("backup", () => {
         }),
       );
 
-      const tierState = select(db, getTierState({ tier: "hourly" }));
+      const tierState = selectTierState("hourly");
       expect(tierState?.consecutiveFailures).toBe(2);
     });
 
@@ -576,7 +589,7 @@ describe("backup", () => {
         }),
       );
 
-      let tierState = select(db, getTierState({ tier: "hourly" }));
+      let tierState = selectTierState("hourly");
       expect(tierState?.isBackupInProgress).toBe(true);
 
       syncDispatch(
@@ -587,14 +600,14 @@ describe("backup", () => {
         }),
       );
 
-      tierState = select(db, getTierState({ tier: "hourly" }));
+      tierState = selectTierState("hourly");
       expect(tierState?.isBackupInProgress).toBe(false);
     });
   });
 
   describe("getTierState", () => {
     test("returns undefined when tier state doesn't exist", () => {
-      const tierState = select(db, getTierState({ tier: "hourly" }));
+      const tierState = selectTierState("hourly");
       expect(tierState).toBeUndefined();
     });
 
@@ -607,7 +620,7 @@ describe("backup", () => {
         }),
       );
 
-      const tierState = select(db, getTierState({ tier: "daily" }));
+      const tierState = selectTierState("daily");
       expect(tierState).toBeDefined();
       expect(tierState?.tier).toBe("daily");
     });

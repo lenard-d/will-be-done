@@ -24,7 +24,7 @@ import TextareaAutosize from "react-textarea-autosize";
 import clsx from "clsx";
 import { GripVertical, Plus } from "lucide-react";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
-import { useAsyncSelect, useAsyncSelector } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector, useSelectAsync } from "@will-be-done/hyperdb/react";
 import {
   type ChecklistItem,
   checklistItemById,
@@ -137,7 +137,7 @@ const ChecklistItemComp = ({
   onItemsRemoved: () => void;
 }) => {
   const dispatch = useAsyncDispatch();
-  const select = useAsyncSelect();
+  const select = useSelectAsync();
   const rowRef = useRef<HTMLDivElement | null>(null);
   const dragHandleRef = useRef<HTMLButtonElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -146,7 +146,14 @@ const ChecklistItemComp = ({
   const persistContent = useCallback(
     (content: string) => {
       void (async () => {
-        if (!(await select(checklistItemById({ id: item.id })))) return;
+        if (
+          !(await select({
+            selector: checklistItemById,
+            args: { id: item.id },
+          }))
+        ) {
+          return;
+        }
 
         await dispatch(
           updateChecklistItemContent({ id: item.id, content: content }),
@@ -347,9 +354,10 @@ const ChecklistItemComp = ({
                 e.stopPropagation();
 
                 void (async () => {
-                  const [before, after] = await select(
-                    checklistItemSiblings({ itemId: item.id }),
-                  );
+                  const [before, after] = await select({
+                    selector: checklistItemSiblings,
+                    args: { itemId: item.id },
+                  });
                   flushContent();
                   await dispatch(deleteItems({ ids: [item.id] }));
 
@@ -438,7 +446,6 @@ const ChecklistItemsView = ({
   items,
 }: ChecklistItemsViewProps) => {
   const dispatch = useAsyncDispatch();
-  const select = useAsyncSelect();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
   const isParentDropTargetEnabled = items.length === 0;
@@ -499,7 +506,7 @@ const ChecklistItemsView = ({
       onDragLeave: () => setClosestEdge(null),
       onDrop: () => setClosestEdge(null),
     });
-  }, [isParentDropTargetEnabled, parentId, parentType, select]);
+  }, [isParentDropTargetEnabled, parentId, parentType]);
 
   if (items.length === 0 && !showAddItem) return null;
 

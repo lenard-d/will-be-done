@@ -3,7 +3,8 @@ import {
   DB,
   execSync,
   syncDispatch,
-  runSelector,
+  createSelector,
+  selectSync,
   insert,
   createAction,
   selectFrom,
@@ -28,6 +29,20 @@ import {
 } from "./tables";
 
 const action = createAction();
+const selector = createSelector();
+
+function runSelector<T>(
+  db: DB,
+  handler: () => Generator<unknown, T, unknown>,
+  _deps: unknown[],
+): T {
+  const testSelector = selector({
+    name: "testSelector",
+    args: {},
+    handler,
+  });
+  return selectSync(db, { selector: testSelector, args: {} });
+}
 
 function createDB(timezoneOffsetMinutes: number) {
   // Mock timezone before creating DB/running selectors

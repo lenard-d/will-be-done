@@ -17,7 +17,7 @@ import {
   stashProjectionsTable,
   type Task,
 } from "@will-be-done/slices/space";
-import { asyncDispatch, runSelectorAsync } from "@will-be-done/hyperdb";
+import { asyncDispatch, selectAsync } from "@will-be-done/hyperdb";
 import {
   registeredUserSyncableTableNameMap,
   registeredUserSyncableTables,
@@ -88,13 +88,10 @@ export const demoSpaceDBConfig = () => {
     },
     afterInit: async (db: SubscribableDB) => {
       await asyncDispatch(db, createInboxIfNotExists({}));
-      const tasks = await runSelectorAsync<Task[]>(
-        db,
-        function* () {
-          return yield* allTasks({});
-        },
-        [],
-      );
+      const tasks = await selectAsync(db, {
+        selector: allTasks,
+        args: {},
+      });
 
       if (tasks.length === 0) {
         await asyncDispatch(

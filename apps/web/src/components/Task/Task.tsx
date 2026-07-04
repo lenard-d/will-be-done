@@ -76,7 +76,7 @@ import {
   updateTemplate,
 } from "@will-be-done/slices/space";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
-import { useAsyncSelect, useAsyncSelector } from "@will-be-done/hyperdb/react";
+import { useAsyncSelector, useSelectAsync } from "@will-be-done/hyperdb/react";
 import {
   buildFocusKey,
   focusTextareaAtEnd,
@@ -192,14 +192,21 @@ export const PreloadedTaskComp = ({
   const isEditing = useFocusStore(
     (s) => !s.isFocusDisabled && s.editItemKey === focusableItemKey,
   );
-  const select = useAsyncSelect();
+  const select = useSelectAsync();
   const openProject = useOpenProject();
 
   const persistTaskTitle = useCallback(
     (title: string) => {
       void (async () => {
         if (isTask(card)) {
-          if (!(await select(taskById({ id: taskId })))) return;
+          if (
+            !(await select({
+              selector: taskById,
+              args: { id: taskId },
+            }))
+          ) {
+            return;
+          }
 
           await dispatch(
             updateTask({
@@ -213,7 +220,14 @@ export const PreloadedTaskComp = ({
         }
 
         if (isTaskTemplate(card)) {
-          if (!(await select(taskTemplateById({ id: taskId })))) return;
+          if (
+            !(await select({
+              selector: taskTemplateById,
+              args: { id: taskId },
+            }))
+          ) {
+            return;
+          }
 
           await dispatch(
             updateTemplate({
@@ -250,29 +264,31 @@ export const PreloadedTaskComp = ({
       if (!isFocused) return;
 
       const upModel = upKey
-        ? await select(
-            appById({
+        ? await select({
+            selector: appById,
+            args: {
               id: parseColumnKey(upKey).id,
               modelType: parseColumnKey(upKey).type,
-            }),
-          )
+            },
+          })
         : undefined;
       const downModel = downKey
-        ? await select(
-            appById({
+        ? await select({
+            selector: appById,
+            args: {
               id: parseColumnKey(downKey).id,
               modelType: parseColumnKey(downKey).type,
-            }),
-          )
+            },
+          })
         : undefined;
 
       const upTask =
         upModel?.type !== projectCategoryType && upModel
-          ? await select(taskOfModel({ model: upModel }))
+          ? await select({ selector: taskOfModel, args: { model: upModel } })
           : undefined;
       const downTask =
         downModel?.type !== projectCategoryType && downModel
-          ? await select(taskOfModel({ model: downModel }))
+          ? await select({ selector: taskOfModel, args: { model: downModel } })
           : undefined;
 
       if (downTask && downTask.state === taskState) {
@@ -553,7 +569,8 @@ export const PreloadedTaskComp = ({
       flushEditedTitle();
 
       void (async () => {
-        const task = (await select(taskById({ id: taskId }))) ?? card;
+        const task =
+          (await select({ selector: taskById, args: { id: taskId } })) ?? card;
         const template = await dispatch(
           createTaskTemplateFromTask({
             task: task,
