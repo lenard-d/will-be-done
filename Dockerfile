@@ -10,8 +10,9 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/api/package.json ./apps/api/
 COPY apps/slices/package.json ./apps/slices/
-# Install dependencies using pnpm
-RUN corepack enable && pnpm install --frozen-lockfile
+# Install only the packages used by the web/api image. A root workspace install
+# also runs install scripts for unrelated apps such as apps/desktop.
+RUN corepack enable && pnpm --filter @will-be-done/web... --filter @will-be-done/api... install --frozen-lockfile
 # Copy the rest of the application source code
 COPY . .
 # Build the application using pnpm
