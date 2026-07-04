@@ -15,7 +15,6 @@ import {
   scheduledTodoTasksTable,
   spaceMigrationsTable,
   stashProjectionsTable,
-  type Task,
 } from "@will-be-done/slices/space";
 import { asyncDispatch, selectAsync } from "@will-be-done/hyperdb";
 import {
