@@ -2,7 +2,7 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { CardDetails } from "@/components/CardDetails/CardDetails.tsx";
 import { GlobalLayout } from "@/components/Layout/GlobalLayout.tsx";
 import { LayoutWithSidebar } from "@/components/Layout/LayoutWithSidebar";
-import { preloadSelector } from "@will-be-done/hyperdb";
+import { preloadSelectorAsync } from "@will-be-done/hyperdb";
 import { projectsWithTaskStats } from "@will-be-done/slices/space";
 import { startOfDay } from "date-fns";
 
@@ -10,8 +10,9 @@ export const Route = createFileRoute("/spaces/$spaceId/_withSidebar")({
   component: RouteComponent,
   loader: async ({ context }) => {
     const db = await context.spaceDbPromise;
-    await preloadSelector(db, projectsWithTaskStats, {
-      currentDate: startOfDay(new Date()).getTime(),
+    await preloadSelectorAsync(db, {
+      selector: projectsWithTaskStats,
+      args: { currentDate: startOfDay(new Date()).getTime() },
     });
   },
 });

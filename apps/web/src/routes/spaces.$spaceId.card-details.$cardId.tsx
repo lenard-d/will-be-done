@@ -5,7 +5,7 @@ import {
 } from "@tanstack/react-router";
 import { CardDetailsPage } from "@/components/CardDetails/CardDetails.tsx";
 import { GlobalLayout } from "@/components/Layout/GlobalLayout.tsx";
-import { preloadSelector } from "@will-be-done/hyperdb";
+import { preloadSelectorAsync } from "@will-be-done/hyperdb";
 import {
   cardExists,
   checklistItemChildren,
@@ -28,10 +28,16 @@ export const Route = createFileRoute("/spaces/$spaceId/card-details/$cardId")({
       promises.push(promise);
     };
 
-    appendPromise(preloadSelector(db, cardExists, { id: params.cardId }));
+    appendPromise(
+      preloadSelectorAsync(db, {
+        selector: cardExists,
+        args: { id: params.cardId },
+      }),
+    );
 
-    const card = await preloadSelector(db, projectCategoryCardById, {
-      id: params.cardId,
+    const card = await preloadSelectorAsync(db, {
+      selector: projectCategoryCardById,
+      args: { id: params.cardId },
     });
 
     if (!card) {
@@ -40,39 +46,55 @@ export const Route = createFileRoute("/spaces/$spaceId/card-details/$cardId")({
     }
 
     appendPromise(
-      preloadSelector(db, checklistItemChildren, {
-        parentId: card.id,
-        parentType: card.type,
+      preloadSelectorAsync(db, {
+        selector: checklistItemChildren,
+        args: { parentId: card.id, parentType: card.type },
       }),
     );
 
-    const project = await preloadSelector(db, projectOfCategoryOrDefault, {
-      categoryId: card.projectCategoryId,
+    const project = await preloadSelectorAsync(db, {
+      selector: projectOfCategoryOrDefault,
+      args: { categoryId: card.projectCategoryId },
     });
 
     appendPromise(
-      preloadSelector(db, projectCategoriesByProjectId, {
-        projectId: project.id,
+      preloadSelectorAsync(db, {
+        selector: projectCategoriesByProjectId,
+        args: { projectId: project.id },
       }),
     );
 
     if (isTask(card)) {
       appendPromise(
-        preloadSelector(db, dailyProjectionDateOfTask, { taskId: card.id }),
+        preloadSelectorAsync(db, {
+          selector: dailyProjectionDateOfTask,
+          args: { taskId: card.id },
+        }),
       );
 
       if (card.templateId) {
         appendPromise(
-          preloadSelector(db, taskTemplateById, { id: card.templateId }),
+          preloadSelectorAsync(db, {
+            selector: taskTemplateById,
+            args: { id: card.templateId },
+          }),
         );
         appendPromise(
-          preloadSelector(db, taskTemplateRuleText, { id: card.templateId }),
+          preloadSelectorAsync(db, {
+            selector: taskTemplateRuleText,
+            args: { id: card.templateId },
+          }),
         );
       }
     }
 
     if (isTaskTemplate(card)) {
-      appendPromise(preloadSelector(db, taskTemplateRuleText, { id: card.id }));
+      appendPromise(
+        preloadSelectorAsync(db, {
+          selector: taskTemplateRuleText,
+          args: { id: card.id },
+        }),
+      );
     }
 
     await Promise.all(promises);

@@ -5,7 +5,7 @@ import {
   router,
   createContext,
 } from "./trpc";
-import { syncDispatch, select } from "@will-be-done/hyperdb";
+import { syncDispatch, selectSync } from "@will-be-done/hyperdb";
 import * as dotenv from "dotenv";
 import {
   ChangesetArray,
@@ -100,13 +100,13 @@ const appRouter = router({
       const config = dbConfigByType(opts.input.dbType, opts.input.dbId);
       const { db } = getHyperDB(config);
 
-      return select(
-        db,
-        getChangesetAfter({
+      return selectSync(db, {
+        selector: getChangesetAfter,
+        args: {
           after: opts.input.lastServerUpdatedAt,
           registeredSyncableTableNameMap: config.tableNameMap,
-        }),
-      );
+        },
+      });
     }),
   handleChanges: protectedProcedure
     .input(

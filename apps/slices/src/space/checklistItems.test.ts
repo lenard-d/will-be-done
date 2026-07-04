@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DB, execSync, runSelector, syncDispatch } from "@will-be-done/hyperdb";
+import {
+  DB,
+  createSelector,
+  execSync,
+  selectSync,
+  syncDispatch,
+} from "@will-be-done/hyperdb";
 import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
 import { dbIdTrait } from "../traits";
 import {
@@ -8,6 +14,21 @@ import {
   toggleChecklistItemState,
 } from "./checklistItems";
 import { ChecklistItem, checklistItemsTable } from "./tables";
+
+const selector = createSelector();
+
+function runSelector<T>(
+  db: DB,
+  handler: () => Generator<unknown, T, unknown>,
+  _deps: unknown[],
+): T {
+  const testSelector = selector({
+    name: "testSelector",
+    args: {},
+    handler,
+  });
+  return selectSync(db, { selector: testSelector, args: {} });
+}
 
 function createDB() {
   const driver = new BptreeInmemDriver();

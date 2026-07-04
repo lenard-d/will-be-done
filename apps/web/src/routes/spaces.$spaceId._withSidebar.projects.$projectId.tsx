@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ProjectDetailView } from "@/components/ProjectView/ProjectDetailView.tsx";
-import { preloadSelector } from "@will-be-done/hyperdb";
+import { preloadSelectorAsync } from "@will-be-done/hyperdb";
 import {
   doneProjectCategoryCardsForDisplay,
   projectByIdOrDefault,
@@ -19,27 +19,32 @@ export const Route = createFileRoute(
       promises.push(promise);
     };
 
-    const categories = await preloadSelector(db, projectCategoriesByProjectId, {
-      projectId: params.projectId,
+    const categories = await preloadSelectorAsync(db, {
+      selector: projectCategoriesByProjectId,
+      args: { projectId: params.projectId },
     });
 
     appendPromise(
-      preloadSelector(db, projectByIdOrDefault, { id: params.projectId }),
+      preloadSelectorAsync(db, {
+        selector: projectByIdOrDefault,
+        args: { id: params.projectId },
+      }),
     );
 
     for (const category of categories) {
       appendPromise(
-        preloadSelector(db, projectCategoryCardsForDisplayChildren, {
-          projectCategoryId: category.id,
+        preloadSelectorAsync(db, {
+          selector: projectCategoryCardsForDisplayChildren,
+          args: { projectCategoryId: category.id },
         }),
       );
     }
 
     for (const category of categories) {
       appendPromise(
-        preloadSelector(db, doneProjectCategoryCardsForDisplay, {
-          projectCategoryId: category.id,
-          limited: true,
+        preloadSelectorAsync(db, {
+          selector: doneProjectCategoryCardsForDisplay,
+          args: { projectCategoryId: category.id, limited: true },
         }),
       );
     }

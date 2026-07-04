@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   DB,
   SubscribableDB,
+  createSelector,
   execSync,
-  runSelector,
+  selectSync,
   syncDispatch,
 } from "@will-be-done/hyperdb";
 import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
@@ -52,6 +53,21 @@ import {
   tasksTable,
   taskTemplatesTable,
 } from "./tables";
+
+const selector = createSelector();
+
+function runSelector<T>(
+  db: DB | SubscribableDB,
+  handler: () => Generator<unknown, T, unknown>,
+  _deps: unknown[],
+): T {
+  const testSelector = selector({
+    name: "testSelector",
+    args: {},
+    handler,
+  });
+  return selectSync(db, { selector: testSelector, args: {} });
+}
 
 function createDB() {
   const driver = new BptreeInmemDriver();

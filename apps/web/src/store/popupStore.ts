@@ -15,12 +15,16 @@ import {
 } from "@will-be-done/slices/space";
 import { BroadcastChannel } from "broadcast-channel";
 import { authUtils } from "@/lib/auth";
-import { openPersistentDriver } from "./persistentDriver";
+import {
+  openPersistentDriver,
+  resolvePersistentDriverKind,
+} from "./persistentDriver";
 import { getClientId, initClock } from "./syncClock";
 
 export async function initPopupStore(spaceId: string) {
   const dbName = "space-" + spaceId;
-  const clientId = getClientId(dbName);
+  const persistentDriverKind = await resolvePersistentDriverKind(dbName);
+  const clientId = getClientId(dbName, persistentDriverKind);
   const nextClock = initClock(clientId);
 
   const persistDBTables = [
