@@ -16,5 +16,5 @@ allowBuilds:
   esbuild: true
   sharp: true
 minimumReleaseAgeExclude:
-  - '@will-be-done/hyperdb-devtool@0.4.1'
-  - '@will-be-done/hyperdb@0.4.1'
+  - '@will-be-done/hyperdb-devtool'
+  - '@will-be-done/hyperdb'
