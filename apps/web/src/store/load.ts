@@ -22,6 +22,9 @@ const initedDbs: Record<string, SubscribableDB> = {};
 
 export const getDBBySpaceId = (spaceId: string) => {
   const dbName = getDbName({ dbType: spaceDbType, dbId: spaceId });
+  // Keep getDBBySpaceId and initDbStore cache keys aligned: initDbStore awaits
+  // resolvePersistentDriverKind, which must populate resolvedPersistentDriverKinds
+  // before getDBBySpaceId reads initedDbs via getPersistentDriverKind.
   const cacheKey = `${dbName}:${getPersistentDriverKind(dbName)}`;
 
   const db = initedDbs[cacheKey];
