@@ -39,7 +39,7 @@ export const createApplyServerChangesIfNoClientChanges = (
         registeredSyncableTableNameMap,
       });
       if (changesets.length !== 0) {
-        console.log(
+        console.warn(
           "some new client changes appeared, skipping server changes apply",
         );
 
@@ -91,7 +91,6 @@ export const createApplyServerChangesIfNoClientChanges = (
       }
 
       yield* upsert(changesTable, allChanges);
-      console.log("set clock", serverChanges.maxClock, maxNewClientClock);
 
       yield* updateSyncState({
         updates: {
@@ -112,18 +111,10 @@ export const getChangesToSendToServer = action({
   }) {
     const currentSyncState = yield* getSyncStateOrDefault({});
 
-    console.log(
-      "get clock",
-      currentSyncState.lastServerAppliedClock,
-      currentSyncState.lastSentClock,
-    );
-
     const { changesets, maxClock } = yield* getChangesetAfter({
       after: currentSyncState.lastSentClock,
       registeredSyncableTableNameMap,
     });
-
-    console.log("new client changes", changesets, maxClock);
 
     return { changesets, maxClock };
   },

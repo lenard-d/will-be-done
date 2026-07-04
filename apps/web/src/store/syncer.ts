@@ -8,6 +8,7 @@ import {
   createLeaderElection,
   type LeaderElector,
 } from "broadcast-channel";
+import { getDevtoolsEnabled } from "@/lib/devtools";
 import { trpcClient } from "@/lib/trpc.ts";
 import { State } from "@/utils/State.ts";
 import {
@@ -18,6 +19,15 @@ import { withSyncRequestTimeout } from "./syncRequestTimeout";
 import type { SyncConfig } from "./syncTypes";
 
 const SYNC_POLL_INTERVAL_MS = 5000;
+
+const syncerLogsEnabled = () =>
+  getDevtoolsEnabled() || process.env.NODE_ENV === "development";
+
+const syncerLog = (...args: Parameters<typeof console.log>) => {
+  if (syncerLogsEnabled()) {
+    console.log(...args);
+  }
+};
 
 export class Syncer {
   private electionChannel: BroadcastChannel;
@@ -60,7 +70,7 @@ export class Syncer {
 
   startLoop() {
     this.elector.onduplicate = () => {
-      console.log("onduplicate");
+      syncerLog("onduplicate");
 
       this.runId++;
       this.cleanupWebSocket();
@@ -89,7 +99,7 @@ export class Syncer {
       },
       {
         onData: () => {
-          console.log("WebSocket notification received");
+          syncerLog("WebSocket notification received");
           this.wsNotification.modify((version) => version + 1);
         },
         onError: (err) => {
@@ -114,14 +124,14 @@ export class Syncer {
 
     while (true) {
       if (this.runId !== myRunId) {
-        console.log("runId !== myRunId, stopping syncer loop");
+        syncerLog("runId !== myRunId, stopping syncer loop");
         this.cleanupWebSocket();
         return;
       }
       try {
-        console.log("sending changes to server");
+        syncerLog("sending changes to server");
         await this.sendChangesToServer();
-        console.log("applying changes from server");
+        syncerLog("applying changes from server");
         await this.getAndApplyChanges();
       } catch (e) {
         console.error(e);
@@ -191,7 +201,7 @@ export class Syncer {
     );
 
     if (serverChanges.changesets.length === 0) {
-      console.log("no changes from server");
+      syncerLog("no changes from server");
       if (serverChanges.maxClock !== "") {
         await asyncDispatch(
           this.syncDB.withTraits({ type: "skip-sync" }),

@@ -1,12 +1,19 @@
 import { useSyncExternalStore } from "react";
-import { openIndexedDBDriver } from "@will-be-done/hyperdb/drivers/idb";
+import {
+  openIndexedDBDriver,
+  logIdbDriverDebugEvent,
+} from "@will-be-done/hyperdb/drivers/idb";
 import { initAsyncDriver } from "./asyncDriver";
+import { getDevtoolsEnabled } from "@/lib/devtools";
 
 export type PersistentDriverKind = "wa-sqlite" | "indexeddb";
 
 const PERSISTENT_DRIVER_CHANGED = "will-be-done:persistent-driver-changed";
 
 const PERSISTENT_DRIVER_KEY = "will-be-done:persistent-driver";
+
+const isLogsEnabled = () =>
+  getDevtoolsEnabled() || process.env.NODE_ENV === "development";
 
 const resolvedPersistentDriverKinds: Record<string, PersistentDriverKind> = {};
 
@@ -146,17 +153,19 @@ function subscribeToPersistentDriverKind(
   };
 }
 
-export function usePersistentDriverKind(): PersistentDriverKind {
+export function usePersistentDriverKind(dbName?: string): PersistentDriverKind {
   return useSyncExternalStore(
     subscribeToPersistentDriverKind,
-    () => getPersistentDriverKind(),
+    () => getPersistentDriverKind(dbName),
     () => "wa-sqlite",
   );
 }
 
 export async function openPersistentDriver(dbName: string) {
   if ((await resolvePersistentDriverKind(dbName)) === "indexeddb") {
-    return openIndexedDBDriver(dbName);
+    return openIndexedDBDriver(dbName, {
+      debug: isLogsEnabled() ? logIdbDriverDebugEvent : undefined,
+    });
   }
 
   return initAsyncDriver(dbName);

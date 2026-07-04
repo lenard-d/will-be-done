@@ -6,11 +6,14 @@ import {
   setPersistentDriverKind,
   usePersistentDriverKind,
 } from "@/store/persistentDriver";
+import { getDbName } from "@/store/syncClock";
+import { spaceDbType } from "@/store/configs";
 
 export function GeneralSection() {
   const { spaceId } = Route.useParams();
   const devtoolsEnabled = useDevtoolsEnabled();
-  const persistentDriverKind = usePersistentDriverKind();
+  const dbName = getDbName({ dbType: spaceDbType, dbId: spaceId });
+  const persistentDriverKind = usePersistentDriverKind(dbName);
   const indexedDBEnabled = persistentDriverKind === "indexeddb";
 
   const toggleIndexedDB = () => {

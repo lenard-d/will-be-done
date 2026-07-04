@@ -3,11 +3,16 @@ import {
   AsyncSqlDriver,
   type AsyncSQLiteDB,
   type SqlValue,
+  logAsyncSqlDriverDebugEvent,
 } from "@will-be-done/hyperdb/drivers/sqlite";
 import asyncSqlWasmUrl from "wa-sqlite/dist/wa-sqlite-async.wasm?url";
 //@ts-expect-error no declarations
 import { IDBBatchAtomicVFS } from "wa-sqlite/src/examples/IDBBatchAtomicVFS.js";
 import * as SQLite from "wa-sqlite";
+import { getDevtoolsEnabled } from "@/lib/devtools";
+
+const isLogsEnabled = () =>
+  getDevtoolsEnabled() || process.env.NODE_ENV === "development";
 
 export async function initAsyncDriver(dbName: string) {
   const module = await SQLiteAsyncESMFactory({
@@ -69,5 +74,7 @@ export async function initAsyncDriver(dbName: string) {
     return res;
   };
 
-  return new AsyncSqlDriver(sqliteDb);
+  return new AsyncSqlDriver(sqliteDb, {
+    debug: isLogsEnabled() ? logAsyncSqlDriverDebugEvent : undefined,
+  });
 }
