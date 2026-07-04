@@ -1,20 +1,39 @@
-<p align="center">
-  <h2 align="center"><p>Will Be Done</p></h2>
-  <p align="center">Task managers collect tasks but don't help you plan your week. Will Be Done gives you a visual weekly timeline to stay focused.
-  </p>
-</p>
+# Will Be Done
 
-<img width="3002" height="1908" alt="image" src="https://github.com/user-attachments/assets/b36b1797-83f5-4eca-92c3-75dd7b42a2ac" />
+**An offline-first, self-hosted task planner built around a visual weekly timeline.**
 
+Most task managers are good at collecting tasks. Will Be Done helps you decide what actually fits into your week: see each day as a column, drag tasks between days, and keep a focused stash nearby.
 
-## Download & installation
+It is also local-first: your tasks stay available offline, changes feel instant, and sync catches up across devices when your server is available.
 
-* [Download for Windows](https://github.com/will-be-done/will-be-done/releases) <br>
-* [Download for macOS](https://github.com/will-be-done/will-be-done/releases) <br>
-* [Download for Linux](https://github.com/will-be-done/will-be-done/releases)
-* For now, mobile users can install the PWA as a bookmark. Native mobile clients are coming soon.
+I want it to feel fast in the same way Linear feels fast. The app should open straight into your tasks, without a big loading spinner first. It reads from local persistent storage on demand, so startup should stay quick even after years of saved tasks.
 
-You should also run the Docker server. Here is the easiest way:
+[Try the live demo](https://demo.will-be-done.app) | [Use the cloud app](https://app.will-be-done.app/signup) | [Download desktop app](https://github.com/will-be-done/will-be-done/releases)
+
+<img width="3002" height="1908" alt="Will Be Done weekly planning view" src="https://github.com/user-attachments/assets/b36b1797-83f5-4eca-92c3-75dd7b42a2ac" />
+
+## Why Will Be Done?
+
+Will Be Done is for people who want a fast, private task manager that is built for planning, not just capture.
+
+- **Plan the week visually.** Each day is a column, so you can see what is realistic and rebalance by dragging tasks around.
+- **Keep the UX instant.** The app should open directly into your tasks, without a blocking spinner or a full database load first.
+- **Stay useful offline.** The app keeps a full local database in the browser, so you can read and write tasks without waiting on the network.
+- **Start fast, even with years of tasks.** Will Be Done reads data on demand from local storage, so it can stay useful as a lifelong task archive.
+- **Own the data.** Self-host the sync server with Docker, store data in SQLite, and avoid handing your task history to a third-party task app.
+- **Move fast from the keyboard.** Vim-style navigation, quick task creation, project movement, stashing, scheduling, and task actions are all keyboard-friendly.
+- **Keep focus visible.** Stash is a persistent focus list available from any page for the tasks you want close at hand this week or month.
+
+## Try It
+
+- **Live demo:** [demo.will-be-done.app](https://demo.will-be-done.app) - no sign-up required.
+- **Cloud app:** [app.will-be-done.app](https://app.will-be-done.app/signup) - try it before self-hosting.
+- **Desktop app:** [download the latest release](https://github.com/will-be-done/will-be-done/releases) for Windows, macOS, or Linux.
+- **Mobile:** install the web app as a PWA. Native mobile clients are planned.
+
+## Self-Host With Docker
+
+Run the server:
 
 ```bash
 docker run -d \
@@ -24,47 +43,11 @@ docker run -d \
   ghcr.io/will-be-done/will-be-done:latest
 ```
 
-## Why build another task manager?
+Then open http://localhost:3000 in your browser.
 
-My core idea is to build a task manager that will stay with me for the rest of my life. Because of that, one of my main requirements is that it stays fast even with a massive database. If I have 10k+ tasks saved over the years, it should still load quickly and feel instant.
+The Docker server hosts the web app, stores server-side data under `/var/lib/will-be-done`, and provides sync for browser, PWA, and desktop clients.
 
-Another requirement is that it must be offline-first. I live in a country where the internet goes down pretty often, and I need my tasks to be available regardless of server status.
-
-I also don't want to share sensitive data with companies that build task managers. A self-hosted, local-first app gives me much more control over where my data lives.
-
-Also, I wanted a clean API so I could connect things like an MCP server or create tasks via Telegram.
-
-Finally, I am building this to be a highly opinionated tool focused on ergonomics. I’ve found that mainstream solutions, including paid apps like TickTick and Todoist - don't quite fit my workflow. I wanted to experiment with features that are often missing elsewhere: native Vim keybindings, a week-view timeline that maximizes vertical space, and a "task suggestion" panel.
-
-I need "Stash" feature - a persistent, focused task list accessible from any page. Just the focus list on what I plan to work this week/month.
-
-Despite these power-user features, the goal is to keep the interface minimal and deeply visual customizable, allowing for project-specific backgrounds and color schemes.
-
-After comparing several options from the Awesome Selfhosted list, I found that Super Productivity came the closest to meeting my needs. However, it still lacks the specific ergonomic features and visual flexibility I want for my "rest of my life" task manager.
-
-|                                                                 | Will be done | Super Productivity | Donetick | Tududi | Vikunja | TaskTrove |
-| --------------------------------------------------------------- | ------------ | ------------------ | -------- | ------ | ------- | --------- |
-| Open-Source & Self Hosted                                       | ✅           | ✅                 | ✅       | ✅     | ✅      | ✅        |
-| Able to open when fully offline, functional offline             | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
-| DnD tasks, projects. Tasks/projects reordering                  | ✅           | ✅                 | 🟥       | 🟥     | ✅      | ✅        |
-| Real time refresh, no need to refresh page when new task appear | ✅           | ✅ (with SuperSync)                | ✅       | 🟥     | 🟥      | 🟥        |
-| Multi tab support                                               | ✅           | 🟥                 | ✅       | 🟨     | 🟨      | 🟨        |
-| API                                                             | 🟨 WIP       | ✅ (with SuperSync)                 | ✅       | ✅     | ✅      | ✅        |
-| Mobile version                                                  | ✅           | ✅                 | ✅       | ✅     | ✅      | ✅        |
-| Keybinds(vim preferred)                                         | ✅           | ✅ even vim!       | ✅ keybinds highlight are smart! | ✅ | ✅ even vim! | 🟨 |
-| Weekly planner                                                  | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
-| Categories/columns inside projects                              | ✅           | ✅                 | 🟥       | 🟥     | ✅ kanban! | ✅ kanban! |
-| Desktop version with quick add global shortcut                  | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
-| Local first                                                     | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
-
-## Will Be Done - modern offline-first self-hosted TickTick/Todoist alternative
-
-Most task managers are great at collecting tasks - and terrible at helping you plan your week. Will Be Done gives you a visual weekly timeline where each day is a column. Drag tasks between days. See what's realistic. Always know what to focus on.
-
-This is my third attempt in 3 years to build the task manager I actually want to use. I already use it daily. Things pushed me to build it: own my data (self-hosted), a weekly planning view, instant sync, offline support and vim keybinds.
-
-Try the **live demo** (no sign-up) at [demo.will-be-done.app](https://demo.will-be-done.app)
-or the cloud version at [will-be-done.app](https://will-be-done.app/) before installing.
+## Screenshots
 
 <table>
   <tr>
@@ -75,14 +58,14 @@ or the cloud version at [will-be-done.app](https://will-be-done.app/) before ins
     <td width="50%">
       <img
         src="https://github.com/user-attachments/assets/4f9f5973-e1ba-4d03-af28-5f04f5891ed8"
-        alt="project"
+        alt="Project board"
         width="100%"
       />
     </td>
     <td width="50%">
       <img
         src="https://github.com/user-attachments/assets/7d9f606e-1203-4dce-a82b-9b39ce631a99"
-        alt="timeline"
+        alt="Weekly timeline"
         width="100%"
       />
     </td>
@@ -95,145 +78,212 @@ or the cloud version at [will-be-done.app](https://will-be-done.app/) before ins
     <td width="50%">
       <img
         src="https://github.com/user-attachments/assets/effaffd0-4d59-4631-a785-af0b459030c5"
-        alt="459_1x_shots_so"
+        alt="Today view"
         width="100%"
       />
     </td>
     <td width="50%">
       <img
         src="https://github.com/user-attachments/assets/36d60659-8725-49cc-807b-79cfa21b88ce"
-        alt="459_1x_shots_so"
+        alt="Mobile view"
         width="100%"
       />
     </td>
   </tr>
 </table>
 
-## Installation
+## Available Today
 
-Run with Docker:
+**Task management**
 
-```bash
-docker run -d \
-  -p 3000:3000 \
-  -v will_be_done_storage:/var/lib/will-be-done \
-  --restart unless-stopped \
-  ghcr.io/will-be-done/will-be-done:latest
-```
+- Create, edit, complete, move, reorder, and delete tasks.
+- Add task descriptions and checklist items.
+- Check off and reorder checklist items inside tasks.
+- Schedule tasks to specific dates, schedule them for today, or clear their schedule.
+- View tasks in daily, weekly timeline, project, and stash contexts.
 
-Then open http://localhost:3000 in your browser.
+**Projects and planning**
 
-## Features
+- Organize tasks into projects.
+- Split projects into ordered categories or columns.
+- Drag tasks between projects, categories, daily lists, and stash.
+- Use multiple spaces to separate work, personal tasks, and side projects.
+- Keep an inbox project for quick capture.
+- Use Stash as a persistent focus list available from every page.
 
-**Plan your week, not just your tasks**
-- Weekly timeline view - each day is a column, drag tasks between days to rebalance
-- No angry "OVERDUE" badges - missed tasks get a gentle nudge, not a guilt trip
-- One bad day doesn't snowball - weekly planning means skipping a day keeps your list clean
-- Kanban boards per project with categories you define (Week/Month/Ideas/Someday)
-- Multiple spaces - separate workspaces for work/personal/side projects
+**Recurring tasks**
 
-**Fast enough that you forget it's a web app**
-- Local-first - full database in the browser, every action is instant, zero network round trips
-- True offline mode - full read/write with no server, not a cached skeleton
-- Real-time sync - changes propagate instantly across all tabs and devices
+- Convert a task into a recurring template.
+- Create recurring templates with daily, weekly, monthly, and yearly rules.
+- Set custom intervals such as every 2 weeks or every 3 months.
+- Choose weekdays for weekly repeats.
+- Choose month day for monthly repeats.
+- End a recurring series never, after a number of occurrences, or on a date.
 
-**Built for people who live in their keyboard**
-- Vim keybindings - j/k navigation, drag with ctrl, quick-add with o/O
-- Everything drag & drop - tasks, days, projects, categories
-- Mobile ready - first-class mobile UI for when you're away from the keyboard
+**Local-first speed**
 
-**It's your data**
-- Self-hosted - one Docker command, SQLite, no external dependencies
-- Open source - AGPL license
+- Full browser-side database for instant interactions.
+- Read and write support while offline.
+- On-demand reads from persistent storage, so the app can start quickly without a blocking loading spinner.
+- Designed to stay fast with a large task history, not only a fresh database.
+- Real-time sync across tabs and devices when connected.
 
-## Vim keybinds
+**Keyboard and workflow**
+
+- Vim keybindings for navigation and task actions.
+- Drag and drop for tasks, days, projects, and categories.
+- Desktop app with global quick add.
+- Mobile-ready PWA for planning away from the desktop.
+
+**Import, backup, and ownership**
+
+- Self-hosted server in one Docker command.
+- SQLite storage.
+- No external services required for a self-hosted setup.
+- Todoist import by API token.
+- TickTick import from CSV export.
+
+## What Will Be Done Adds
+
+Will Be Done is not trying to clone every task manager feature. The opinionated parts are the point:
+
+- A weekly timeline as the main planning surface, not an afterthought.
+- Stash as a fast, always-available focus list for what matters now.
+- A fast startup path: open the app, see your tasks, and start working without waiting on a full database load.
+- Keyboard-first ergonomics, including Vim-style navigation and task movement.
+- A self-hosted sync server plus offline browser storage, so the app remains useful without a network connection.
+
+## Keyboard Shortcuts
 
 Global:
+
 1. `\` - toggle stash
 1. `v` - toggle task details panel
 1. `p` - toggle project view
 1. `z` - zen mode: close stash, task details, and project view
 
-When you focused on task
-1. `i`, `enter` - insert mode. You can edit the task. `esc` - exit insert mode.
-1. `j`, `k` - move between tasks up and down
-1. `h`, `l` - move between columns left and right
-1. `ctrl-j`, `ctrl-k`, `ctrl-down`, `ctrl-up` - move task up and down
-1. `ctrl-h`, `ctrl-l`, `ctrl-left`, `ctrl-right` - move task left and right
-1. `o` - create new task below focused task
-1. `O` - create new task above focused task
+When a task is focused:
+
+1. `i`, `enter` - enter insert mode to edit the task; `esc` exits insert mode
+1. `j`, `k` - move between tasks
+1. `h`, `l` - move between columns
+1. `ctrl-j`, `ctrl-k`, `ctrl-down`, `ctrl-up` - move task up or down
+1. `ctrl-h`, `ctrl-l`, `ctrl-left`, `ctrl-right` - move task left or right
+1. `o` - create a task below the focused task
+1. `O` - create a task above the focused task
 1. `space` - toggle task state
-1. `m` - move task to other project
+1. `m` - move task to another project
 1. `S` - stash task
 1. `s` - schedule date
-1. `t` - schedule task to today
+1. `t` - schedule task for today
 1. `r` - reset schedule
 1. `d`, `x`, `backspace` - delete task
 1. `e` - edit task description
 1. `c` - add checklist item
 1. `a` - open action menu
 
-When you focused on project
+When a project is focused:
+
 1. `i` - edit project
-1. `j`, `k` - move between projects up and down
+1. `j`, `k` - move between projects
 1. `d`, `x`, `backspace` - delete project
 
-Reserved/WIP:
+Reserved / WIP:
+
 1. `u`, `cmd-z`, `ctrl-z` - undo action
 1. `ctrl-r`, `cmd-shift-z`, `ctrl-shift-z` - redo action
 
-## Current Roadmap, v1.0 release
+## Roadmap
 
-From tasks perspective:
+Planned for v1.0:
+
 - [x] Repeating tasks
 - [x] Task details
-- [x] Checklist inside task
-
-From api perspective:
-- [ ] Open API integration
-- [ ] CLI app
-
-UI/UX:
-- [ ] Undo/redo action
-
-Others:
-- [x] Migrator from popular task managers: Todoist / TickTick
-
-Separate apps:
+- [x] Checklists inside tasks
+- [x] Todoist / TickTick migration
 - [x] Desktop app with global quick add
+- [ ] OpenAPI integration
+- [ ] CLI app
+- [ ] Undo / redo
 
-## Next possible features
+Possible next features:
 
-From tasks perspective:
 - [ ] Task comments
 - [ ] Task attachments
-
-From api perspective:
 - [ ] CalDAV integration
 - [ ] MCP integration
-
-UI/UX:
-- [ ] Themes per project(custom background of project and custom color of project tasks)
+- [ ] Project themes with custom backgrounds and task colors
 - [ ] Global command palette
-- [ ] Multi selection of tasks
+- [ ] Multi-select tasks
 - [ ] Global themes
-- [ ] DnD for project columns
-- [ ] I18n
-- [ ] More vim keybindings
-
-Others:
-- [ ] e2e encryption
+- [ ] Drag and drop for project columns
+- [ ] Internationalization
+- [ ] More Vim keybindings
+- [ ] End-to-end encryption
 - [ ] Global search
+- [ ] Mobile widgets
+- [ ] Notifications on web, mobile, and desktop
+- [ ] Native mobile app
 
-Separate apps:
-- [ ] Widgets support on mobile app
-- [ ] Notifications on web, mobile, desktop apps
-- [ ] Mobile app(not PWA)
+Not planned for now:
 
-## Features that are not planning for now
+1. Multi-user spaces or projects
+1. Shared tasks, projects, or spaces
+1. Time-of-day scheduling for tasks
 
-1. Multi users per space/project
-1. Sharing tasks/projects/spaces
-1. No time schedules for tasks
+## Development
 
-**Note on AI ussage:** I’ve been developing this project for a year+, and this is my third attempt in three yeas; the first two failed because the technology for fast, offline-first apps wasn't ready. This time, I created my own method for local-first development and built a database that works for both the frontend and backend, so I can write one code for both of them. Also, I have over 10 years of experience as a developer and 4 years specializing in offline-first apps. Building these reliably requires specific expertise. I use Claude Code to help, but I review every line of code manually to ensure quality.
+Install dependencies:
+
+```bash
+pnpm install
+```
+
+Run the API and web app in separate terminals:
+
+```bash
+pnpm dev:server
+pnpm dev:client
+```
+
+Useful checks:
+
+```bash
+pnpm ts
+pnpm lint
+pnpm test
+pnpm test:e2e
+```
+
+## Why Another Task Manager?
+
+I am building Will Be Done as the task manager I want to use for the rest of my life.
+
+That means it needs to stay fast with years of task history, start quickly without waiting on a full database load, work even when the internet disappears, and keep sensitive task data under my control. It also needs to fit the way I work: weekly planning, keyboard-first navigation, a persistent focus stash, desktop quick add, and an API that can connect to tools like Telegram or an MCP server.
+
+Super Productivity came closest to what I wanted from the self-hosted ecosystem, but I wanted a more opinionated workflow around weekly planning, local-first sync, visual customization, and Vim-style ergonomics.
+
+## Comparison
+
+This table captures the feature set I was optimizing for while building Will Be Done. Other projects may have changed since this comparison was written.
+
+| Feature                                 | Will Be Done | Super Productivity | Donetick | Tududi | Vikunja | TaskTrove |
+| --------------------------------------- | ------------ | ------------------ | -------- | ------ | ------- | --------- |
+| Open source and self-hosted             | ✅           | ✅                 | ✅       | ✅     | ✅      | ✅        |
+| Fully usable offline                    | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
+| Drag and drop for tasks and projects    | ✅           | ✅                 | 🟥       | 🟥     | ✅      | ✅        |
+| Real-time refresh without manual reload | ✅           | ✅ with SuperSync  | ✅       | 🟥     | 🟥      | 🟥        |
+| Multi-tab support                       | ✅           | 🟥                 | ✅       | 🟨     | 🟨      | 🟨        |
+| API                                     | 🟨 WIP       | ✅ with SuperSync  | ✅       | ✅     | ✅      | ✅        |
+| Mobile version                          | ✅           | ✅                 | ✅       | ✅     | ✅      | ✅        |
+| Keyboard shortcuts / Vim bindings       | ✅           | ✅                 | ✅       | ✅     | ✅      | 🟨        |
+| Weekly planner                          | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
+| Categories or columns inside projects   | ✅           | ✅                 | 🟥       | 🟥     | ✅      | ✅        |
+| Desktop app with global quick add       | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
+| Local-first architecture                | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
+
+## Note on AI Usage
+
+I have been developing this project for more than a year, and this is my third attempt in three years. The first two attempts failed because the technology for fast offline-first apps was not ready for the experience I wanted.
+
+This version uses my own local-first development approach and a database that works across the frontend and backend, so the same domain logic can run in both places. I have more than 10 years of development experience, including 4 years specializing in offline-first apps. I use Claude Code to help with development, but I review the code manually.
