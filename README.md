@@ -2,7 +2,7 @@
 
 **An offline-first, self-hosted task planner built around a visual weekly timeline.**
 
-Most task managers are good at collecting tasks. Will Be Done helps you decide what actually fits into your week: see each day as a column, drag tasks between days, and keep a focused stash nearby.
+Will Be Done is built around a simple workflow: collect tasks, place them on a weekly timeline, and keep the few you care about right now in Stash.
 
 It is also local-first: your tasks stay available offline, changes feel instant, and sync catches up across devices when your server is available.
 
@@ -142,16 +142,6 @@ The Docker server hosts the web app, stores server-side data under `/var/lib/wil
 - No external services required for a self-hosted setup.
 - Todoist import by API token.
 - TickTick import from CSV export.
-
-## What Will Be Done Adds
-
-Will Be Done is not trying to clone every task manager feature. The opinionated parts are the point:
-
-- A weekly timeline as the main planning surface, not an afterthought.
-- Stash as a fast, always-available focus list for what matters now.
-- A fast startup path: open the app, see your tasks, and start working without waiting on a full database load.
-- Keyboard-first ergonomics, including Vim-style navigation and task movement.
-- A self-hosted sync server plus offline browser storage, so the app remains useful without a network connection.
 
 ## Keyboard Shortcuts
 
