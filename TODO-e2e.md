@@ -162,7 +162,9 @@ Checks:
 - Imported project/task/checklist renders in the app.
 - Reload keeps restored data.
 
-### 10. TickTick Import Smoke
+### 10. [x] TickTick Import Smoke
+
+Status: Done. Added `apps/web/e2e/ticktick-import.spec.ts` covering Settings -> Import -> TickTick CSV upload with a tiny in-test CSV fixture, native confirmation acceptance, import success feedback, imported project/task rendering, scheduled Today placement, and reload persistence. Added a stable TickTick import input `data-testid`.
 
 Use Settings -> Import -> TickTick CSV with a minimal CSV fixture.
 
