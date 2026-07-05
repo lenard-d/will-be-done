@@ -187,6 +187,12 @@ export function projectTaskCard(page: Page, title: string): Locator {
     .filter({ hasText: title });
 }
 
+export function templateCard(page: Page, title: string): Locator {
+  return page
+    .locator('[data-focusable-key^="template^^"]')
+    .filter({ hasText: title });
+}
+
 export function projectSidebarLink(
   page: Page,
   title: string,

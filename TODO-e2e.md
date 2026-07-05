@@ -1,6 +1,6 @@
 # E2E TODO
 
-Note: you can add data- attrs to easily access needed component and make e2e tests more reliable. 
+Note: you can add data- attrs to easily access needed component and make e2e tests more reliable.
 Note: if you find bug during covering e2e - fix it.
 
 ## Current Coverage
@@ -115,7 +115,10 @@ Checks:
 - Move modal moves task to another project.
 - Source and destination project counts update.
 
-### 7. Recurring Task Happy Path
+### 7. [x] Recurring Task Happy Path
+
+Status: Done. Added `apps/web/e2e/recurring-task.spec.ts` covering conversion of an Inbox task to a daily recurring template through the task action menu, repeat modal confirmation, visibility of both the template card and generated task instance, repeat metadata in details, and reload persistence. Added a shared
+`templateCard` helper.
 
 Convert a normal task into a recurring template and verify it survives reload.
 
