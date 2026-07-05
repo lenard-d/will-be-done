@@ -213,6 +213,9 @@ export const Stash = () => {
     <button
       ref={buttonRef}
       type="button"
+      aria-expanded={isOpen}
+      aria-label="Toggle stash"
+      data-testid="stash-toggle"
       onClick={toggle}
       className={cn(
         "relative flex w-full flex-col items-center justify-center px-0 py-3",
@@ -225,7 +228,10 @@ export const Stash = () => {
       )}
     >
       {stashTaskCount > 0 && (
-        <span className="mb-2.5 flex min-w-5 items-center justify-center rounded-full bg-content-tinted/10 px-1 text-[11px] font-semibold leading-none tabular-nums text-content-tinted/60 select-none h-5">
+        <span
+          data-testid="stash-count"
+          className="mb-2.5 flex min-w-5 items-center justify-center rounded-full bg-content-tinted/10 px-1 text-[11px] font-semibold leading-none tabular-nums text-content-tinted/60 select-none h-5"
+        >
           {stashTaskCount}
         </span>
       )}
@@ -245,6 +251,7 @@ export const Stash = () => {
   return (
     <div
       ref={rootRef}
+      data-testid="stash-root"
       className={cn(
         "absolute left-0 top-0 z-20 hidden h-full sm:flex",
         widthTransitionClass,
@@ -261,6 +268,7 @@ export const Stash = () => {
       >
         <div
           aria-hidden={!isOpen}
+          data-testid="stash-panel"
           className={cn(
             "h-full overflow-y-auto transition-transform duration-300 ease-out",
             isOpen ? "translate-x-0" : "-translate-x-6 pointer-events-none",

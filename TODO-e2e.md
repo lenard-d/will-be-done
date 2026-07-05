@@ -39,7 +39,9 @@ Checks:
 - Deleted task disappears after reload.
 - Inbox/project view reflects the same task state.
 
-### 2. Stash Workflow
+### 2. [x] Stash Workflow
+
+Status: Done. Added `apps/web/e2e/stash-workflow.spec.ts` covering stashing a Today task through the task action menu, removal from the Today projection, stash count updates, `\` open/close behavior, visibility from Today and Inbox, and persistence after reload. Added stash-specific e2e helpers and stable stash `data-testid` hooks.
 
 Create a task, stash it through keyboard shortcut `S` or the task action menu, toggle stash with `\`, and verify it remains available from multiple pages.
 

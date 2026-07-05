@@ -118,6 +118,28 @@ export function taskCard(page: Page, title: string): Locator {
   return page.locator("[data-focusable-key]").filter({ hasText: title });
 }
 
+export function dailyTaskCard(page: Page, title: string): Locator {
+  return page
+    .locator('[data-focusable-key^="projection^^"]')
+    .filter({ hasText: title });
+}
+
+export function projectTaskCard(page: Page, title: string): Locator {
+  return page
+    .locator('[data-focusable-key^="task^^"]')
+    .filter({ hasText: title });
+}
+
+export function stashPanel(page: Page): Locator {
+  return page.getByTestId("stash-panel");
+}
+
+export function stashTaskCard(page: Page, title: string): Locator {
+  return stashPanel(page)
+    .locator('[data-focusable-key^="stashProjection^^"]')
+    .filter({ hasText: title });
+}
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
