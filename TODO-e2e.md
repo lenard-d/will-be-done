@@ -10,6 +10,7 @@ Note: if you find bug during covering e2e - fix it.
 - `apps/web/e2e/sidebar-toggle.spec.ts`: create space and toggle the sidebar trigger.
 - `apps/web/e2e/task-lifecycle.spec.ts`: create, edit, toggle done/todo, and delete across Today and Inbox.
 - `apps/web/e2e/task-details-checklist.spec.ts`: open task details, edit description, create/check checklist item, and verify persistence.
+- `apps/web/e2e/offline-local-first.spec.ts`: create and edit a task while offline, then reconnect/reload and verify persistence.
 
 ## Setup Work First
 
@@ -132,7 +133,9 @@ Checks:
 
 Note: if checking generated task instances, freeze browser time or use a controlled date to avoid flaky date-dependent assertions.
 
-### 8. Offline Local-First Write
+### 8. [x] Offline Local-First Write
+
+Status: Done. Added `apps/web/e2e/offline-local-first.spec.ts` covering online signup/space setup, switching the browser context offline, creating and editing a Today task while offline, restoring the network, and verifying the edited task remains after reload.
 
 Exercise the README promise that the app remains writable offline.
 
