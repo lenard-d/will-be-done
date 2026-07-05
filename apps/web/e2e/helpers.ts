@@ -171,6 +171,15 @@ export async function openTaskDetails(page: Page, title: string) {
   return { card, description };
 }
 
+export async function openSpaceSettings(page: Page) {
+  await page.getByRole("button", { name: "Space settings" }).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: "Settings" })).toBeVisible();
+
+  return dialog;
+}
+
 export function taskCard(page: Page, title: string): Locator {
   return page.locator("[data-focusable-key]").filter({ hasText: title });
 }

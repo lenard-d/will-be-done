@@ -116,6 +116,7 @@ export function BackupSection() {
         <input
           ref={fileInputRef}
           type="file"
+          data-testid="backup-restore-input"
           accept=".json"
           className="hidden"
           onChange={handleImport}

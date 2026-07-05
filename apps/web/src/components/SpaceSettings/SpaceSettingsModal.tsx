@@ -57,6 +57,7 @@ export function SpaceSettingsModal({ open, onClose, spaceName }: Props) {
               </span>
             </div>
             <button
+              aria-label="Close settings"
               onClick={onClose}
               className="cursor-pointer rounded-lg p-1.5 text-content-tinted/50 transition-colors hover:text-content hover:bg-white/8"
             >

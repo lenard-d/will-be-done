@@ -11,6 +11,7 @@ Note: if you find bug during covering e2e - fix it.
 - `apps/web/e2e/task-lifecycle.spec.ts`: create, edit, toggle done/todo, and delete across Today and Inbox.
 - `apps/web/e2e/task-details-checklist.spec.ts`: open task details, edit description, create/check checklist item, and verify persistence.
 - `apps/web/e2e/offline-local-first.spec.ts`: create and edit a task while offline, then reconnect/reload and verify persistence.
+- `apps/web/e2e/backup-restore.spec.ts`: restore a tiny JSON backup through Settings, verify imported project/task/checklist/schedule, and reload persistence.
 
 ## Setup Work First
 
@@ -148,7 +149,9 @@ Suggested flow:
 - Restore network.
 - Reload and verify the task remains.
 
-### 9. Backup Restore Smoke
+### 9. [x] Backup Restore Smoke
+
+Status: Done. Added `apps/web/e2e/backup-restore.spec.ts` covering Settings -> Backup JSON restore with a tiny in-test backup fixture, native confirmation acceptance, restore success feedback, imported project/task/checklist rendering, scheduled Today placement, and reload persistence. Added shared `openSpaceSettings` helper plus stable restore/settings hooks.
 
 Use Settings -> Backup -> Restore Backup with a tiny JSON backup.
 

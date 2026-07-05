@@ -44,6 +44,7 @@ export function SpaceBlock() {
       {/* Settings */}
       <button
         type="button"
+        aria-label="Space settings"
         onClick={handleSettingsClick}
         className="flex-shrink-0 cursor-pointer text-content-tinted/40 hover:text-accent transition-colors"
       >
