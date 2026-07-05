@@ -82,7 +82,9 @@ Checks:
 - Checklist item done state saves.
 - Board task indicates checklist presence if the UI exposes it.
 
-### 5. Keyboard Workflow Smoke
+### 5. [x] Keyboard Workflow Smoke
+
+Status: Done. Added `apps/web/e2e/keyboard-workflow.spec.ts` covering a keyboard-driven Inbox planning loop: sibling creation with `o`/`O`, focus movement with `j`/`k`, done toggling with `space`, scheduling with `t`, clearing with `r`, stashing with `S`, stash toggle with `\`, details toggle with `v`, and zen close with `z`.
 
 Cover one realistic keyboard-only planning loop rather than every shortcut individually.
 
