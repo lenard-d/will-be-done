@@ -115,6 +115,7 @@ export function ImportSection() {
         <input
           ref={tickTickInputRef}
           type="file"
+          data-testid="ticktick-import-input"
           accept=".csv"
           className="hidden"
           onChange={handleTickTickImport}

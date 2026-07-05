@@ -653,7 +653,7 @@ export const PreloadedTaskComp = ({
       const isDeleteProjectionTask =
         (e.metaKey || e.ctrlKey) &&
         !e.shiftKey &&
-        e.code === "Space" &&
+        e.code === "Backspace" &&
         cardWrapper.type === projectionType;
 
       const isMoveUp = e.ctrlKey && (e.code === "ArrowUp" || e.code == "KeyK");

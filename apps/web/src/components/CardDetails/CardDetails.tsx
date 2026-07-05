@@ -18,7 +18,7 @@ import {
   useCardDetailsSize,
   useCardDetailsOpen,
   useCardDetailsEditRequest,
-} from "./CardDetailsStore.ts";
+} from "@/components/CardDetails/CardDetailsStore.ts";
 
 // ─── Main sidebar panel ──────────────────────────────────────────────────────
 
@@ -160,6 +160,7 @@ export function CardDetails() {
         )}
         <div
           aria-hidden={!isPanelOpen}
+          data-testid="card-details-panel"
           className={cn(
             "h-full overflow-y-auto transition-[transform,opacity] duration-300 ease-out",
             isPanelOpen
