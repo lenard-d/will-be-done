@@ -126,6 +126,41 @@ export async function openTaskActions(page: Page, title: string) {
   await expect(page.getByRole("menu")).toBeVisible();
 }
 
+export async function openTaskDetails(page: Page, title: string) {
+  const card = taskCard(page, title);
+  await expect(card).toBeVisible();
+  await card.click();
+
+  const detailsButton = page.getByRole("button", { name: "Task details" });
+  const description = page.getByLabel("Edit task description");
+  const hasDetailsRouteButton = await isVisibleInViewportSoon(
+    page,
+    detailsButton,
+  );
+
+  if (hasDetailsRouteButton) {
+    await detailsButton.click();
+    await expect(page).toHaveURL(/\/spaces\/[^/]+\/card-details\/[^/]+$/);
+    await expect(description).toBeVisible();
+
+    return { card, description };
+  }
+
+  const isAlreadyOpen = await description
+    .waitFor({ state: "visible", timeout: 500 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (!isAlreadyOpen) {
+    await page.keyboard.press("KeyV");
+  }
+
+  await expect(page.getByText("Card Details")).toBeVisible();
+  await expect(description).toBeVisible();
+
+  return { card, description };
+}
+
 export function taskCard(page: Page, title: string): Locator {
   return page.locator("[data-focusable-key]").filter({ hasText: title });
 }
@@ -152,6 +187,33 @@ export function stashTaskCard(page: Page, title: string): Locator {
     .filter({ hasText: title });
 }
 
+export function checklistItemRow(page: Page): Locator {
+  return page
+    .locator("[data-checklist-item-id]")
+    .filter({ has: page.getByRole("textbox", { name: "Checklist item" }) });
+}
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function isVisibleInViewportSoon(page: Page, locator: Locator) {
+  const isVisible = await locator
+    .waitFor({ state: "visible", timeout: 500 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (!isVisible) return false;
+
+  const box = await locator.boundingBox();
+  const viewport = page.viewportSize();
+
+  if (!box || !viewport) return false;
+
+  return (
+    box.x + box.width > 0 &&
+    box.y + box.height > 0 &&
+    box.x < viewport.width &&
+    box.y < viewport.height
+  );
 }

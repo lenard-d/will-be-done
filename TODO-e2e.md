@@ -8,6 +8,7 @@ Note: you can add data- attrs to easily access needed component and make e2e tes
 - `apps/web/e2e/task-persistence.spec.ts`: signup, create space, create today's task, reload persistence.
 - `apps/web/e2e/sidebar-toggle.spec.ts`: create space and toggle the sidebar trigger.
 - `apps/web/e2e/task-lifecycle.spec.ts`: create, edit, toggle done/todo, and delete across Today and Inbox.
+- `apps/web/e2e/task-details-checklist.spec.ts`: open task details, edit description, create/check checklist item, and verify persistence.
 
 ## Setup Work First
 
@@ -67,7 +68,9 @@ Checks:
 - Task remains in its project after schedule reset.
 - State persists after reload.
 
-### 4. Task Details And Checklist
+### 4. [x] Task Details And Checklist
+
+Status: Done. Added `apps/web/e2e/task-details-checklist.spec.ts` covering task details opening from a focused Today task, description editing, checklist item creation, checklist done-state toggling, board card checklist visibility, and reload persistence. Added shared `openTaskDetails` and `checklistItemRow` helpers.
 
 Open details with `v` or the details toggle, edit description, add checklist items, check one off, reload, and verify the details remain.
 
