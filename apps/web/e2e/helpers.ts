@@ -102,6 +102,18 @@ export async function createTodayTask(page: Page, title: string) {
   return card;
 }
 
+export async function openTaskActions(page: Page, title: string) {
+  const card = taskCard(page, title);
+  await expect(card).toBeVisible();
+  await card.click();
+
+  const actionsButton = card.getByRole("button", { name: "Task actions" });
+  await expect(actionsButton).toBeVisible();
+  await actionsButton.click();
+
+  await expect(page.getByRole("menu")).toBeVisible();
+}
+
 export function taskCard(page: Page, title: string): Locator {
   return page.locator("[data-focusable-key]").filter({ hasText: title });
 }

@@ -1,10 +1,13 @@
 # E2E TODO
 
+Note: you can add data- attrs to easily access needed component and make e2e tests more reliable.
+
 ## Current Coverage
 
 - `apps/web/e2e/auth.spec.ts`: signup, sign out, sign in.
 - `apps/web/e2e/task-persistence.spec.ts`: signup, create space, create today's task, reload persistence.
 - `apps/web/e2e/sidebar-toggle.spec.ts`: create space and toggle the sidebar trigger.
+- `apps/web/e2e/task-lifecycle.spec.ts`: create, edit, toggle done/todo, and delete across Today and Inbox.
 
 ## Setup Work First
 
@@ -22,9 +25,11 @@
 
 ## Priority Specs
 
-### 1. Task Lifecycle Across Views
+### 1. [x] Task Lifecycle Across Views
 
 Create a task in Today, edit it, mark it done/todo, delete it, and verify the changes across Today and Inbox/project views.
+
+Status: Done. Added `apps/web/e2e/task-lifecycle.spec.ts` covering Today task creation, title edit persistence after reload, done/todo transitions with Inbox count changes, Inbox reflection, and full-task deletion from Today removing the task from Inbox after reload. Added shared `openTaskActions` helper.
 
 Checks:
 
