@@ -114,6 +114,16 @@ export async function createProjectTask(page: Page, title: string) {
   return card;
 }
 
+export async function createProject(page: Page, title: string) {
+  await page.getByRole("button", { name: /add project/i }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Enter project title" });
+  await dialog.getByRole("textbox").fill(title);
+  await dialog.getByRole("button", { name: "Confirm" }).click();
+
+  await expect(projectSidebarLink(page, title)).toBeVisible();
+}
+
 export async function openTaskActions(page: Page, title: string) {
   const card = taskCard(page, title);
   await expect(card).toBeVisible();
@@ -175,6 +185,18 @@ export function projectTaskCard(page: Page, title: string): Locator {
   return page
     .locator('[data-focusable-key^="task^^"]')
     .filter({ hasText: title });
+}
+
+export function projectSidebarLink(
+  page: Page,
+  title: string,
+  notDoneCount?: number,
+): Locator {
+  const name = notDoneCount
+    ? new RegExp(`${escapeRegExp(title)}\\s+${notDoneCount}$`)
+    : new RegExp(escapeRegExp(title));
+
+  return page.getByRole("link", { name });
 }
 
 export function stashPanel(page: Page): Locator {

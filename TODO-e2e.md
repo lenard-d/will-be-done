@@ -1,6 +1,7 @@
 # E2E TODO
 
-Note: you can add data- attrs to easily access needed component and make e2e tests more reliable.
+Note: you can add data- attrs to easily access needed component and make e2e tests more reliable. 
+Note: if you find bug during covering e2e - fix it.
 
 ## Current Coverage
 
@@ -100,7 +101,9 @@ Suggested flow:
 - `S` stashes.
 - `z` closes stash/details/project view.
 
-### 6. Project Organization
+### 6. [x] Project Organization
+
+Status: Done. Added `apps/web/e2e/project-organization.spec.ts` covering project creation through the sidebar prompt, opening the project route, creating a project task, moving it to another project through the card details move modal, sidebar count updates, destination project visibility, and reload persistence. Added shared `createProject` and `projectSidebarLink` helpers.
 
 Create a project, add tasks to it, move a task to another project using the move modal, and verify sidebar/project counts.
 
