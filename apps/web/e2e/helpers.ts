@@ -102,6 +102,18 @@ export async function createTodayTask(page: Page, title: string) {
   return card;
 }
 
+export async function createProjectTask(page: Page, title: string) {
+  await page.locator("[data-focus-placeholder]").first().focus();
+  await page.keyboard.press("KeyO");
+  await page.getByLabel("Edit task title").fill(title);
+  await page.keyboard.press("Enter");
+
+  const card = projectTaskCard(page, title);
+  await expect(card).toBeVisible();
+
+  return card;
+}
+
 export async function openTaskActions(page: Page, title: string) {
   const card = taskCard(page, title);
   await expect(card).toBeVisible();

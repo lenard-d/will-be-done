@@ -53,7 +53,9 @@ Checks:
 - Task is visible in Stash from Today and from a Project page.
 - Stash contents persist after reload.
 
-### 3. Scheduling And Clearing Schedule
+### 3. [x] Scheduling And Clearing Schedule
+
+Status: Done. Added `apps/web/e2e/scheduling.spec.ts` covering Inbox task creation through the project column keyboard-add path, scheduling that task for Today, clearing the schedule from the Today projection, verifying the task remains in Inbox, and reload persistence. Added shared `createProjectTask` helper.
 
 Create a task in Inbox/project, schedule it for today or a selected date, then clear the schedule.
 
