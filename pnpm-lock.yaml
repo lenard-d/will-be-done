@@ -52,8 +52,8 @@ importers:
         specifier: ^11.7.2
         version: 11.18.0(typescript@5.9.3)
       '@will-be-done/hyperdb':
-        specifier: ^0.4.2
-        version: 0.4.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^0.4.3
+        version: 0.4.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@will-be-done/slices':
         specifier: workspace:*
         version: link:../slices
@@ -198,8 +198,8 @@ importers:
   apps/slices:
     dependencies:
       '@will-be-done/hyperdb':
-        specifier: ^0.4.2
-        version: 0.4.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^0.4.3
+        version: 0.4.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       date-fns:
         specifier: ^4.1.0
         version: 4.4.0
@@ -328,11 +328,11 @@ importers:
         specifier: workspace:*
         version: link:../api
       '@will-be-done/hyperdb':
-        specifier: ^0.4.2
-        version: 0.4.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^0.4.3
+        version: 0.4.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@will-be-done/hyperdb-devtool':
-        specifier: ^0.4.2
-        version: 0.4.2(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^0.4.3
+        version: 0.4.3(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@will-be-done/slices':
         specifier: workspace:*
         version: link:../slices
@@ -3666,14 +3666,14 @@ packages:
   '@vitest/utils@4.1.9':
     resolution: {integrity: sha512-A51o8ymO5PpqlWNnBP9ZHPXDIpuMtTLlGSjN7la4US+LJzoUMyhwjA5QXlm39JexgwHKW4Xjs8Z2d3dLCXOeuA==}
 
-  '@will-be-done/hyperdb-devtool@0.4.2':
-    resolution: {integrity: sha512-TwY55MdjU3+FMZJ3+MS9cfjtfnhvG0CbFZ8l4wcBTJk6nLFo9O+Jxz3ZsRfaZlSpDbZnd/unLTrUW1sJXsDd0w==}
+  '@will-be-done/hyperdb-devtool@0.4.3':
+    resolution: {integrity: sha512-treCUPi48MxkmE9MEUtnNleaaAIwIqs+jTikXT6P+CKcROIQqaRU9SzRa3q+sDLYIdRTf4AkpHbaKAYsGmFgrg==}
     peerDependencies:
       react: 19.2.7
       react-dom: 19.2.7
 
-  '@will-be-done/hyperdb@0.4.2':
-    resolution: {integrity: sha512-2E3Jokjndc8W2r5pGvPvbe4y++gxhamL1+dxRRqEh1lWqcwcyzDYPLQ/q/piy82SalehaMuv2Wct8scBVak1YA==}
+  '@will-be-done/hyperdb@0.4.3':
+    resolution: {integrity: sha512-ORuQY1AnlNSr2tmic2Gz/m5N36Zb0vno7ylrfvJOfUdRInwyRHNYn90pimxC3qk/Xo1jWYPaIVWZOEcnYNCINQ==}
     peerDependencies:
       react: 19.2.7
       react-dom: 19.2.7
@@ -10867,16 +10867,16 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@will-be-done/hyperdb-devtool@0.4.2(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@will-be-done/hyperdb-devtool@0.4.3(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@will-be-done/hyperdb': 0.4.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@will-be-done/hyperdb': 0.4.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       goober: 2.1.19(csstype@3.2.3)
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
     transitivePeerDependencies:
       - csstype
 
-  '@will-be-done/hyperdb@0.4.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@will-be-done/hyperdb@0.4.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
