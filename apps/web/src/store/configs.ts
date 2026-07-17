@@ -5,6 +5,8 @@ import {
   createInboxIfNotExists,
   dailyListsTable,
   generateTasksFromTemplates,
+  habitCompletionsTable,
+  habitsTable,
   installProjectTaskStatsHooks,
   loadSpaceBackup,
   migrateProjectCategoryTaskStats,
@@ -15,6 +17,7 @@ import {
   registeredSpaceSyncableTableNameMap,
   registeredSpaceSyncableTables,
   scheduledTodoTasksTable,
+  routinesTable,
   spaceMigrationsTable,
   stashProjectionsTable,
   taskProjectionsTable,
@@ -66,6 +69,9 @@ export const spaceDBConfig = (dbId: string) => {
           { table: scheduledTodoTasksTable, scanIndex: "byIds" },
           { table: stashProjectionsTable, scanIndex: "byIds" },
           { table: checklistItemsTable, scanIndex: "byIds" },
+          { table: habitsTable, scanIndex: "byIds" },
+          { table: routinesTable, scanIndex: "byIds" },
+          { table: habitCompletionsTable, scanIndex: "byIds" },
         ]),
       );
       await asyncDispatch(db, migrateProjectCategoryTaskStats({}));
@@ -117,6 +123,9 @@ export const demoSpaceDBConfig = () => {
           { table: stashProjectionsTable, scanIndex: "byIds" },
           { table: projectCategoryTaskStatsTable, scanIndex: "byIds" },
           { table: scheduledTodoTasksTable, scanIndex: "byIds" },
+          { table: habitsTable, scanIndex: "byIds" },
+          { table: routinesTable, scanIndex: "byIds" },
+          { table: habitCompletionsTable, scanIndex: "byIds" },
         ]),
       );
       await asyncDispatch(db, migrateProjectCategoryTaskStats({}));

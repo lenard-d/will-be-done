@@ -38,8 +38,11 @@ COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/apps/api/node_modules /app/apps/api/node_modules
 COPY --from=builder /app/apps/slices/node_modules /app/apps/slices/node_modules
 
-# Create default storage directory
-RUN mkdir -p /var/lib/will-be-done/db
+# Keep the external wrapper path while preserving workspace-relative imports.
+RUN mkdir -p /app/tools /var/lib/will-be-done/db \
+  && ln -s /app/apps/api/tools/wbd-agent-cli.ts /app/tools/wbd-agent-cli.ts \
+  && chmod +x /app/apps/api/tools/wbd \
+  && ln -s /app/apps/api/tools/wbd /usr/local/bin/wbd
 
 ENV WBD_STORAGE_PATH=/var/lib/will-be-done
 ENV WBD_DB_PATH=/var/lib/will-be-done/db

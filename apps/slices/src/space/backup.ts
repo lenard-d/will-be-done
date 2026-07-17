@@ -6,6 +6,11 @@ import { allProjectCategories } from "./projectsCategories";
 import { allProjects } from "./projectsAll";
 import { allTasks } from "./cardsTasks";
 import { allTaskTemplates } from "./cardsTaskTemplates";
+import {
+  allHabitCompletions,
+  allHabits,
+  allRoutines,
+} from "./habits";
 import { dailyListAllIds, dailyListById, dailyListGetId } from "./dailyLists";
 import {
   dailyProjectionAllIds,
@@ -21,11 +26,20 @@ import {
   ChecklistParentType,
   DailyList,
   dailyListType,
+  Habit,
+  HabitCompletion,
+  habitCompletionsTable,
+  habitCompletionType,
+  habitsTable,
+  habitType,
   Project,
   ProjectCategory,
   projectCategoryType,
   projectionType,
   projectType,
+  Routine,
+  routinesTable,
+  routineType,
   Task,
   TaskProjection,
   TaskTemplate,
@@ -104,6 +118,30 @@ interface ChecklistItemBackup {
   checkedAt: number | null;
 }
 
+interface HabitBackup {
+  id: string;
+  title: string;
+  routineId: string | null;
+  orderToken: string;
+  targetTime: string | null;
+  createdAt: number;
+  archivedAt: number | null;
+}
+
+interface RoutineBackup {
+  id: string;
+  title: string;
+  orderToken: string;
+  createdAt: number;
+  archivedAt: number | null;
+}
+
+interface HabitCompletionBackup {
+  id: string;
+  habitId: string;
+  completedAt: number;
+}
+
 export interface Backup {
   tasks: TaskBackup[];
   projects: ProjectBackup[];
@@ -112,6 +150,9 @@ export interface Backup {
   projectCategories: CategoryBackup[];
   dailyListProjections?: DailyListProjectionBackup[];
   checklistItems?: ChecklistItemBackup[];
+  habits?: HabitBackup[];
+  routines?: RoutineBackup[];
+  habitCompletions?: HabitCompletionBackup[];
 }
 
 const backupSchema = v.object({
@@ -194,6 +235,39 @@ const backupSchema = v.object({
         content: v.string(),
         createdAt: v.number(),
         checkedAt: v.union(v.number(), v.null()),
+      }),
+    ),
+  ),
+  habits: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        title: v.string(),
+        routineId: v.union(v.string(), v.null()),
+        orderToken: v.string(),
+        targetTime: v.union(v.string(), v.null()),
+        createdAt: v.number(),
+        archivedAt: v.union(v.number(), v.null()),
+      }),
+    ),
+  ),
+  routines: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        title: v.string(),
+        orderToken: v.string(),
+        createdAt: v.number(),
+        archivedAt: v.union(v.number(), v.null()),
+      }),
+    ),
+  ),
+  habitCompletions: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        habitId: v.string(),
+        completedAt: v.number(),
       }),
     ),
   ),
@@ -387,6 +461,30 @@ const getNewModels = action({
       models.push(checklistItem);
     }
 
+    for (const routineBackup of backup.routines || []) {
+      const routine: Routine = {
+        type: routineType,
+        ...routineBackup,
+      };
+      models.push(routine);
+    }
+
+    for (const habitBackup of backup.habits || []) {
+      const habit: Habit = {
+        type: habitType,
+        ...habitBackup,
+      };
+      models.push(habit);
+    }
+
+    for (const completionBackup of backup.habitCompletions || []) {
+      const completion: HabitCompletion = {
+        type: habitCompletionType,
+        ...completionBackup,
+      };
+      models.push(completion);
+    }
+
     // Handle legacy backup format where dailyListId was on tasks directly
     for (const taskBackup of backup.tasks) {
       // Skip if we already have a projection for this task (from dailyListProjections array)
@@ -418,6 +516,14 @@ export const loadSpaceBackup = selector({
   args: { backup: backupSchema },
   handler: function* loadSpaceBackup({ backup }) {
     for (const table of registeredSpaceSyncableTables) {
+      if (
+        (table === habitsTable && backup.habits === undefined) ||
+        (table === routinesTable && backup.routines === undefined) ||
+        (table === habitCompletionsTable &&
+          backup.habitCompletions === undefined)
+      ) {
+        continue;
+      }
       const allIds = (yield* selectFrom(table, "byIds")).map((r) => r.id);
 
       yield* deleteRows(table, allIds);
@@ -450,6 +556,10 @@ export const getSpaceBackup = selector({
     const projects: Project[] = yield* allProjects({});
     const taskTemplates: TaskTemplate[] = yield* allTaskTemplates({});
     const checklistItems: ChecklistItem[] = yield* allChecklistItems({});
+    const habits: Habit[] = yield* allHabits({});
+    const routines: Routine[] = yield* allRoutines({});
+    const habitCompletions: HabitCompletion[] =
+      yield* allHabitCompletions({});
     const dailyLists: DailyList[] = [];
 
     // Get all daily lists
@@ -531,6 +641,27 @@ export const getSpaceBackup = selector({
         content: item.content,
         createdAt: item.createdAt,
         checkedAt: item.checkedAt,
+      })),
+      habits: habits.map((habit) => ({
+        id: habit.id,
+        title: habit.title,
+        routineId: habit.routineId,
+        orderToken: habit.orderToken,
+        targetTime: habit.targetTime,
+        createdAt: habit.createdAt,
+        archivedAt: habit.archivedAt,
+      })),
+      routines: routines.map((routine) => ({
+        id: routine.id,
+        title: routine.title,
+        orderToken: routine.orderToken,
+        createdAt: routine.createdAt,
+        archivedAt: routine.archivedAt,
+      })),
+      habitCompletions: habitCompletions.map((completion) => ({
+        id: completion.id,
+        habitId: completion.habitId,
+        completedAt: completion.completedAt,
       })),
     } satisfies Backup;
   },

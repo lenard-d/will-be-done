@@ -198,6 +198,55 @@ export function isChecklistParentType(
   return modelType === taskType || modelType === taskTemplateType;
 }
 
+export const habitType = "habit";
+export const habitsTable = defineTable("habits", {
+  type: v.literal(habitType),
+  id: v.string(),
+  title: v.string(),
+  routineId: v.union(v.string(), v.null()),
+  orderToken: v.string(),
+  targetTime: v.union(v.string(), v.null()),
+  createdAt: v.number(),
+  archivedAt: v.union(v.number(), v.null()),
+})
+  .index("byIds", ["id"])
+  .index("byOrder", ["orderToken"])
+  .index("byRoutineOrder", ["routineId", "orderToken"]);
+registerSpaceSyncableTable(habitsTable, habitType);
+export type Habit = ExtractSchema<typeof habitsTable>;
+export const isHabit = isObjectType<Habit>(habitType);
+
+export const routineType = "routine";
+export const routinesTable = defineTable("routines", {
+  type: v.literal(routineType),
+  id: v.string(),
+  title: v.string(),
+  orderToken: v.string(),
+  createdAt: v.number(),
+  archivedAt: v.union(v.number(), v.null()),
+})
+  .index("byIds", ["id"])
+  .index("byOrder", ["orderToken"]);
+registerSpaceSyncableTable(routinesTable, routineType);
+export type Routine = ExtractSchema<typeof routinesTable>;
+export const isRoutine = isObjectType<Routine>(routineType);
+
+// Keep the legacy discriminator so existing synchronized rows remain valid.
+export const habitCompletionType = "habit_completion";
+export const habitCompletionsTable = defineTable("habit_completions", {
+  type: v.literal(habitCompletionType),
+  id: v.string(),
+  habitId: v.string(),
+  completedAt: v.number(),
+})
+  .index("byIds", ["id"])
+  .index("byHabitCompletedAt", ["habitId", "completedAt"])
+  .index("byCompletedAt", ["completedAt"]);
+registerSpaceSyncableTable(habitCompletionsTable, habitCompletionType);
+export type HabitCompletion = ExtractSchema<typeof habitCompletionsTable>;
+export const isHabitCompletion =
+  isObjectType<HabitCompletion>(habitCompletionType);
+
 export type Card = Task | TaskTemplate;
 
 export const cardWrapper = v.union(
@@ -225,6 +274,9 @@ export const possibleModel = v.union(
   taskProjectionsTable.v(),
   stashProjectionsTable.v(),
   checklistItemsTable.v(),
+  habitsTable.v(),
+  routinesTable.v(),
+  habitCompletionsTable.v(),
 );
 
 export type AnyModel = Infer<typeof possibleModel>;
@@ -237,7 +289,10 @@ export type AnyTable =
   | typeof taskProjectionsTable
   | typeof projectCategoriesTable
   | typeof stashProjectionsTable
-  | typeof checklistItemsTable;
+  | typeof checklistItemsTable
+  | typeof habitsTable
+  | typeof routinesTable
+  | typeof habitCompletionsTable;
 
 export const possibleModelType = v.union(
   v.literal(taskType),
@@ -248,5 +303,8 @@ export const possibleModelType = v.union(
   v.literal(projectionType),
   v.literal(stashProjectionType),
   v.literal(checklistItemType),
+  v.literal(habitType),
+  v.literal(routineType),
+  v.literal(habitCompletionType),
   v.literal("stash"),
 );

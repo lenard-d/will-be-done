@@ -1,4 +1,4 @@
-import { Settings, ArrowLeftRight } from "lucide-react";
+import { Settings, ArrowLeftRight, BarChart3 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Route } from "@/routes/spaces.$spaceId.tsx";
 import { authUtils, isDemoMode } from "@/lib/auth";
@@ -32,6 +32,15 @@ export function SpaceBlock() {
       <span className="flex-1 truncate text-left text-[12px] font-medium text-content-tinted">
         {spaceName}
       </span>
+
+      <Link
+        to="/spaces/$spaceId/stats"
+        params={{ spaceId }}
+        title="Stats"
+        className="flex-shrink-0 text-content-tinted/40 hover:text-accent transition-colors cursor-pointer"
+      >
+        <BarChart3 className="h-3.5 w-3.5" />
+      </Link>
 
       {/* Switch space */}
       <Link

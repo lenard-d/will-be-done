@@ -23,6 +23,8 @@ import { Route as SpacesSpaceIdProjectsIndexRouteImport } from './routes/spaces.
 import { Route as SpacesSpaceIdDatesIndexRouteImport } from './routes/spaces.$spaceId.dates.index'
 import { Route as SpacesSpaceIdTimelineDateRouteImport } from './routes/spaces.$spaceId.timeline.$date'
 import { Route as SpacesSpaceIdCardDetailsCardIdRouteImport } from './routes/spaces.$spaceId.card-details.$cardId'
+import { Route as SpacesSpaceIdWithSidebarStatsRouteImport } from './routes/spaces.$spaceId._withSidebar.stats'
+import { Route as SpacesSpaceIdWithSidebarHabitsRouteImport } from './routes/spaces.$spaceId._withSidebar.habits'
 import { Route as SpacesSpaceIdWithSidebarProjectsProjectIdRouteImport } from './routes/spaces.$spaceId._withSidebar.projects.$projectId'
 import { Route as SpacesSpaceIdWithSidebarDatesDateRouteImport } from './routes/spaces.$spaceId._withSidebar.dates.$date'
 
@@ -100,6 +102,18 @@ const SpacesSpaceIdCardDetailsCardIdRoute =
     path: '/card-details/$cardId',
     getParentRoute: () => SpacesSpaceIdRoute,
   } as any)
+const SpacesSpaceIdWithSidebarStatsRoute =
+  SpacesSpaceIdWithSidebarStatsRouteImport.update({
+    id: '/stats',
+    path: '/stats',
+    getParentRoute: () => SpacesSpaceIdWithSidebarRoute,
+  } as any)
+const SpacesSpaceIdWithSidebarHabitsRoute =
+  SpacesSpaceIdWithSidebarHabitsRouteImport.update({
+    id: '/habits',
+    path: '/habits',
+    getParentRoute: () => SpacesSpaceIdWithSidebarRoute,
+  } as any)
 const SpacesSpaceIdWithSidebarProjectsProjectIdRoute =
   SpacesSpaceIdWithSidebarProjectsProjectIdRouteImport.update({
     id: '/projects/$projectId',
@@ -122,6 +136,8 @@ export interface FileRoutesByFullPath {
   '/spaces/$spaceId': typeof SpacesSpaceIdRouteWithChildren
   '/spaces/': typeof SpacesIndexRoute
   '/spaces/$spaceId/': typeof SpacesSpaceIdIndexRoute
+  '/spaces/$spaceId/habits': typeof SpacesSpaceIdWithSidebarHabitsRoute
+  '/spaces/$spaceId/stats': typeof SpacesSpaceIdWithSidebarStatsRoute
   '/spaces/$spaceId/card-details/$cardId': typeof SpacesSpaceIdCardDetailsCardIdRoute
   '/spaces/$spaceId/timeline/$date': typeof SpacesSpaceIdTimelineDateRoute
   '/spaces/$spaceId/dates/': typeof SpacesSpaceIdDatesIndexRoute
@@ -137,6 +153,8 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/spaces': typeof SpacesIndexRoute
   '/spaces/$spaceId': typeof SpacesSpaceIdIndexRoute
+  '/spaces/$spaceId/habits': typeof SpacesSpaceIdWithSidebarHabitsRoute
+  '/spaces/$spaceId/stats': typeof SpacesSpaceIdWithSidebarStatsRoute
   '/spaces/$spaceId/card-details/$cardId': typeof SpacesSpaceIdCardDetailsCardIdRoute
   '/spaces/$spaceId/timeline/$date': typeof SpacesSpaceIdTimelineDateRoute
   '/spaces/$spaceId/dates': typeof SpacesSpaceIdDatesIndexRoute
@@ -156,6 +174,8 @@ export interface FileRoutesById {
   '/spaces/': typeof SpacesIndexRoute
   '/spaces/$spaceId/_withSidebar': typeof SpacesSpaceIdWithSidebarRouteWithChildren
   '/spaces/$spaceId/': typeof SpacesSpaceIdIndexRoute
+  '/spaces/$spaceId/_withSidebar/habits': typeof SpacesSpaceIdWithSidebarHabitsRoute
+  '/spaces/$spaceId/_withSidebar/stats': typeof SpacesSpaceIdWithSidebarStatsRoute
   '/spaces/$spaceId/card-details/$cardId': typeof SpacesSpaceIdCardDetailsCardIdRoute
   '/spaces/$spaceId/timeline/$date': typeof SpacesSpaceIdTimelineDateRoute
   '/spaces/$spaceId/dates/': typeof SpacesSpaceIdDatesIndexRoute
@@ -175,6 +195,8 @@ export interface FileRouteTypes {
     | '/spaces/$spaceId'
     | '/spaces/'
     | '/spaces/$spaceId/'
+    | '/spaces/$spaceId/habits'
+    | '/spaces/$spaceId/stats'
     | '/spaces/$spaceId/card-details/$cardId'
     | '/spaces/$spaceId/timeline/$date'
     | '/spaces/$spaceId/dates/'
@@ -190,6 +212,8 @@ export interface FileRouteTypes {
     | '/signup'
     | '/spaces'
     | '/spaces/$spaceId'
+    | '/spaces/$spaceId/habits'
+    | '/spaces/$spaceId/stats'
     | '/spaces/$spaceId/card-details/$cardId'
     | '/spaces/$spaceId/timeline/$date'
     | '/spaces/$spaceId/dates'
@@ -208,6 +232,8 @@ export interface FileRouteTypes {
     | '/spaces/'
     | '/spaces/$spaceId/_withSidebar'
     | '/spaces/$spaceId/'
+    | '/spaces/$spaceId/_withSidebar/habits'
+    | '/spaces/$spaceId/_withSidebar/stats'
     | '/spaces/$spaceId/card-details/$cardId'
     | '/spaces/$spaceId/timeline/$date'
     | '/spaces/$spaceId/dates/'
@@ -325,6 +351,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SpacesSpaceIdCardDetailsCardIdRouteImport
       parentRoute: typeof SpacesSpaceIdRoute
     }
+    '/spaces/$spaceId/_withSidebar/stats': {
+      id: '/spaces/$spaceId/_withSidebar/stats'
+      path: '/stats'
+      fullPath: '/spaces/$spaceId/stats'
+      preLoaderRoute: typeof SpacesSpaceIdWithSidebarStatsRouteImport
+      parentRoute: typeof SpacesSpaceIdWithSidebarRoute
+    }
+    '/spaces/$spaceId/_withSidebar/habits': {
+      id: '/spaces/$spaceId/_withSidebar/habits'
+      path: '/habits'
+      fullPath: '/spaces/$spaceId/habits'
+      preLoaderRoute: typeof SpacesSpaceIdWithSidebarHabitsRouteImport
+      parentRoute: typeof SpacesSpaceIdWithSidebarRoute
+    }
     '/spaces/$spaceId/_withSidebar/projects/$projectId': {
       id: '/spaces/$spaceId/_withSidebar/projects/$projectId'
       path: '/projects/$projectId'
@@ -343,12 +383,16 @@ declare module '@tanstack/react-router' {
 }
 
 interface SpacesSpaceIdWithSidebarRouteChildren {
+  SpacesSpaceIdWithSidebarHabitsRoute: typeof SpacesSpaceIdWithSidebarHabitsRoute
+  SpacesSpaceIdWithSidebarStatsRoute: typeof SpacesSpaceIdWithSidebarStatsRoute
   SpacesSpaceIdWithSidebarDatesDateRoute: typeof SpacesSpaceIdWithSidebarDatesDateRoute
   SpacesSpaceIdWithSidebarProjectsProjectIdRoute: typeof SpacesSpaceIdWithSidebarProjectsProjectIdRoute
 }
 
 const SpacesSpaceIdWithSidebarRouteChildren: SpacesSpaceIdWithSidebarRouteChildren =
   {
+    SpacesSpaceIdWithSidebarHabitsRoute: SpacesSpaceIdWithSidebarHabitsRoute,
+    SpacesSpaceIdWithSidebarStatsRoute: SpacesSpaceIdWithSidebarStatsRoute,
     SpacesSpaceIdWithSidebarDatesDateRoute:
       SpacesSpaceIdWithSidebarDatesDateRoute,
     SpacesSpaceIdWithSidebarProjectsProjectIdRoute:

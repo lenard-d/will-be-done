@@ -18,5 +18,6 @@ export * from "./dailyLists";
 export * from "./dailyListsProjections";
 export * from "./stashProjections";
 export * from "./checklistItems";
+export * from "./habits";
 export * from "./backup";
 export * from "./importer/ticktick";
