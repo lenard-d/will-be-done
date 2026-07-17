@@ -1,7 +1,9 @@
 import { changesTable, syncStateTable } from "@will-be-done/slices/common";
 import {
   allTasks,
+  checklistItemsTable,
   createInboxIfNotExists,
+  dailyListsTable,
   generateTasksFromTemplates,
   installProjectTaskStatsHooks,
   loadSpaceBackup,
@@ -15,6 +17,8 @@ import {
   scheduledTodoTasksTable,
   spaceMigrationsTable,
   stashProjectionsTable,
+  taskProjectionsTable,
+  tasksTable,
 } from "@will-be-done/slices/space";
 import { asyncDispatch, selectAsync } from "@will-be-done/hyperdb";
 import {
@@ -51,11 +55,17 @@ export const spaceDBConfig = (dbId: string) => {
 
       await execAsync(
         db.preloadTables([
+          { table: changesTable, scanIndex: "byEntityIdAndTableName" },
+          { table: tasksTable, scanIndex: "byIds" },
+          { table: dailyListsTable, scanIndex: "byIds" },
+          { table: taskProjectionsTable, scanIndex: "byIds" },
           { table: projectsTable, scanIndex: "byIds" },
           { table: projectCategoriesTable, scanIndex: "byIds" },
           { table: stashProjectionsTable, scanIndex: "byIds" },
           { table: projectCategoryTaskStatsTable, scanIndex: "byIds" },
           { table: scheduledTodoTasksTable, scanIndex: "byIds" },
+          { table: stashProjectionsTable, scanIndex: "byIds" },
+          { table: checklistItemsTable, scanIndex: "byIds" },
         ]),
       );
       await asyncDispatch(db, migrateProjectCategoryTaskStats({}));
@@ -103,6 +113,7 @@ export const demoSpaceDBConfig = () => {
         db.preloadTables([
           { table: projectsTable, scanIndex: "byIds" },
           { table: projectCategoriesTable, scanIndex: "byIds" },
+          { table: taskProjectionsTable, scanIndex: "byIds" },
           { table: stashProjectionsTable, scanIndex: "byIds" },
           { table: projectCategoryTaskStatsTable, scanIndex: "byIds" },
           { table: scheduledTodoTasksTable, scanIndex: "byIds" },
@@ -139,6 +150,6 @@ export const userDBConfig = (dbId: string) => {
     ],
     syncableDBTables: registeredUserSyncableTables,
     tableNameMap: registeredUserSyncableTableNameMap,
-    afterInit: () => {},
+    afterInit: () => { },
   } satisfies SyncConfig;
 };

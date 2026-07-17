@@ -149,9 +149,16 @@ jobs:
         if: matrix.platform == 'linux'
         run: sudo snap install snapcraft --classic
 
-      - name: Install rpm tools (Linux only)
+      - name: Install Linux packaging tools
         if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y rpm
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder rpm
+          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub \
+            org.freedesktop.Platform//24.08 \
+            org.freedesktop.Sdk//24.08 \
+            org.electronjs.Electron2.BaseApp//24.08
 
       - name: Build electron-vite app
         working-directory: apps/desktop

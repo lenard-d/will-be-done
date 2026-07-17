@@ -90,7 +90,7 @@ export const preloadEntities = selector({
 
     if (!preloadTaskProjections) return;
 
-    yield* selectFrom(taskProjectionsTable, "byIds").where((q) =>
+    yield* selectFrom(taskProjectionsTable, "byId").where((q) =>
       or(...ids.map((id) => q.eq("id", id))),
     );
   },

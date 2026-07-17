@@ -495,7 +495,7 @@ export const createTaskTemplateFromTask = action({
   },
   handler: function* createTaskTemplateFromTask({ task, data, now }) {
     const newId = uuidv7();
-    yield* copyItems({
+    yield* copyItem({
       fromParentId: task.id,
       fromParentType: taskType,
       toParentId: newId,

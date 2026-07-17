@@ -37,11 +37,19 @@ dmg:
 linux:
   target:
     - AppImage
+    - flatpak
     - snap
     - deb
     - rpm
   maintainer: will-be-done.app
   category: Office
+flatpak:
+  runtime: org.freedesktop.Platform
+  runtimeVersion: '24.08'
+  sdk: org.freedesktop.Sdk
+  baseVersion: '24.08'
+  useWaylandFlags: true
+  artifactName: ${name}-${version}.${ext}
 snap:
   publish:
     - github
