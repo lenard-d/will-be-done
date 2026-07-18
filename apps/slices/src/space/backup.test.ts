@@ -58,6 +58,69 @@ function createDB() {
 }
 
 describe("space backup", () => {
+  it("exports persisted legacy habits with complete normalized fields", () => {
+    const db = createDB();
+    execSync(
+      db.driver.insert("habits", [
+        {
+          type: "habit",
+          id: "legacy-habit-for-export",
+          title: "Legacy habit",
+          orderToken: "1700000000000",
+          createdAt: 10,
+          archivedAt: 20,
+        },
+      ]),
+    );
+
+    const exported = selectSync(db, { selector: getSpaceBackup, args: {} });
+
+    expect(exported.habits).toEqual([
+      {
+        id: "legacy-habit-for-export",
+        title: "Legacy habit",
+        routineId: null,
+        orderToken: "1700000000000",
+        targetTime: null,
+        createdAt: 10,
+        archivedAt: 20,
+      },
+    ]);
+  });
+
+  it("restores legacy habit backups as complete persisted rows", () => {
+    const db = createDB();
+    const backup = emptyBackup();
+    backup.habits = [
+      {
+        id: "legacy-habit-for-restore",
+        title: "Legacy habit",
+        orderToken: "1700000000000",
+        createdAt: 10,
+        archivedAt: null,
+      },
+    ];
+
+    syncDispatch(db, loadSpaceBackup({ backup }));
+
+    expect(
+      execSync(
+        db.driver.intervalScan("habits", "byOrder", [{}], { order: "asc" }),
+      ),
+    ).toEqual([
+      {
+        type: "habit",
+        id: "legacy-habit-for-restore",
+        title: "Legacy habit",
+        routineId: null,
+        orderToken: "1700000000000",
+        targetTime: null,
+        createdAt: 10,
+        archivedAt: null,
+      },
+    ]);
+  });
+
   it("roundtrips habits, routines, and explicit completions", () => {
     expect(
       registeredSpaceSyncableTables.map((table) => table.tableName),

@@ -11,6 +11,7 @@ import { action, selector } from "../builders";
 import { registerModelSlice } from "./maps";
 import {
   type Habit,
+  type HabitRecord,
   type Routine,
   habitCompletionsTable,
   habitsTable,
@@ -21,13 +22,20 @@ import {
   possibleModelType,
 } from "./tables";
 
+export const normalizeHabit = (habit: HabitRecord): Habit => ({
+  ...habit,
+  routineId: habit.routineId ?? null,
+  targetTime: habit.targetTime ?? null,
+});
+
 export const habitById = selector({
   name: "habitById",
   args: { id: v.string() },
   handler: function* habitById({ id }) {
-    return yield* selectFrom(habitsTable, "byId")
+    const habit = yield* selectFrom(habitsTable, "byId")
       .where((query) => query.eq("id", id))
       .first();
+    return habit ? normalizeHabit(habit) : undefined;
   },
 });
 
@@ -55,7 +63,9 @@ export const allHabits = selector({
   name: "allHabits",
   args: {},
   handler: function* allHabits() {
-    return yield* selectFrom(habitsTable, "byOrder").order("asc");
+    return (yield* selectFrom(habitsTable, "byOrder").order("asc")).map(
+      normalizeHabit,
+    );
   },
 });
 

@@ -121,9 +121,9 @@ interface ChecklistItemBackup {
 interface HabitBackup {
   id: string;
   title: string;
-  routineId: string | null;
+  routineId?: string | null;
   orderToken: string;
-  targetTime: string | null;
+  targetTime?: string | null;
   createdAt: number;
   archivedAt: number | null;
 }
@@ -243,9 +243,9 @@ const backupSchema = v.object({
       v.object({
         id: v.string(),
         title: v.string(),
-        routineId: v.union(v.string(), v.null()),
+        routineId: v.optional(v.union(v.string(), v.null())),
         orderToken: v.string(),
-        targetTime: v.union(v.string(), v.null()),
+        targetTime: v.optional(v.union(v.string(), v.null())),
         createdAt: v.number(),
         archivedAt: v.union(v.number(), v.null()),
       }),
@@ -473,6 +473,8 @@ const getNewModels = action({
       const habit: Habit = {
         type: habitType,
         ...habitBackup,
+        routineId: habitBackup.routineId ?? null,
+        targetTime: habitBackup.targetTime ?? null,
       };
       models.push(habit);
     }

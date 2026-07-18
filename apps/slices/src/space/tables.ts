@@ -203,9 +203,11 @@ export const habitsTable = defineTable("habits", {
   type: v.literal(habitType),
   id: v.string(),
   title: v.string(),
-  routineId: v.union(v.string(), v.null()),
+  // Habits created before routines and target times were introduced can omit
+  // these fields. Domain selectors normalize both omissions to explicit nulls.
+  routineId: v.optional(v.union(v.string(), v.null())),
   orderToken: v.string(),
-  targetTime: v.union(v.string(), v.null()),
+  targetTime: v.optional(v.union(v.string(), v.null())),
   createdAt: v.number(),
   archivedAt: v.union(v.number(), v.null()),
 })
@@ -213,7 +215,11 @@ export const habitsTable = defineTable("habits", {
   .index("byOrder", ["orderToken"])
   .index("byRoutineOrder", ["routineId", "orderToken"]);
 registerSpaceSyncableTable(habitsTable, habitType);
-export type Habit = ExtractSchema<typeof habitsTable>;
+export type HabitRecord = ExtractSchema<typeof habitsTable>;
+export type Habit = Omit<HabitRecord, "routineId" | "targetTime"> & {
+  routineId: string | null;
+  targetTime: string | null;
+};
 export const isHabit = isObjectType<Habit>(habitType);
 
 export const routineType = "routine";
@@ -279,7 +285,10 @@ export const possibleModel = v.union(
   habitCompletionsTable.v(),
 );
 
-export type AnyModel = Infer<typeof possibleModel>;
+type AnyModelRecord = Infer<typeof possibleModel>;
+export type AnyModel =
+  | Exclude<AnyModelRecord, { type: typeof habitType }>
+  | Habit;
 export type AnyModelType = AnyModel["type"] | "stash";
 export type AnyTable =
   | typeof tasksTable

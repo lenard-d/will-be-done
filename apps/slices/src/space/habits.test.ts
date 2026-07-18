@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DB,
   execSync,
+  HybridDB,
   selectSync,
   syncDispatch,
 } from "@will-be-done/hyperdb";
@@ -17,6 +18,7 @@ import {
   habitById,
   habitCompletionsByHabitId,
   toggleHabitToday,
+  updateHabit,
 } from "./habits";
 import {
   habitCompletionsTable,
@@ -32,7 +34,129 @@ function createDB() {
   return db;
 }
 
+const rawHabitBase = {
+  type: "habit",
+  title: "Legacy habit",
+  createdAt: 1,
+  archivedAt: null,
+} as const;
+
+function insertRawHabits(
+  db: DB,
+  habits: Array<{ id: string; orderToken: string; [key: string]: unknown }>,
+) {
+  execSync(db.driver.insert("habits", habits));
+}
+
+function readRawHabits(db: DB) {
+  return execSync(
+    db.driver.intervalScan("habits", "byOrder", [{}], { order: "asc" }),
+  );
+}
+
 describe("persistent habit actions", () => {
+  it("loads and normalizes every legacy nullable-field omission", () => {
+    const primary = new DB(new BptreeInmemDriver(), {
+      runtimeRowsValidation: true,
+    });
+    const db = new HybridDB(
+      primary,
+      new DB(new BptreeInmemDriver()),
+    );
+    execSync(
+      db.loadTables([habitsTable, routinesTable, habitCompletionsTable]),
+    );
+    insertRawHabits(primary, [
+      {
+        ...rawHabitBase,
+        id: "legacy-habit-missing-routine-id",
+        orderToken: "1700000000000",
+        targetTime: "08:00",
+      },
+      {
+        ...rawHabitBase,
+        id: "legacy-habit-missing-target-time",
+        orderToken: "1700000000001",
+        routineId: "routine-1",
+      },
+      {
+        ...rawHabitBase,
+        id: "legacy-habit-missing-nullable-fields",
+        orderToken: "1700000000002",
+      },
+    ]);
+    execSync(db.preloadTables([{ table: habitsTable, scanIndex: "byIds" }]));
+
+    const habits = selectSync(db, { selector: allHabits, args: {} });
+    expect(habits).toEqual([
+      {
+        ...rawHabitBase,
+        id: "legacy-habit-missing-routine-id",
+        orderToken: "1700000000000",
+        routineId: null,
+        targetTime: "08:00",
+      },
+      {
+        ...rawHabitBase,
+        id: "legacy-habit-missing-target-time",
+        orderToken: "1700000000001",
+        routineId: "routine-1",
+        targetTime: null,
+      },
+      {
+        ...rawHabitBase,
+        id: "legacy-habit-missing-nullable-fields",
+        orderToken: "1700000000002",
+        routineId: null,
+        targetTime: null,
+      },
+    ]);
+    for (const habit of habits) {
+      expect(
+        selectSync(db, {
+          selector: habitById,
+          args: { id: habit.id },
+        }),
+      ).toEqual(habit);
+    }
+  });
+
+  it("upgrades a legacy habit to a complete row when updating it", () => {
+    const db = createDB();
+    insertRawHabits(db, [
+      {
+        ...rawHabitBase,
+        id: "legacy-habit-to-update",
+        orderToken: "1700000000000",
+      },
+    ]);
+
+    const updated = syncDispatch(
+      db,
+      updateHabit({
+        id: "legacy-habit-to-update",
+        habit: { title: "Updated legacy habit" },
+      }),
+    );
+
+    expect(updated).toMatchObject({
+      id: "legacy-habit-to-update",
+      title: "Updated legacy habit",
+      routineId: null,
+      targetTime: null,
+    });
+    expect(readRawHabits(db)).toEqual([
+      {
+        ...rawHabitBase,
+        id: "legacy-habit-to-update",
+        title: "Updated legacy habit",
+        orderToken: "1700000000000",
+        routineId: null,
+        targetTime: null,
+      },
+    ]);
+  });
+
   it("appends habits and routines after legacy numeric order tokens", () => {
     const db = createDB();
     syncDispatch(
@@ -104,7 +228,14 @@ describe("persistent habit actions", () => {
     expect(habit).toMatchObject({
       id: "habit-1",
       title: "Drink water",
+      routineId: null,
+      targetTime: null,
       archivedAt: null,
+    });
+    expect(readRawHabits(db)[0]).toMatchObject({
+      id: "habit-1",
+      routineId: null,
+      targetTime: null,
     });
     expect(
       selectSync(db, { selector: activeHabits, args: {} }).map((row) => row.id),
