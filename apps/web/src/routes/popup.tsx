@@ -76,6 +76,12 @@ function PopupComponent() {
   }, [focusInput]);
 
   useEffect(() => {
+    if (status !== "loading" && status !== "success") {
+      focusInput();
+    }
+  }, [focusInput, status]);
+
+  useEffect(() => {
     window.addEventListener("focus", focusInput);
     return () => window.removeEventListener("focus", focusInput);
   }, [focusInput]);

@@ -147,6 +147,53 @@ The Docker server hosts the web app, stores server-side data under `/var/lib/wil
 
 ## Keyboard Shortcuts
 
+### Global quick add on Wayland
+
+Electron's global shortcut portal may report a successful registration on some Wayland
+compositors without delivering shortcut events. In that case, let the compositor handle
+`Ctrl+Shift+A` and invoke the installed Will Be Done application with
+`--show-quick-add`.
+
+Use the command that matches the installed package:
+
+- deb, rpm, or snap: `will-be-done --show-quick-add`
+- Flatpak: `flatpak run app.will_be_done.WillBeDone --show-quick-add`
+- AppImage: `/absolute/path/to/will-be-done.AppImage --show-quick-add`
+
+For example, with a deb, rpm, or snap installation, add this entry to the `binds`
+section of the niri configuration:
+
+```kdl
+Ctrl+Shift+A {
+    spawn "will-be-done" "--show-quick-add";
+}
+```
+
+Validate the niri configuration after editing it:
+
+```bash
+niri validate
+```
+
+Niri reloads valid configuration changes automatically.
+
+For Hyprland using Lua configuration:
+
+```lua
+hl.bind(
+    "CTRL + SHIFT + A",
+    hl.dsp.exec_cmd("will-be-done --show-quick-add")
+)
+```
+
+Replace the command portion of either compositor example when using Flatpak or AppImage.
+The command starts Will Be Done when necessary. If it is already running, the request is
+forwarded to the existing process. Starting with `--show-quick-add` keeps the main window
+hidden. Closing the main window also keeps Will Be Done running in the system tray, where
+you can reopen the app, show Quick Add, or quit it completely.
+
+### In app shortcuts
+
 Global:
 
 1. `\` - toggle stash

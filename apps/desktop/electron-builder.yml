@@ -1,4 +1,4 @@
-appId: app.will-be-done
+appId: app.willbedone.WillBeDone
 productName: Will Be Done
 directories:
   buildResources: build
@@ -43,6 +43,7 @@ linux:
     - rpm
   maintainer: will-be-done.app
   category: Office
+  syncDesktopName: true
 flatpak:
   runtime: org.freedesktop.Platform
   runtimeVersion: '24.08'

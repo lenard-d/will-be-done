@@ -125,4 +125,6 @@ jobs:
 
       - name: Build Flatpak bundle
         working-directory: apps/desktop
+        env:
+          DEBUG: '@malept/flatpak-bundler'
         run: pnpm exec electron-builder --linux flatpak --publish never
