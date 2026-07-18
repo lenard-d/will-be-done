@@ -36,7 +36,7 @@ test("restores a JSON backup through settings", async ({ page }) => {
   });
 
   const settings = await openSpaceSettings(page);
-  await settings.getByRole("button", { name: "Backup" }).click();
+  await settings.getByRole("tab", { name: "Backup" }).click();
 
   const restoreInput = page.getByTestId("backup-restore-input");
   const confirmationPromise = page.waitForEvent("dialog");

@@ -34,7 +34,7 @@ test("imports a TickTick CSV through settings", async ({ page }) => {
   });
 
   const settings = await openSpaceSettings(page);
-  await settings.getByRole("button", { name: "Import" }).click();
+  await settings.getByRole("tab", { name: "Import" }).click();
 
   const importInput = page.getByTestId("ticktick-import-input");
   const confirmationPromise = page.waitForEvent("dialog");
