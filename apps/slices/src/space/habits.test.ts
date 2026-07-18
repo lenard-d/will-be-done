@@ -23,6 +23,8 @@ import {
 import {
   habitCompletionsTable,
   habitsTable,
+  isHabit,
+  isHabitRecord,
   routinesTable,
 } from "./tables";
 
@@ -55,6 +57,23 @@ function readRawHabits(db: DB) {
 }
 
 describe("persistent habit actions", () => {
+  it("distinguishes legacy storage records from normalized habits", () => {
+    const legacyRecord = {
+      ...rawHabitBase,
+      id: "legacy-habit-guard",
+      orderToken: "1700000000000",
+    };
+    const normalizedHabit = {
+      ...legacyRecord,
+      routineId: null,
+      targetTime: null,
+    };
+
+    expect(isHabitRecord(legacyRecord)).toBe(true);
+    expect(isHabit(legacyRecord)).toBe(false);
+    expect(isHabit(normalizedHabit)).toBe(true);
+  });
+
   it("loads and normalizes every legacy nullable-field omission", () => {
     const primary = new DB(new BptreeInmemDriver(), {
       runtimeRowsValidation: true,

@@ -220,7 +220,13 @@ export type Habit = Omit<HabitRecord, "routineId" | "targetTime"> & {
   routineId: string | null;
   targetTime: string | null;
 };
-export const isHabit = isObjectType<Habit>(habitType);
+export const isHabitRecord = isObjectType<HabitRecord>(habitType);
+export const isHabit = (value: unknown): value is Habit =>
+  isHabitRecord(value) &&
+  "routineId" in value &&
+  (typeof value.routineId === "string" || value.routineId === null) &&
+  "targetTime" in value &&
+  (typeof value.targetTime === "string" || value.targetTime === null);
 
 export const routineType = "routine";
 export const routinesTable = defineTable("routines", {
