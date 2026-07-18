@@ -47,6 +47,34 @@ export const TasksColumnGrid = ({
   );
 };
 
+export const TasksColumnAction = ({
+  label,
+  disabled,
+  className,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  className?: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) => (
+  <button
+    className={cn(
+      "hidden group-hover:block group-focus-within:block focus:block cursor-pointer text-white mb-2 disabled:cursor-default disabled:opacity-20",
+      className,
+    )}
+    type="button"
+    title={label}
+    aria-label={label}
+    disabled={disabled}
+    onClick={onClick}
+  >
+    {children}
+  </button>
+);
+
 type DailyListDndState = { type: "idle" } | { type: "is-task-over" };
 
 const idle: DailyListDndState = { type: "idle" };
@@ -61,7 +89,9 @@ export const TasksColumn = ({
   children,
   panelWidth,
   onAddClick,
+  addButtonLabel = "Add item",
   actions,
+  canDrop,
 }: {
   isHidden: boolean;
   onHideClick: () => void;
@@ -71,7 +101,9 @@ export const TasksColumn = ({
   children: React.ReactNode;
   panelWidth?: number;
   onAddClick?: () => void;
+  addButtonLabel?: string;
   actions?: React.ReactNode;
+  canDrop?: (data: DndModelData) => boolean;
 }) => {
   const columnRef = useRef<HTMLDivElement>(null);
   const scrollableRef = useRef<HTMLDivElement>(null);
@@ -92,8 +124,7 @@ export const TasksColumn = ({
         canDrop: ({ source }) => {
           const data = source.data;
           if (!isModelDNDData(data)) return false;
-
-          return true;
+          return canDrop ? canDrop(data) : true;
         },
         getIsSticky: () => true,
         onDragEnter: () => setDndState(isTaskOver),
@@ -106,7 +137,7 @@ export const TasksColumn = ({
         canScroll: ({ source }) => isModelDNDData(source.data),
       }),
     );
-  }, [columnModelId, columnModelType]);
+  }, [canDrop, columnModelId, columnModelType]);
 
   return (
     <div
@@ -133,6 +164,8 @@ export const TasksColumn = ({
               className="hidden group-hover:block cursor-pointer text-white mb-2"
               onClick={onAddClick}
               type="button"
+              title={addButtonLabel}
+              aria-label={addButtonLabel}
             >
               <PlusIcon className="rotate-180" />
             </button>

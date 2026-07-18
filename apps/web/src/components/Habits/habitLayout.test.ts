@@ -55,4 +55,39 @@ describe("buildRoutineColumns", () => {
     ]);
     expect(columns[2]!.habits.map((item) => item.title)).toEqual(["Water"]);
   });
+
+  it("does not render an empty HABITS column when every habit is assigned", () => {
+    const columns = buildRoutineColumns(
+      [routine({ id: "morning", title: "Morning" })],
+      [habit({ title: "Water", routineId: "morning" })],
+    );
+
+    expect(columns.map((column) => column.title)).toEqual(["MORNING"]);
+  });
+
+  it("renders HABITS for dangling and archived routine references", () => {
+    const columns = buildRoutineColumns(
+      [
+        routine({ id: "active", title: "Active" }),
+        routine({ id: "archived", title: "Archived", archivedAt: 2 }),
+      ],
+      [
+        habit({ title: "Dangling", routineId: "missing" }),
+        habit({ title: "Archived routine", routineId: "archived" }),
+      ],
+    );
+
+    expect(columns.map((column) => column.title)).toEqual([
+      "ACTIVE",
+      "HABITS",
+    ]);
+    expect(columns[1]!.habits.map((item) => item.title)).toEqual([
+      "Dangling",
+      "Archived routine",
+    ]);
+  });
+
+  it("returns no columns when there are no active routines or habits", () => {
+    expect(buildRoutineColumns([], [])).toEqual([]);
+  });
 });

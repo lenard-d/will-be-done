@@ -20,6 +20,7 @@ import {
 } from "@will-be-done/slices/space";
 import {
   TasksColumn,
+  TasksColumnAction,
   TasksColumnGrid,
 } from "@/components/TasksGrid/TasksGrid.tsx";
 
@@ -104,10 +105,8 @@ const ProjectTasksColumn = ({
       onAddClick={handleAddClick}
       actions={
         <>
-          <button
-            className="hidden group-hover:block cursor-pointer text-white mb-2"
-            type="button"
-            title="Add column to the left"
+          <TasksColumnAction
+            label="Add column to the left"
             onClick={() => {
               void (async () => {
                 const title = await promptDialog("Enter new name");
@@ -130,11 +129,9 @@ const ProjectTasksColumn = ({
             }}
           >
             <AddLeftIcon />
-          </button>
-          <button
-            className="hidden group-hover:block cursor-pointer text-white mb-2"
-            type="button"
-            title="Add column to the right"
+          </TasksColumnAction>
+          <TasksColumnAction
+            label="Add column to the right"
             onClick={() => {
               void (async () => {
                 const title = await promptDialog("Enter new name");
@@ -157,31 +154,25 @@ const ProjectTasksColumn = ({
             }}
           >
             <AddRightIcon />
-          </button>
-          <button
-            className="hidden group-hover:block cursor-pointer text-white mb-2"
-            type="button"
-            title="Move column to the left"
+          </TasksColumnAction>
+          <TasksColumnAction
+            label="Move column to the left"
             onClick={() => {
               void dispatch(moveLeft({ projectSectionId: section.id }));
             }}
           >
             <MoveLeftIcon className="rotate-180" />
-          </button>
-          <button
-            className="hidden group-hover:block cursor-pointer text-white mb-2"
-            type="button"
-            title="Move column to the right"
+          </TasksColumnAction>
+          <TasksColumnAction
+            label="Move column to the right"
             onClick={() => {
               void dispatch(moveRight({ projectSectionId: section.id }));
             }}
           >
             <MoveRightIcon className="rotate-180" />
-          </button>
-          <button
-            className="hidden group-hover:block cursor-pointer text-white mb-2"
-            type="button"
-            title="Delete column"
+          </TasksColumnAction>
+          <TasksColumnAction
+            label="Delete column"
             onClick={() => {
               const confirmed = confirm(
                 "Are you sure you want to delete this project section?",
@@ -192,11 +183,10 @@ const ProjectTasksColumn = ({
             }}
           >
             <TrashIcon className="rotate-180" />
-          </button>
-          <button
-            className="hidden group-hover:block cursor-pointer text-white mb-6"
-            type="button"
-            title="Edit column name"
+          </TasksColumnAction>
+          <TasksColumnAction
+            className="mb-6"
+            label="Edit column name"
             onClick={() => {
               void (async () => {
                 const newTitle = await promptDialog(
@@ -217,7 +207,7 @@ const ProjectTasksColumn = ({
             }}
           >
             <PencilIcon className="rotate-180" />
-          </button>
+          </TasksColumnAction>
         </>
       }
     >

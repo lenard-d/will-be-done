@@ -13,9 +13,11 @@ import {
   appHandleDrop,
   checklistItemType,
   dailyListType,
-  projectSectionType,
   dailyEntryType,
+  habitType,
+  projectSectionType,
   projectType,
+  routineType,
   stashEntryType,
   stashType,
   taskTemplateType,
@@ -100,15 +102,15 @@ export function GlobalListener() {
       // If it's an input, return early
       if (isInput) return;
 
-      const noModifiers = !(e.shiftKey || e.ctrlKey || e.metaKey);
-      const isUp = (e.code === "ArrowUp" || e.code == "KeyK") && noModifiers;
+      const noModifiers = !(e.shiftKey || e.ctrlKey || e.metaKey || e.altKey);
+      const isUp = noModifiers && (e.code === "ArrowUp" || e.code == "KeyK");
       const isDown =
-        e.code === "ArrowDown" || (e.code == "KeyJ" && noModifiers);
+        noModifiers && (e.code === "ArrowDown" || e.code == "KeyJ");
 
       const isLeft =
-        e.code === "ArrowLeft" || (e.code == "KeyH" && noModifiers);
+        noModifiers && (e.code === "ArrowLeft" || e.code == "KeyH");
       const isRight =
-        e.code === "ArrowRight" || (e.code == "KeyL" && noModifiers);
+        noModifiers && (e.code === "ArrowRight" || e.code == "KeyL");
 
       const focusItemKey = useFocusStore.getState().focusItemKey;
       if (focusItemKey && (isUp || isDown)) {
@@ -182,6 +184,7 @@ export function GlobalListener() {
 
             const targetImportanceOrder = [
               checklistItemType,
+              habitType,
               stashEntryType,
               dailyEntryType,
               taskType,
@@ -189,6 +192,7 @@ export function GlobalListener() {
               stashType,
               dailyListType,
               projectSectionType,
+              routineType,
               projectType,
             ];
 

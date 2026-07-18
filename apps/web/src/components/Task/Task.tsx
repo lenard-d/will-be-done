@@ -20,7 +20,12 @@ import TextareaAutosize from "react-textarea-autosize";
 import { CheckboxComp, ChecklistItems } from "@/components/Checklist/Checklist";
 import { focusChecklistItem } from "@/components/Checklist/focus";
 import { TaskDropdownMenu } from "./DropdownMenu";
-import { taskFloatingIconGroupClassName } from "./styles";
+import {
+  taskCardBodyClassName,
+  taskCardClassName,
+  taskCardFooterClassName,
+  taskFloatingIconGroupClassName,
+} from "./styles";
 import { MoveModal } from "@/components/MoveTaskModel/MoveModel";
 import { useGlobalListener } from "@/components/GlobalListener/hooks.tsx";
 import { isInputElement } from "../../utils/isInputElement";
@@ -1106,25 +1111,11 @@ export const PreloadedTaskComp = ({
         }
         data-order-token={item.orderToken}
         tabIndex={0}
-        className={clsx(
-          `group/task relative rounded-lg whitespace-break-spaces [overflow-wrap:anywhere] text-sm ring-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent`,
-          "[&[data-suppress-focus-visible=true]]:focus-visible:outline-none",
-          isFocused
-            ? isTask(item) && item.state === "done"
-              ? isOnTimeline
-                ? "ring-ring outline-2 outline-dashed outline-done-panel-selected focus-visible:outline-dashed text-done-content"
-                : "ring-2 ring-done-panel-selected text-done-content"
-              : isOnTimeline
-                ? "ring-ring outline-2 outline-dashed outline-accent focus-visible:outline-dashed text-content"
-                : "ring-2 ring-accent text-content"
-            : isTask(item) && item.state === "done"
-              ? isOnTimeline
-                ? "ring-done-ring outline-2 outline-dashed outline-done-panel-selected text-done-content hover:ring-ring-hover"
-                : "ring-done-ring text-done-content hover:ring-ring-hover"
-              : isOnTimeline
-                ? "ring-ring outline-2 outline-dashed outline-content-tinted-2 text-content hover:ring-ring-hover"
-                : "ring-ring text-content hover:ring-ring-hover",
-        )}
+        className={taskCardClassName({
+          isFocused,
+          isDone: isTask(item) && item.state === "done",
+          isOnTimeline,
+        })}
         style={{}}
         onClick={() =>
           useFocusStore.getState().focusByKey(focusableItemKey, true)
@@ -1150,17 +1141,10 @@ export const PreloadedTaskComp = ({
         {/* {!isSelfDragging && ( */}
         <>
           <div
-            className={clsx(
-              "pb-2 rounded-t-lg",
-
-              isFocused
-                ? isTask(item) && item.state === "done"
-                  ? "bg-done-panel"
-                  : "bg-panel-hover"
-                : isTask(item) && item.state === "done"
-                  ? "bg-done-panel"
-                  : "bg-panel hover:bg-panel-hover",
-            )}
+            className={taskCardBodyClassName({
+              isFocused,
+              isDone: isTask(item) && item.state === "done",
+            })}
           >
             <div className="absolute right-1.5 top-1.5 z-10 h-5">
               {(isTaskTemplate(item) || (isTask(item) && item.templateId)) && (
@@ -1294,19 +1278,17 @@ export const PreloadedTaskComp = ({
           </div>
           <div
             className={cn(
-              "text-sm px-2 py-1.5 text-xs rounded-b-lg",
+              taskCardFooterClassName({
+                isDone: isTask(item) && item.state === "done",
+                nature:
+                  isTask(item) || isTaskTemplate(item)
+                    ? item.nature
+                    : undefined,
+              }),
               centerScheduleDate && displayLastScheduleTime
                 ? "grid grid-cols-[1fr_auto_1fr] items-center gap-1"
                 : "flex items-center justify-between",
-              isTask(item) && item.state === "done"
-                ? "bg-done-panel-tinted text-done-content"
-                : (isTask(item) || isTaskTemplate(item)) &&
-                    item.nature === "red"
-                  ? "bg-nature-red text-nature-red-content"
-                  : (isTask(item) || isTaskTemplate(item)) &&
-                      item.nature === "green"
-                    ? "bg-nature-green text-nature-green-content"
-                    : "bg-panel-tinted text-content-tinted",
+
             )}
           >
             <div>{section.title}</div>

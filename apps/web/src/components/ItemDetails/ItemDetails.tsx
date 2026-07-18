@@ -4,8 +4,11 @@ import { cn } from "@/lib/utils";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { useFocusStore, parseColumnKey } from "@/store/focusSlice.ts";
 import {
-  itemExists,
   dailyEntryType,
+  habitById,
+  habitType,
+  itemExists,
+  isHabit,
   isTask,
   isTaskTemplate,
   projectSectionItemById,
@@ -13,6 +16,7 @@ import {
 import { useGlobalListener } from "@/components/GlobalListener/hooks.tsx";
 import { TaskBody } from "./TaskBody.tsx";
 import { TemplateBody } from "./TemplateBody.tsx";
+import { HabitBody } from "./HabitBody.tsx";
 import { ResizableDivider } from "@/components/DaysBoard/ResizableDivider.tsx";
 import { isInputElement } from "@/utils/isInputElement.ts";
 import {
@@ -31,14 +35,22 @@ export function ItemDetails() {
   const isItemFocused =
     parsed?.type === "task" ||
     parsed?.type === dailyEntryType ||
-    parsed?.type === "template";
+    parsed?.type === "template" ||
+    parsed?.type === habitType;
   const itemId = isItemFocused ? parsed.id : null;
-  const { data: isVisible = false } = useAsyncSelector({
+  const { data: taskItemExists = false } = useAsyncSelector({
     selector: itemExists,
     args: { id: itemId ?? "" },
-    enabled: !!itemId,
+    enabled: !!itemId && parsed?.type !== habitType,
     defaultValue: false,
   });
+  const { data: focusedHabit } = useAsyncSelector({
+    selector: habitById,
+    args: { id: itemId ?? "" },
+    enabled: !!itemId && parsed?.type === habitType,
+  });
+  const isVisible =
+    parsed?.type === habitType ? isHabit(focusedHabit) : taskItemExists;
 
   const width = useItemDetailsSize((s) => s.width);
   const setWidth = useItemDetailsSize((s) => s.setWidth);
@@ -185,11 +197,7 @@ export function ItemDetails() {
               isEditingDescription={isEditingDescription}
               setIsEditingDescription={setIsEditingDescription}
             />
-          ) : (
-            <div className="flex items-center justify-center h-32 text-content-tinted/50 text-sm">
-              Select a task
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -323,6 +331,20 @@ function ItemDetailsBody({
     selector: projectSectionItemById,
     args: { id: itemId },
   });
+  const { data: habit } = useAsyncSelector({
+    selector: habitById,
+    args: { id: itemId },
+  });
+
+  if (isHabit(habit)) {
+    return (
+      <HabitBody
+        habit={habit}
+        isEditingTitle={isEditingTitle}
+        setIsEditingTitle={setIsEditingTitle}
+      />
+    );
+  }
 
   if (isTask(item)) {
     return (
