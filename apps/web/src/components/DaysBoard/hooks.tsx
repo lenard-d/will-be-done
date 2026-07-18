@@ -33,7 +33,6 @@ export const useCurrentDate = () => {
   return date;
 };
 
-
 export type HiddenDays = {
   hiddenDays: Record<string, boolean>;
   setHiddenDays: (value: Record<string, boolean>) => void;

@@ -586,11 +586,7 @@ describe("first-creator-wins merge", () => {
     syncDispatch(
       db,
       mergeChanges({
-        input: makeIncomingCreate(
-          entityId,
-          "rescheduled",
-          recreatedAtClock,
-        ),
+        input: makeIncomingCreate(entityId, "rescheduled", recreatedAtClock),
         nextClock: makeClockFn("0000000040")(),
         clientId: "local",
         registeredSyncableTableNameMap: registeredTables,

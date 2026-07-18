@@ -2,11 +2,34 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
+  format:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
   lint-and-typecheck:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     strategy:
@@ -126,5 +149,5 @@ jobs:
       - name: Build Flatpak bundle
         working-directory: apps/desktop
         env:
-          DEBUG: '@malept/flatpak-bundler'
+          DEBUG: "@malept/flatpak-bundler"
         run: pnpm exec electron-builder --linux flatpak --publish never

@@ -19,7 +19,6 @@ const mockConfig: BackupConfig = {
 };
 
 describe("RetentionPolicy", () => {
-
   describe("getRetentionCount", () => {
     test("returns correct counts for each tier", () => {
       const policy = new RetentionPolicy(mockConfig);
@@ -44,10 +43,10 @@ describe("RetentionPolicy", () => {
       const expectedAfter = addHours(after, -16);
 
       expect(cutoff.getTime()).toBeGreaterThanOrEqual(
-        expectedBefore.getTime() - 1000
+        expectedBefore.getTime() - 1000,
       );
       expect(cutoff.getTime()).toBeLessThanOrEqual(
-        expectedAfter.getTime() + 1000
+        expectedAfter.getTime() + 1000,
       );
     });
 
@@ -62,10 +61,10 @@ describe("RetentionPolicy", () => {
       const expectedAfter = addDays(after, -5);
 
       expect(cutoff.getTime()).toBeGreaterThanOrEqual(
-        expectedBefore.getTime() - 1000
+        expectedBefore.getTime() - 1000,
       );
       expect(cutoff.getTime()).toBeLessThanOrEqual(
-        expectedAfter.getTime() + 1000
+        expectedAfter.getTime() + 1000,
       );
     });
 
@@ -80,10 +79,10 @@ describe("RetentionPolicy", () => {
       const expectedAfter = addWeeks(after, -2);
 
       expect(cutoff.getTime()).toBeGreaterThanOrEqual(
-        expectedBefore.getTime() - 1000
+        expectedBefore.getTime() - 1000,
       );
       expect(cutoff.getTime()).toBeLessThanOrEqual(
-        expectedAfter.getTime() + 1000
+        expectedAfter.getTime() + 1000,
       );
     });
 
@@ -98,10 +97,10 @@ describe("RetentionPolicy", () => {
       const expectedAfter = addMonths(after, -2);
 
       expect(cutoff.getTime()).toBeGreaterThanOrEqual(
-        expectedBefore.getTime() - 1000
+        expectedBefore.getTime() - 1000,
       );
       expect(cutoff.getTime()).toBeLessThanOrEqual(
-        expectedAfter.getTime() + 1000
+        expectedAfter.getTime() + 1000,
       );
     });
   });

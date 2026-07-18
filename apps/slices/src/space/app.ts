@@ -10,10 +10,7 @@ import {
   taskType,
 } from "./tables";
 
-const shouldMoveOutOfStash = (
-  targetModelType: string,
-  dropModelType: string,
-) =>
+const shouldMoveOutOfStash = (targetModelType: string, dropModelType: string) =>
   dropModelType === stashProjectionType &&
   targetModelType !== stashProjectionType &&
   targetModelType !== "stash";

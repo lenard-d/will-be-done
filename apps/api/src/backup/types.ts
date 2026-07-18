@@ -38,7 +38,8 @@ export function getBackupConfig(): BackupConfig | null {
   const rawConfig = {
     WBD_BACKUP_S3_ENABLED: process.env.WBD_BACKUP_S3_ENABLED,
     WBD_BACKUP_S3_ACCESS_KEY_ID: process.env.WBD_BACKUP_S3_ACCESS_KEY_ID,
-    WBD_BACKUP_S3_SECRET_ACCESS_KEY: process.env.WBD_BACKUP_S3_SECRET_ACCESS_KEY,
+    WBD_BACKUP_S3_SECRET_ACCESS_KEY:
+      process.env.WBD_BACKUP_S3_SECRET_ACCESS_KEY,
     WBD_BACKUP_S3_ENDPOINT: process.env.WBD_BACKUP_S3_ENDPOINT,
     WBD_BACKUP_S3_BUCKET_NAME: process.env.WBD_BACKUP_S3_BUCKET_NAME,
     WBD_BACKUP_S3_REGION: process.env.WBD_BACKUP_S3_REGION,
@@ -69,10 +70,14 @@ export function getBackupConfig(): BackupConfig | null {
     );
   }
   if (!config.WBD_BACKUP_S3_ENDPOINT) {
-    throw new Error("WBD_BACKUP_S3_ENDPOINT is required when backup is enabled");
+    throw new Error(
+      "WBD_BACKUP_S3_ENDPOINT is required when backup is enabled",
+    );
   }
   if (!config.WBD_BACKUP_S3_BUCKET_NAME) {
-    throw new Error("WBD_BACKUP_S3_BUCKET_NAME is required when backup is enabled");
+    throw new Error(
+      "WBD_BACKUP_S3_BUCKET_NAME is required when backup is enabled",
+    );
   }
 
   return config;

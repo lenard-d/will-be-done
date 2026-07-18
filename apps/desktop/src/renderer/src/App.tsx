@@ -92,7 +92,11 @@ function App(): React.JSX.Element {
 
       await window.desktopApi?.setServerUrl(trimmed)
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to connect. Please check the URL and try again.')
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to connect. Please check the URL and try again.'
+      )
     } finally {
       setConnecting(false)
     }
@@ -133,7 +137,9 @@ function App(): React.JSX.Element {
             <Logo size={52} />
             <h1 className="brand__title">Will Be Done</h1>
             <p className="brand__subtitle">
-              {recoveryMode ? 'The configured server could not be reached' : 'Connect to your server to get started'}
+              {recoveryMode
+                ? 'The configured server could not be reached'
+                : 'Connect to your server to get started'}
             </p>
           </header>
 
@@ -141,13 +147,21 @@ function App(): React.JSX.Element {
           <div className="card">
             {recoveryMode && (
               <div className="error-msg" style={{ marginBottom: 16 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="8" x2="12" y2="12" />
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
                 <span>
-                  Failed to load {failedUrl || 'the configured server'}. Update the URL below or reset it.
+                  Failed to load {failedUrl || 'the configured server'}. Update the URL below or
+                  reset it.
                 </span>
               </div>
             )}
@@ -190,7 +204,14 @@ function App(): React.JSX.Element {
 
               {error && (
                 <div className="error-msg">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -231,7 +252,11 @@ function App(): React.JSX.Element {
                       stroke="currentColor"
                       strokeWidth="2"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M13 7l5 5m0 0l-5 5m5-5H6"
+                      />
                     </svg>
                   </span>
                 )}
@@ -245,7 +270,9 @@ function App(): React.JSX.Element {
                   style={{ marginTop: 12, background: 'rgba(255,255,255,0.08)', color: '#d6def5' }}
                   onClick={() => void handleReset()}
                 >
-                  <span className="btn-connect__inner">{resetting ? 'Resetting...' : 'Reset Server URL'}</span>
+                  <span className="btn-connect__inner">
+                    {resetting ? 'Resetting...' : 'Reset Server URL'}
+                  </span>
                 </button>
               )}
             </form>

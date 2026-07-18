@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output and generated files
+dist/
+dist-ssr/
+out/
+build/
+.astro/
+.tanstack/
+.wrangler/
+coverage/
+playwright-report/
+test-results/
+**/routeTree.gen.ts
+
+# Package manager and generated data
+pnpm-lock.yaml
+db/
+dbs/
+
+# Bundled reference material and legal text
+**/.agents/
+**/.claude/
+LICENSE.md
+
+# Environment and local files
+.env
+.env.*
+*.local
+*.log
+
+# Binary assets
+*.db
+*.sqlite
+*.p12
+*.cer
+*.p8

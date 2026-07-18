@@ -1,7 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-export const WEB_DEVTOOLS_ENABLED_KEY =
-  "will-be-done:hyperdb-devtools-enabled";
+export const WEB_DEVTOOLS_ENABLED_KEY = "will-be-done:hyperdb-devtools-enabled";
 export const HYPERDB_DEVTOOLS_OPEN_KEY = "hyperdb-devtools-open";
 
 const DEVTOOLS_SETTING_CHANGED = "will-be-done:devtools-setting-changed";

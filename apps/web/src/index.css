@@ -4,24 +4,24 @@
 @custom-variant dark (&:is(.dark *));
 
 @font-face {
-  font-family: 'InterVariable';
+  font-family: "InterVariable";
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url('/fonts/InterVariable.woff2') format('woff2');
+  src: url("/fonts/InterVariable.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: 'InterVariable';
+  font-family: "InterVariable";
   font-style: italic;
   font-weight: 100 900;
   font-display: swap;
-  src: url('/fonts/InterVariable-Italic.woff2') format('woff2');
+  src: url("/fonts/InterVariable-Italic.woff2") format("woff2");
 }
 
 @theme {
   --font-sans: InterVariable, sans-serif;
-  --font-sans--font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  --font-sans--font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 
   /* Base surface - dark blue-black */
   --color-surface: #0a0a0f;
@@ -118,8 +118,7 @@
   --color-update-toast-cancel-hover: rgba(255, 255, 255, 0.09);
   --color-update-toast-action-glow: rgba(59, 130, 246, 0.35);
   --shadow-update-toast:
-    0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 8px 40px rgba(0, 0, 0, 0.45);
+    0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 40px rgba(0, 0, 0, 0.45);
 }
 /* @custom-variant dark (&:is(.dark *)); */
 /**/
@@ -238,7 +237,6 @@
 /*     @apply bg-background text-foreground; */
 /*   } */
 /* } */
-
 
 :root {
   --update-toast-bottom-offset: max(16px, env(safe-area-inset-bottom));

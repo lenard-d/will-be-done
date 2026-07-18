@@ -5,9 +5,7 @@ const EnvConfigSchema = z.object({
   WBD_DB_PATH: z.string().optional(),
 });
 
-let envConfig:
-  | { WBD_STORAGE_PATH: string; WBD_DB_PATH: string }
-  | undefined;
+let envConfig: { WBD_STORAGE_PATH: string; WBD_DB_PATH: string } | undefined;
 
 export function getEnvConfig() {
   if (envConfig) return envConfig;

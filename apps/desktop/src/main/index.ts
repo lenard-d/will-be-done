@@ -240,7 +240,7 @@ function createWindow(showOnReady = true): void {
     icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: true,
+      sandbox: true
     }
   })
 
@@ -339,7 +339,7 @@ function initPopupWindow(): void {
     ...(process.platform === 'darwin' ? { type: 'panel' as const } : { alwaysOnTop: true }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: true,
+      sandbox: true
     }
   })
 
@@ -452,21 +452,21 @@ function buildMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(process.platform === 'darwin'
       ? [
-        {
-          label: app.name,
-          submenu: [
-            // { role: 'about' as const },
-            // { type: 'separator' as const },
-            { role: 'services' as const },
-            { type: 'separator' as const },
-            { role: 'hide' as const },
-            { role: 'hideOthers' as const },
-            { role: 'unhide' as const },
-            { type: 'separator' as const },
-            { role: 'quit' as const }
-          ]
-        }
-      ]
+          {
+            label: app.name,
+            submenu: [
+              // { role: 'about' as const },
+              // { type: 'separator' as const },
+              { role: 'services' as const },
+              { type: 'separator' as const },
+              { role: 'hide' as const },
+              { role: 'hideOthers' as const },
+              { role: 'unhide' as const },
+              { type: 'separator' as const },
+              { role: 'quit' as const }
+            ]
+          }
+        ]
       : []),
     {
       label: 'Edit',
@@ -612,7 +612,7 @@ app.whenReady().then(() => {
     autoUpdater.checkForUpdatesAndNotify()
   }
 
-  app.on('activate', function() {
+  app.on('activate', function () {
     if (!mainWindow || mainWindow.isDestroyed()) {
       createWindow()
     } else if (!mainWindow.isVisible()) {

@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - "v[0-9]+.[0-9]+.[0-9]+"
 
 permissions:
   contents: write
@@ -181,9 +181,17 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: pnpm exec electron-builder --publish always
 
-      - name: Build desktop app
-        if: matrix.platform != 'mac'
+      - name: Build desktop app (Windows)
+        if: matrix.platform == 'win'
         working-directory: apps/desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm exec electron-builder --publish always
+        run: pnpm exec electron-builder --win --publish always
+
+      - name: Build desktop app (Linux)
+        if: matrix.platform == 'linux'
+        working-directory: apps/desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEBUG: "@malept/flatpak-bundler"
+        run: pnpm exec electron-builder --linux --publish always

@@ -150,6 +150,6 @@ export const userDBConfig = (dbId: string) => {
     ],
     syncableDBTables: registeredUserSyncableTables,
     tableNameMap: registeredUserSyncableTableNameMap,
-    afterInit: () => { },
+    afterInit: () => {},
   } satisfies SyncConfig;
 };

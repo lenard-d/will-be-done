@@ -8,7 +8,9 @@ export const Route = createFileRoute("/popup")({
 
 function PopupComponent() {
   const [title, setTitle] = useState("");
-  const [spaceId, setSpaceId] = useState<string | null>(() => getPopupSpaceId());
+  const [spaceId, setSpaceId] = useState<string | null>(() =>
+    getPopupSpaceId(),
+  );
   const [status, setStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >(spaceId ? "loading" : "error");

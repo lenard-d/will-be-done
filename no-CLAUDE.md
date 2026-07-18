@@ -5,10 +5,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Root Level Commands
+
 - `pnpm dev:client` - Start the web client in development mode (Vite dev server)
 - `pnpm dev:server` - Start the API server in development mode (Fastify + Bun)
 
 ### Web Client (apps/web/)
+
 - `pnpm dev` - Start Vite development server with React 19
 - `pnpm build` - Build for production (TypeScript check + Vite build)
 - `pnpm ts` - Run TypeScript compiler check
@@ -18,9 +20,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `pnpm format` - Format code with Prettier
 
 ### API Server (apps/api/)
+
 - `pnpm dev` - Start development server with Bun (runs src/start.ts)
 
 ### Slices Library (apps/slices/)
+
 - `pnpm ts` - Run TypeScript compiler check
 
 ## Architecture Overview
@@ -30,9 +34,11 @@ This is a **monorepo task management application** with a shared state managemen
 ### Applications Structure
 
 #### `apps/web` - React 19 Client
+
 The frontend application built with modern React and TypeScript.
 
 **Key Technologies:**
+
 - **Framework**: React 19 with React Compiler (babel-plugin-react-compiler)
 - **Routing**: TanStack Router v1 with file-based routing and auto code splitting
 - **Styling**: Tailwind CSS v4 with @base-ui-components/react and select Radix UI components (dialog, popover, separator, slot)
@@ -44,6 +50,7 @@ The frontend application built with modern React and TypeScript.
 - **Drag & Drop**: @atlaskit/pragmatic-drag-and-drop
 
 **Project Structure:**
+
 ```
 apps/web/src/
 ├── routes/                                        # TanStack Router file-based routes
@@ -76,20 +83,24 @@ apps/web/src/
 ```
 
 **Route Structure Notes:**
+
 - TanStack Router uses dot-notation for nested routes (not folder hierarchy)
 - All project/timeline routes are under a `spaces.$spaceId` hierarchy for multi-space support
 - Authentication routes (login, signup, landing) are at the root level
 - Dynamic segments use `$paramName` syntax (e.g., `$spaceId`, `$projectId`, `$date`)
 
 **Development Notes:**
+
 - The app uses React 19's new features and the React Compiler for automatic optimization
 - Vite proxy forwards `/api` requests to `localhost:3000` (API server)
 - Path alias `@` points to `apps/web/src/`
 
 #### `apps/api` - tRPC API Server
+
 The backend server providing synchronization and data persistence.
 
 **Key Technologies:**
+
 - **Runtime**: Bun (fast JavaScript runtime)
 - **Framework**: Fastify with tRPC adapter
 - **Database**: SQLite (via bun:sqlite)
@@ -101,6 +112,7 @@ The backend server providing synchronization and data persistence.
 - **Static Files**: @fastify/static for serving built frontend
 
 **Project Structure:**
+
 ```
 apps/api/src/
 ├── start.ts    # Main server entry point (Fastify setup, routes, tRPC router)
@@ -109,12 +121,14 @@ apps/api/src/
 ```
 
 **API Endpoints:**
+
 - `POST /api/trpc/getChangesAfter` - Fetch changes after a specific timestamp
 - `POST /api/trpc/handleChanges` - Submit client changes for server merge
 - `POST /upload` - Upload audio files for transcription (memos feature)
 - All non-API routes serve `public/index.html` for SPA routing
 
 **Key Features:**
+
 - **Logical Clock**: Hybrid logical clock for change ordering (`timestamp-sequence-clientId`)
 - **Change Tracking**: Automatic tracking of all database changes via hyperdb hooks
 - **Sync System**: Bidirectional sync with conflict-free merge
@@ -130,21 +144,25 @@ apps/api/src/
 The server registers `afterInsert`, `afterUpdate`, and `afterDelete` hooks on hyperDB to automatically create change records for synchronization. Changes skip the `changesTable` itself and any operations with `skip-sync` trait.
 
 #### `apps/slices` - Shared State Management Library
+
 A TypeScript library containing shared business logic and data models used by both client and server.
 
 **Key Technologies:**
+
 - **Database Abstraction**: Custom hyperdb with selectors, actions, and tables
 - **Utilities**: date-fns, es-toolkit, uuid, RRule (recurring events)
 - **Ordering**: fractional-indexing-jittered for conflict-free ordering
 - **Validation**: Zod schemas
 
 **Core Concepts:**
+
 - **Slices**: Modular state containers with selectors and actions (similar to Redux slices)
 - **Selectors**: Generator functions that query and compute derived state
 - **Actions**: Generator functions that mutate state
 - **Tables**: Type-safe database table definitions with indexes
 
 **Available Slices:**
+
 ```
 apps/slices/src/slices/
 ├── app.ts                      # Core application slice with unified byId selector
@@ -167,6 +185,7 @@ apps/slices/src/slices/
 **Data Models:**
 
 All entities follow a consistent pattern:
+
 - **Base Fields**: `type`, `id`, `orderToken`, `createdAt`
 - **Soft Deletion**: No explicit `isDeleted` in most models (handled via changes)
 - **Fractional Indexing**: `orderToken` for conflict-free ordering without re-indexing
@@ -177,6 +196,7 @@ All entities follow a consistent pattern:
 The application uses a hierarchical structure: **Project → ProjectCategory → Tasks**
 
 1. **Task**
+
    ```typescript
    {
      type: "task",
@@ -193,6 +213,7 @@ The application uses a hierarchical structure: **Project → ProjectCategory →
    ```
 
 2. **Project**
+
    ```typescript
    {
      type: "project",
@@ -206,6 +227,7 @@ The application uses a hierarchical structure: **Project → ProjectCategory →
    ```
 
 3. **ProjectCategory** - Organizational categories within projects
+
    ```typescript
    {
      type: "projectCategory",
@@ -232,11 +254,13 @@ The application uses a hierarchical structure: **Project → ProjectCategory →
 
 **Table Indexes:**
 Tables use strategic indexes for performance:
+
 - Hash indexes for single-key lookups (`byId`)
 - BTree indexes for range queries and ordering (`byIds`, `byOrderToken`, `byProjectIdOrderStates`)
 
 **Slice Registration:**
 Slices register themselves in two registries:
+
 - `registeredSyncableTables` - Tables that participate in sync
 - Model slice registry - Type-to-slice mapping for polymorphic operations
 
@@ -245,6 +269,7 @@ Slices register themselves in two registries:
 The application supports multiple workspaces (called "spaces"), enabling users to maintain separate work contexts with complete data isolation.
 
 **Key Features:**
+
 - **Isolated Databases**: Each space has its own SQLite database (`dbs/{spaceId}.sqlite`)
 - **User Ownership**: Each space is owned by a specific user (tied to userId)
 - **Independent Data**: Projects, tasks, categories, and settings are completely separate per space
@@ -252,6 +277,7 @@ The application supports multiple workspaces (called "spaces"), enabling users t
 - **Independent Sync**: Each space maintains its own sync state and change tracking
 
 **Space Management:**
+
 - Users can create multiple spaces from the spaces list page
 - Switching between spaces changes the active database and context
 - Authentication system ties users to their spaces for access control
@@ -262,6 +288,7 @@ The application supports multiple workspaces (called "spaces"), enabling users t
   - Space-specific settings and preferences
 
 **Database Structure:**
+
 - Main database: `dbs/main.sqlite` - Stores user accounts and space metadata
 - Space databases: `dbs/{spaceId}.sqlite` - One per space, contains all space-specific data
 - Space IDs are UUIDs for uniqueness and security
@@ -279,6 +306,7 @@ The application supports multiple workspaces (called "spaces"), enabling users t
 ### Synchronization Architecture
 
 **Logical Clock System:**
+
 - Format: `timestamp-sequence-clientId`
 - Example: `1700000000000-0001-client-abc123`
 - Provides total ordering of changes across distributed clients
@@ -286,11 +314,13 @@ The application supports multiple workspaces (called "spaces"), enabling users t
 
 **Change Types:**
 The system tracks three types of changes:
+
 - **Insert**: New entity creation
 - **Update**: Field modifications
 - **Delete**: Entity removal
 
 **Conflict Resolution:**
+
 - Last-write-wins based on logical clock comparison
 - Fractional indexing prevents ordering conflicts
 - Server acts as the source of truth for clock synchronization
@@ -298,6 +328,7 @@ The system tracks three types of changes:
 ### Technology Stack Summary
 
 **Frontend:**
+
 - React 19 + TypeScript + Vite 7
 - TanStack Router + TanStack Form
 - Tailwind CSS 4 + @base-ui-components/react with select Radix UI components
@@ -306,6 +337,7 @@ The system tracks three types of changes:
 - @atlaskit/pragmatic-drag-and-drop for drag & drop
 
 **Backend:**
+
 - Bun runtime
 - Fastify + tRPC Server
 - SQLite (bun:sqlite) with multi-database architecture
@@ -315,6 +347,7 @@ The system tracks three types of changes:
 - Token-based authentication with JWT
 
 **Shared:**
+
 - TypeScript 5.7
 - Zod validation
 - Custom hyperdb state management
@@ -325,6 +358,7 @@ The system tracks three types of changes:
 ## Development Workflow
 
 ### Starting Development
+
 1. Start API server: `pnpm dev:server` (runs on port 3000)
 2. Start web client: `pnpm dev:client` (runs on Vite dev server, proxies API)
 3. Access application at `http://localhost:5173` (or Vite's assigned port)
@@ -332,6 +366,7 @@ The system tracks three types of changes:
 ### Common Tasks
 
 **Adding a New Feature:**
+
 1. Define data model in `apps/slices/src/slices/` if needed
 2. Register table with `registerSyncableTable()` for sync support
 3. Create slice with selectors (queries) and actions (mutations)
@@ -339,17 +374,20 @@ The system tracks three types of changes:
 5. Server automatically syncs changes via registered hooks
 
 **Adding a New Route:**
+
 1. Create file in `apps/web/src/routes/` following TanStack Router conventions
 2. Use dynamic segments with `$paramName.tsx` syntax
 3. Export route component with `createFileRoute()`
 4. Route tree auto-generates in `routeTree.gen.ts`
 
 **Modifying Sync Behavior:**
+
 1. Edit slice actions in `apps/slices/src/slices/`
 2. Changes automatically tracked via hyperdb hooks
 3. Use `withTraits({ type: "skip-sync" })` to bypass sync for specific operations
 
 **Database Schema Changes:**
+
 1. Update type definitions in relevant slice file
 2. Update table definition with new fields/indexes
 3. Migration handled by hyperdb's `loadTables()` on startup
@@ -358,26 +396,31 @@ The system tracks three types of changes:
 ## Important Notes
 
 ### Do NOT modify these packages:
+
 - `apps/hyperdb` - Custom database package (internal dependency)
 - `apps/hyperstate` - Deprecated, no longer in use
 - `apps/transcript-server` - Not part of core application
 
 ### Database:
+
 - Main database: `apps/api/dbs/main.sqlite` - User accounts and space metadata
 - Space databases: `apps/api/dbs/{spaceId}.sqlite` - Per-space data isolation
 - Client uses in-browser storage (implementation in `apps/web`)
 - Each space gets its own database instance for complete data isolation
 
 ### Code Style:
+
 - Use generator functions (`function*`) for slices
 - Prefer fractional indexing over numeric indexes
 - Use Zod for all API input validation
 - Follow TanStack Router conventions for routing
 
 ### TypeScript:
+
 - **Never use `any`** — use proper types, `unknown`, or generics instead
 
 ### Performance:
+
 - Indexes are critical for query performance
 - Use hash indexes for equality lookups
 - Use btree indexes for range queries and ordering

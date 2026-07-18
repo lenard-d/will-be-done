@@ -35,7 +35,7 @@ export class S3Client {
       await this.client.send(
         new HeadBucketCommand({
           Bucket: this.bucketName,
-        })
+        }),
       );
       console.log(`[S3Client] ✓ Bucket access verified: ${this.bucketName}`);
     } catch (error: unknown) {
@@ -66,20 +66,23 @@ export class S3Client {
             originalPath: localPath,
             uploadedAt: new Date().toISOString(),
           },
-        })
+        }),
       );
 
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Upload timeout after 5 minutes for ${s3Key}`));
-        }, 5 * 60 * 1000);
+        setTimeout(
+          () => {
+            reject(new Error(`Upload timeout after 5 minutes for ${s3Key}`));
+          },
+          5 * 60 * 1000,
+        );
       });
 
       await Promise.race([uploadPromise, timeoutPromise]);
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       console.log(
-        `[S3Client] Uploaded ${s3Key} in ${duration}s (${(fileStats.size / 1024 / 1024).toFixed(2)} MB)`
+        `[S3Client] Uploaded ${s3Key} in ${duration}s (${(fileStats.size / 1024 / 1024).toFixed(2)} MB)`,
       );
     } catch (error: unknown) {
       const err = error as Record<string, unknown>;
@@ -98,7 +101,7 @@ export class S3Client {
       new DeleteObjectCommand({
         Bucket: this.bucketName,
         Key: s3Key,
-      })
+      }),
     );
   }
 
@@ -116,7 +119,7 @@ export class S3Client {
           Delete: {
             Objects: chunk.map((key) => ({ Key: key })),
           },
-        })
+        }),
       );
     }
   }
@@ -131,14 +134,14 @@ export class S3Client {
           Bucket: this.bucketName,
           Prefix: prefix,
           ContinuationToken: continuationToken,
-        })
+        }),
       );
 
       if (response.Contents) {
         keys.push(
           ...response.Contents.map((obj) => obj.Key!).filter(
-            (key): key is string => Boolean(key)
-          )
+            (key): key is string => Boolean(key),
+          ),
         );
       }
 

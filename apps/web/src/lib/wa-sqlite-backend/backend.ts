@@ -47,7 +47,6 @@ export const waSqliteWebBackend =
           while ((await sqlite3.step(stmt)) === SQLite.SQLITE_ROW) {
             if (columns.length > 0) {
               rows.push(
-                 
                 Object.fromEntries(
                   sqlite3
                     .row(stmt)
@@ -89,7 +88,6 @@ export const waSqliteWebBackend =
             while ((await sqlite3.step(stmt)) === SQLite.SQLITE_ROW) {
               if (columns.length > 0) {
                 rows.push(
-                   
                   Object.fromEntries(
                     sqlite3
                       .row(stmt)
@@ -127,9 +125,8 @@ export const waSqliteWebBackend =
 
     return {
       async initialize() {
-         
         // const module = await SQLiteAsyncModule({ locateFile: () => wasmUrl });
-         
+
         const module = await SQLiteAsyncESMFactory({
           locateFile: () => wasmUrl,
         });

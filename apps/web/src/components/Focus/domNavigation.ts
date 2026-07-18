@@ -167,7 +167,9 @@ export const getDOMColumnSiblingFirstItems = (
   const getClosestKey = (col: Element | null): FocusKey | null => {
     if (!col) return null;
     const items = Array.from(
-      col.querySelectorAll("[data-focusable-key]:not([data-focus-placeholder])"),
+      col.querySelectorAll(
+        "[data-focusable-key]:not([data-focus-placeholder])",
+      ),
     );
     if (items.length === 0) {
       // Empty column — fall back to placeholder
@@ -315,8 +317,12 @@ export const getDOMAdjacentStackedPlaceholder = (
 
   const adjacentCol =
     direction === "up"
-      ? colIndex > 0 ? allColumns[colIndex - 1]! : null
-      : colIndex < allColumns.length - 1 ? allColumns[colIndex + 1]! : null;
+      ? colIndex > 0
+        ? allColumns[colIndex - 1]!
+        : null
+      : colIndex < allColumns.length - 1
+        ? allColumns[colIndex + 1]!
+        : null;
   if (!adjacentCol) return null;
 
   const placeholder = adjacentCol.querySelector(

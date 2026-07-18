@@ -70,10 +70,7 @@ describe("dailyListIdsByDates", () => {
       db,
       createDailyList({ dailyList: { date: "2026-04-19" } }),
     ) as DailyList;
-    syncDispatch(
-      db,
-      createDailyList({ dailyList: { date: "2026-04-21" } }),
-    );
+    syncDispatch(db, createDailyList({ dailyList: { date: "2026-04-21" } }));
 
     const ids = runSelector<string[]>(
       db,
