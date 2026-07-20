@@ -14,6 +14,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { autoUpdater } from 'electron-updater'
 import icon from '../../resources/icon.png?asset'
 import ElectronStore from 'electron-store'
+import * as dbusNative from '@homebridge/dbus-native'
 
 app.setName('Will Be Done')
 
@@ -43,7 +44,29 @@ if (is.dev) {
 }
 
 const SHOW_QUICK_ADD_ARG = '--show-quick-add'
+const FLATPAK_APP_ID = 'app.willbedone.WillBeDone'
+const DBUS_OBJECT_PATH = '/app/willbedone/WillBeDone'
 const gotTheLock = app.requestSingleInstanceLock()
+
+interface QuickAddBus {
+  connection: {
+    end(): void
+    on(event: 'error', listener: (error: Error) => void): void
+  }
+  exportInterface(
+    implementation: { ShowQuickAdd(): void },
+    path: string,
+    descriptor: {
+      name: string
+      methods: { ShowQuickAdd: [string, string] }
+    }
+  ): void
+  requestName(
+    name: string,
+    flags: number,
+    callback: (error: Error | undefined, result: number) => void
+  ): void
+}
 
 function hasQuickAddArgument(commandLine: string[]): boolean {
   return commandLine.includes(SHOW_QUICK_ADD_ARG) || app.commandLine.hasSwitch('show-quick-add')
@@ -86,6 +109,51 @@ let popupWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let loadingLocalMainWindow = false
 let isQuitting = false
+let quickAddBus: QuickAddBus | null = null
+let popupFocusRequestId = 0
+
+function registerQuickAddBus(): void {
+  if (process.env.FLATPAK_ID !== FLATPAK_APP_ID) return
+
+  try {
+    const bus = (
+      dbusNative as unknown as {
+        sessionBus(): QuickAddBus
+      }
+    ).sessionBus()
+
+    bus.connection.on('error', (error) => {
+      console.error('Quick Add D-Bus connection failed:', error)
+    })
+
+    bus.requestName(FLATPAK_APP_ID, 0, (error, result) => {
+      if (error || (result !== 1 && result !== 4)) {
+        console.error('Failed to own Quick Add D-Bus name:', error || `result ${result}`)
+        bus.connection.end()
+        return
+      }
+
+      bus.exportInterface(
+        {
+          ShowQuickAdd(): void {
+            showPopup()
+          }
+        },
+        DBUS_OBJECT_PATH,
+        {
+          name: FLATPAK_APP_ID,
+          methods: {
+            ShowQuickAdd: ['', '']
+          }
+        }
+      )
+      quickAddBus = bus
+      logPopup('Quick Add D-Bus interface registered')
+    })
+  } catch (error) {
+    console.error('Failed to register Quick Add D-Bus interface:', error)
+  }
+}
 
 function getServerUrl(): string {
   return (store.get(serverUrlKey) as string | undefined) || DEFAULT_SERVER
@@ -419,6 +487,8 @@ function positionAndShowPopup(): void {
   popupWindow.focus()
   popupWindow.webContents.focus()
   popupWindow.webContents.send('popup-show')
+  retryPopupInputFocus(popupWindow, ++popupFocusRequestId)
+
   logPopup('popup shown', {
     position: popupWindow.getPosition(),
     visible: popupWindow.isVisible(),
@@ -426,7 +496,37 @@ function positionAndShowPopup(): void {
   })
 }
 
+function retryPopupInputFocus(window: BrowserWindow, requestId: number, attemptsLeft = 20): void {
+  setTimeout(() => {
+    if (
+      requestId !== popupFocusRequestId ||
+      attemptsLeft === 0 ||
+      window.isDestroyed() ||
+      !window.isVisible()
+    ) {
+      return
+    }
+
+    void window.webContents
+      .executeJavaScript(
+        "(() => { const input = document.querySelector('input'); input?.focus(); return document.activeElement === input })()"
+      )
+      .then((focused) => {
+        if (focused) {
+          logPopup('input focused by retry', { attempts: 21 - attemptsLeft })
+          return
+        }
+
+        retryPopupInputFocus(window, requestId, attemptsLeft - 1)
+      })
+      .catch((error: unknown) => {
+        console.error(POPUP_LOG_PREFIX, 'input focus retry failed', error)
+      })
+  }, 50)
+}
+
 function hidePopup(): void {
+  popupFocusRequestId += 1
   if (popupWindow && !popupWindow.isDestroyed() && popupWindow.isVisible()) {
     popupWindow.hide()
   }
@@ -516,113 +616,118 @@ function buildMenu(): void {
   Menu.setApplicationMenu(menu)
 }
 
-app.whenReady().then(() => {
-  logPopup('Electron ready', {
-    platform: process.platform,
-    sessionType: process.env.XDG_SESSION_TYPE || 'unknown',
-    waylandDisplay: Boolean(process.env.WAYLAND_DISPLAY),
-    ozonePlatform: app.commandLine.getSwitchValue('ozone-platform') || 'default'
-  })
-
-  electronApp.setAppUserModelId(app.name)
-
-  // Set dock icon on macOS (needed for dev mode)
-  if (process.platform === 'darwin') {
-    app.dock?.setIcon(nativeImage.createFromPath(icon))
-  }
-
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
-
-  // IPC: close/hide popup window
-  ipcMain.on('close-popup', () => {
-    hidePopup()
-  })
-
-  // Global shortcut for quick-add task
-  const quickAddShortcuts = ['CmdOrCtrl+Shift+A']
-
-  for (const quickAddShortcut of quickAddShortcuts) {
-    logPopup('registering global shortcut', quickAddShortcut)
-    const shortcutRegistered = globalShortcut.register(quickAddShortcut, () => {
-      logPopup('global shortcut activated', quickAddShortcut)
-      showPopup()
+if (gotTheLock) {
+  app.whenReady().then(() => {
+    logPopup('Electron ready', {
+      platform: process.platform,
+      sessionType: process.env.XDG_SESSION_TYPE || 'unknown',
+      waylandDisplay: Boolean(process.env.WAYLAND_DISPLAY),
+      ozonePlatform: app.commandLine.getSwitchValue('ozone-platform') || 'default'
     })
-    const shortcutIsRegistered = globalShortcut.isRegistered(quickAddShortcut)
-    if (!shortcutRegistered || !shortcutIsRegistered) {
-      console.error(`Failed to register global shortcut: ${quickAddShortcut}`)
-    } else {
-      logPopup('global shortcut registered', quickAddShortcut)
-    }
-  }
 
-  // IPC: get/set server URL, reload window to new server
-  ipcMain.handle('get-server-url', () => {
-    return getServerUrl()
-  })
+    electronApp.setAppUserModelId(app.name)
 
-  ipcMain.handle('check-server-url', async (_event, url?: string) => {
-    return checkServerUrl(url || getServerUrl())
-  })
-
-  ipcMain.handle('set-server-url', async (_event, url: string) => {
-    const checkResult = await checkServerUrl(url)
-    if (!checkResult.ok) {
-      throw new Error(checkResult.error)
+    // Set dock icon on macOS (needed for dev mode)
+    if (process.platform === 'darwin') {
+      app.dock?.setIcon(nativeImage.createFromPath(icon))
     }
 
-    store.set(serverUrlKey, checkResult.serverUrl)
-
-    reloadPopupWindow()
-
-    // Destroy and recreate the main window to cleanly navigate to the new server
-    // (avoids race conditions between the renderer's JS and loadURL)
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.destroy()
-    }
-    createWindow()
-  })
-
-  ipcMain.handle('reset-server-url', async () => {
-    store.set(serverUrlKey, DEFAULT_SERVER)
-
-    reloadPopupWindow()
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.destroy()
-    }
-    createWindow()
-  })
-
-  const showQuickAddAtLaunch = hasQuickAddArgument(process.argv)
-  createWindow(!showQuickAddAtLaunch)
-  initPopupWindow()
-  initTray()
-
-  if (showQuickAddAtLaunch) {
-    logPopup('quick add requested at launch')
-    popupWindow?.once('ready-to-show', () => {
-      showPopup()
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
     })
-  }
 
-  // Check for updates (downloads and notifies user when ready)
-  if (!is.dev && app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify()
-  }
+    // IPC: close/hide popup window
+    ipcMain.on('close-popup', () => {
+      hidePopup()
+    })
 
-  app.on('activate', function () {
-    if (!mainWindow || mainWindow.isDestroyed()) {
+    // Global shortcut for quick-add task
+    const quickAddShortcuts = ['CmdOrCtrl+Shift+A']
+
+    for (const quickAddShortcut of quickAddShortcuts) {
+      logPopup('registering global shortcut', quickAddShortcut)
+      const shortcutRegistered = globalShortcut.register(quickAddShortcut, () => {
+        logPopup('global shortcut activated', quickAddShortcut)
+        showPopup()
+      })
+      const shortcutIsRegistered = globalShortcut.isRegistered(quickAddShortcut)
+      if (!shortcutRegistered || !shortcutIsRegistered) {
+        console.error(`Failed to register global shortcut: ${quickAddShortcut}`)
+      } else {
+        logPopup('global shortcut registered', quickAddShortcut)
+      }
+    }
+
+    // IPC: get/set server URL, reload window to new server
+    ipcMain.handle('get-server-url', () => {
+      return getServerUrl()
+    })
+
+    ipcMain.handle('check-server-url', async (_event, url?: string) => {
+      return checkServerUrl(url || getServerUrl())
+    })
+
+    ipcMain.handle('set-server-url', async (_event, url: string) => {
+      const checkResult = await checkServerUrl(url)
+      if (!checkResult.ok) {
+        throw new Error(checkResult.error)
+      }
+
+      store.set(serverUrlKey, checkResult.serverUrl)
+
+      reloadPopupWindow()
+
+      // Destroy and recreate the main window to cleanly navigate to the new server
+      // (avoids race conditions between the renderer's JS and loadURL)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.destroy()
+      }
       createWindow()
-    } else if (!mainWindow.isVisible()) {
-      mainWindow.show()
+    })
+
+    ipcMain.handle('reset-server-url', async () => {
+      store.set(serverUrlKey, DEFAULT_SERVER)
+
+      reloadPopupWindow()
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.destroy()
+      }
+      createWindow()
+    })
+
+    const showQuickAddAtLaunch = hasQuickAddArgument(process.argv)
+    createWindow(!showQuickAddAtLaunch)
+    initPopupWindow()
+    initTray()
+    registerQuickAddBus()
+
+    if (showQuickAddAtLaunch) {
+      logPopup('quick add requested at launch')
+      popupWindow?.once('ready-to-show', () => {
+        showPopup()
+      })
     }
+
+    // Check for updates (downloads and notifies user when ready)
+    if (!is.dev && app.isPackaged) {
+      autoUpdater.checkForUpdatesAndNotify()
+    }
+
+    app.on('activate', function () {
+      if (!mainWindow || mainWindow.isDestroyed()) {
+        createWindow()
+      } else if (!mainWindow.isVisible()) {
+        mainWindow.show()
+      }
+    })
   })
-})
+}
 
 app.on('before-quit', () => {
   isQuitting = true
+  quickAddBus?.connection.end()
+  quickAddBus = null
 })
 
 app.on('will-quit', () => {

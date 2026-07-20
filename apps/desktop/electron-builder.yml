@@ -50,6 +50,27 @@ flatpak:
   sdk: org.freedesktop.Sdk
   baseVersion: '24.08'
   useWaylandFlags: true
+  files:
+    - - resources/flatpak/will-be-done-quick-add
+      - /bin/will-be-done-quick-add
+  desktop:
+    entry:
+      Actions: QuickAdd;
+    desktopActions:
+      QuickAdd:
+        Name: Quick Add
+        Exec: will-be-done-quick-add
+  # Specifying finishArgs replaces electron-builder's defaults, so keep them
+  # here and add the StatusNotifier permission required by Electron's Linux tray.
+  finishArgs:
+    - '--socket=wayland'
+    - '--socket=fallback-x11'
+    - '--share=ipc'
+    - '--device=dri'
+    - '--socket=pulseaudio'
+    - '--share=network'
+    - '--talk-name=org.freedesktop.Notifications'
+    - '--talk-name=org.kde.StatusNotifierWatcher'
   artifactName: ${name}-${version}.${ext}
 snap:
   publish:

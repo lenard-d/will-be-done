@@ -157,7 +157,7 @@ compositors without delivering shortcut events. In that case, let the compositor
 Use the command that matches the installed package:
 
 - deb, rpm, or snap: `will-be-done --show-quick-add`
-- Flatpak: `flatpak run app.will_be_done.WillBeDone --show-quick-add`
+- Flatpak (optimized): `flatpak run --command=will-be-done-quick-add app.willbedone.WillBeDone`
 - AppImage: `/absolute/path/to/will-be-done.AppImage --show-quick-add`
 
 For example, with a deb, rpm, or snap installation, add this entry to the `binds`
