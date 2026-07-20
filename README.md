@@ -160,6 +160,12 @@ Use the command that matches the installed package:
 - Flatpak (optimized): `flatpak run --command=will-be-done-quick-add app.willbedone.WillBeDone`
 - AppImage: `/absolute/path/to/will-be-done.AppImage --show-quick-add`
 
+To quickly open or focus the main window from a Flatpak installation:
+
+```bash
+flatpak run --command=will-be-done-show app.willbedone.WillBeDone
+```
+
 For example, with a deb, rpm, or snap installation, add this entry to the `binds`
 section of the niri configuration:
 

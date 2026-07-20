@@ -53,6 +53,8 @@ flatpak:
   files:
     - - resources/flatpak/will-be-done-quick-add
       - /bin/will-be-done-quick-add
+    - - resources/flatpak/will-be-done-show
+      - /bin/will-be-done-show
   desktop:
     entry:
       Actions: QuickAdd;

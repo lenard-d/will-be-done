@@ -1,4 +1,9 @@
-import { HeadContent, Outlet, createRootRoute } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Outlet,
+  createRootRoute,
+  useRouterState,
+} from "@tanstack/react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { TRPCProvider, trpcClient } from "@/lib/trpc";
 import { queryClient } from "@/lib/query";
@@ -13,26 +18,42 @@ export const Route = createRootRoute({
 });
 
 function RouteComponent() {
-  const devtoolsEnabled = useDevtoolsEnabled();
+  const isPopup = useRouterState({
+    select: (state) => state.location.pathname === "/popup",
+  });
 
   return (
     <QueryClientProvider client={queryClient}>
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
         <HeadContent />
-        <Outlet />
-        <PwaUpdateController />
-        <Toaster />
-        <PromptDialogHost />
-        {devtoolsEnabled && (
-          <HyperDBDevtools
-            position="bottom"
-            buttonPosition="bottom-right"
-            maxTraces={1000}
-          />
-        )}
-
-        {/* <TanStackRouterDevtools position="bottom-right" /> */}
+        {isPopup ? <PopupRoot /> : <ApplicationRoot />}
       </TRPCProvider>
     </QueryClientProvider>
+  );
+}
+
+function PopupRoot() {
+  return <Outlet />;
+}
+
+function ApplicationRoot() {
+  const devtoolsEnabled = useDevtoolsEnabled();
+
+  return (
+    <>
+      <Outlet />
+      <PwaUpdateController />
+      <Toaster />
+      <PromptDialogHost />
+      {devtoolsEnabled && (
+        <HyperDBDevtools
+          position="bottom"
+          buttonPosition="bottom-right"
+          maxTraces={1000}
+        />
+      )}
+
+      {/* <TanStackRouterDevtools position="bottom-right" /> */}
+    </>
   );
 }

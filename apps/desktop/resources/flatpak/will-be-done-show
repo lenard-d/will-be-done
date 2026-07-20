@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if gdbus call \
+  --session \
+  --dest app.willbedone.WillBeDone \
+  --object-path /app/willbedone/WillBeDone \
+  --method app.willbedone.WillBeDone.ShowMainWindow \
+  >/dev/null 2>&1
+then
+  exit 0
+fi
+
+exec electron-wrapper

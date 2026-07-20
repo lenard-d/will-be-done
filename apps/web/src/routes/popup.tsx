@@ -129,6 +129,8 @@ function PopupComponent() {
 
   return (
     <div
+      data-testid="popup"
+      data-status={status}
       className="flex h-screen w-screen flex-col justify-center bg-surface p-4"
       style={{ fontFamily: "InterVariable, sans-serif" }}
     >
@@ -157,6 +159,7 @@ function PopupComponent() {
 
         <input
           ref={inputRef}
+          aria-label="Task title"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}

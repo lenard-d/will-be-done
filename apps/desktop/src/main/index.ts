@@ -48,17 +48,20 @@ const FLATPAK_APP_ID = 'app.willbedone.WillBeDone'
 const DBUS_OBJECT_PATH = '/app/willbedone/WillBeDone'
 const gotTheLock = app.requestSingleInstanceLock()
 
-interface QuickAddBus {
+interface AppControlBus {
   connection: {
     end(): void
     on(event: 'error', listener: (error: Error) => void): void
   }
   exportInterface(
-    implementation: { ShowQuickAdd(): void },
+    implementation: { ShowMainWindow(): void; ShowQuickAdd(): void },
     path: string,
     descriptor: {
       name: string
-      methods: { ShowQuickAdd: [string, string] }
+      methods: {
+        ShowMainWindow: [string, string]
+        ShowQuickAdd: [string, string]
+      }
     }
   ): void
   requestName(
@@ -109,7 +112,7 @@ let popupWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let loadingLocalMainWindow = false
 let isQuitting = false
-let quickAddBus: QuickAddBus | null = null
+let appControlBus: AppControlBus | null = null
 let popupFocusRequestId = 0
 
 function registerQuickAddBus(): void {
@@ -118,7 +121,7 @@ function registerQuickAddBus(): void {
   try {
     const bus = (
       dbusNative as unknown as {
-        sessionBus(): QuickAddBus
+        sessionBus(): AppControlBus
       }
     ).sessionBus()
 
@@ -135,6 +138,9 @@ function registerQuickAddBus(): void {
 
       bus.exportInterface(
         {
+          ShowMainWindow(): void {
+            showMainWindow()
+          },
           ShowQuickAdd(): void {
             showPopup()
           }
@@ -143,12 +149,13 @@ function registerQuickAddBus(): void {
         {
           name: FLATPAK_APP_ID,
           methods: {
+            ShowMainWindow: ['', ''],
             ShowQuickAdd: ['', '']
           }
         }
       )
-      quickAddBus = bus
-      logPopup('Quick Add D-Bus interface registered')
+      appControlBus = bus
+      logPopup('application D-Bus interface registered')
     })
   } catch (error) {
     console.error('Failed to register Quick Add D-Bus interface:', error)
@@ -726,8 +733,8 @@ if (gotTheLock) {
 
 app.on('before-quit', () => {
   isQuitting = true
-  quickAddBus?.connection.end()
-  quickAddBus = null
+  appControlBus?.connection.end()
+  appControlBus = null
 })
 
 app.on('will-quit', () => {
