@@ -3,47 +3,47 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { authenticateBearerToken } from "../../services/authentication";
 import { DatabaseAccessDeniedError } from "../../services/databaseAccess";
+import {
+  createProjectCategory,
+  deleteProjectCategory,
+  listProjectCategories,
+  moveProjectCategory,
+  updateProjectCategory,
+} from "../../services/categories";
 import { ConflictError, ResourceNotFoundError } from "../../services/errors";
 import {
-  createSpaceProject,
-  deleteSpaceProject,
-  listSpaceProjects,
-  moveSpaceProject,
-  updateSpaceProject,
-} from "../../services/projects";
-import {
-  CreateProjectBodySchema,
+  CategoryParamsSchema,
+  CreateProjectCategoryBodySchema,
   ErrorResponseSchema,
-  ListProjectsParamsSchema,
-  ListProjectsResponseSchema,
-  MoveProjectBodySchema,
-  ProjectParamsSchema,
-  ProjectResponseSchema,
-  UpdateProjectBodySchema,
+  ListProjectCategoriesResponseSchema,
+  MoveProjectCategoryBodySchema,
+  ProjectCategoryResponseSchema,
+  ProjectCategoriesParamsSchema,
+  UpdateProjectCategoryBodySchema,
 } from "../schemas";
 
-export const projectRoutes: FastifyPluginAsyncZod = async (server) => {
+export const categoryRoutes: FastifyPluginAsyncZod = async (server) => {
   server.get(
-    "/spaces/:spaceId/projects",
+    "/spaces/:spaceId/projects/:projectId/categories",
     {
       schema: {
-        operationId: "listProjects",
-        summary: "List projects",
-        description: "Returns the projects in a space in their display order.",
-        tags: ["Projects"],
+        operationId: "listProjectCategories",
+        summary: "List project categories",
+        description: "Returns a project's categories in display order.",
+        tags: ["Project categories"],
         security: [{ bearerAuth: [] }],
-        params: ListProjectsParamsSchema,
+        params: ProjectCategoriesParamsSchema,
         response: {
-          200: ListProjectsResponseSchema,
+          200: ListProjectCategoriesResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
+          404: ErrorResponseSchema,
           500: ErrorResponseSchema,
         },
       },
     },
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
-
       if (!user) {
         return reply.code(401).send({
           code: "UNAUTHORIZED",
@@ -52,11 +52,12 @@ export const projectRoutes: FastifyPluginAsyncZod = async (server) => {
       }
 
       try {
-        const projects = listSpaceProjects({
+        const categories = listProjectCategories({
           spaceId: request.params.spaceId,
+          projectId: request.params.projectId,
           userId: user.id,
         });
-        return reply.code(200).send({ projects });
+        return reply.code(200).send({ categories });
       } catch (error) {
         if (error instanceof DatabaseAccessDeniedError) {
           return reply.code(403).send({
@@ -64,73 +65,33 @@ export const projectRoutes: FastifyPluginAsyncZod = async (server) => {
             message: "You do not have access to this space",
           });
         }
-
-        request.log.error(error, "Failed to list projects");
+        if (error instanceof ResourceNotFoundError) {
+          return reply.code(404).send({
+            code: "NOT_FOUND",
+            message: error.message,
+          });
+        }
+        request.log.error(error, "Failed to list project categories");
         return reply.code(500).send({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to list projects",
+          message: "Failed to list project categories",
         });
       }
     },
   );
 
   server.post(
-    "/spaces/:spaceId/projects",
+    "/spaces/:spaceId/projects/:projectId/categories",
     {
       schema: {
-        operationId: "createProject",
-        summary: "Create a project",
-        tags: ["Projects"],
+        operationId: "createProjectCategory",
+        summary: "Create a project category",
+        tags: ["Project categories"],
         security: [{ bearerAuth: [] }],
-        params: ListProjectsParamsSchema,
-        body: CreateProjectBodySchema,
+        params: ProjectCategoriesParamsSchema,
+        body: CreateProjectCategoryBodySchema,
         response: {
-          201: ProjectResponseSchema,
-          401: ErrorResponseSchema,
-          403: ErrorResponseSchema,
-          409: ErrorResponseSchema,
-          500: ErrorResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) {
-        return reply.code(401).send({
-          code: "UNAUTHORIZED",
-          message: "A valid bearer token is required",
-        });
-      }
-      try {
-        const project = createSpaceProject({
-          spaceId: request.params.spaceId,
-          userId: user.id,
-          ...request.body,
-        });
-        return reply.code(201).send({ project });
-      } catch (error) {
-        return sendProjectError(
-          request,
-          reply,
-          error,
-          "Failed to create project",
-        );
-      }
-    },
-  );
-
-  server.patch(
-    "/spaces/:spaceId/projects/:projectId",
-    {
-      schema: {
-        operationId: "updateProject",
-        summary: "Update or reposition a project",
-        tags: ["Projects"],
-        security: [{ bearerAuth: [] }],
-        params: ProjectParamsSchema,
-        body: UpdateProjectBodySchema,
-        response: {
-          200: ProjectResponseSchema,
+          201: ProjectCategoryResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -141,40 +102,77 @@ export const projectRoutes: FastifyPluginAsyncZod = async (server) => {
     },
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) {
-        return reply.code(401).send({
-          code: "UNAUTHORIZED",
-          message: "A valid bearer token is required",
-        });
-      }
+      if (!user) return unauthorized(reply);
       try {
-        const project = updateSpaceProject({
+        const category = createProjectCategory({
           spaceId: request.params.spaceId,
           projectId: request.params.projectId,
           userId: user.id,
-          updates: request.body,
+          ...request.body,
         });
-        return reply.code(200).send({ project });
+        return reply.code(201).send({ category });
       } catch (error) {
-        return sendProjectError(
+        return sendCategoryError(
           request,
           reply,
           error,
-          "Failed to update project",
+          "Failed to create project category",
+        );
+      }
+    },
+  );
+
+  server.patch(
+    "/spaces/:spaceId/categories/:categoryId",
+    {
+      schema: {
+        operationId: "updateProjectCategory",
+        summary: "Update, move, or reposition a project category",
+        tags: ["Project categories"],
+        security: [{ bearerAuth: [] }],
+        params: CategoryParamsSchema,
+        body: UpdateProjectCategoryBodySchema,
+        response: {
+          200: ProjectCategoryResponseSchema,
+          401: ErrorResponseSchema,
+          403: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+          409: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = authenticateBearerToken(request.headers.authorization);
+      if (!user) return unauthorized(reply);
+      try {
+        const category = updateProjectCategory({
+          spaceId: request.params.spaceId,
+          categoryId: request.params.categoryId,
+          userId: user.id,
+          updates: request.body,
+        });
+        return reply.code(200).send({ category });
+      } catch (error) {
+        return sendCategoryError(
+          request,
+          reply,
+          error,
+          "Failed to update project category",
         );
       }
     },
   );
 
   server.delete(
-    "/spaces/:spaceId/projects/:projectId",
+    "/spaces/:spaceId/categories/:categoryId",
     {
       schema: {
-        operationId: "deleteProject",
-        summary: "Delete a project",
-        tags: ["Projects"],
+        operationId: "deleteProjectCategory",
+        summary: "Delete a project category",
+        tags: ["Project categories"],
         security: [{ bearerAuth: [] }],
-        params: ProjectParamsSchema,
+        params: CategoryParamsSchema,
         response: {
           204: z.null(),
           401: ErrorResponseSchema,
@@ -187,42 +185,37 @@ export const projectRoutes: FastifyPluginAsyncZod = async (server) => {
     },
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) {
-        return reply.code(401).send({
-          code: "UNAUTHORIZED",
-          message: "A valid bearer token is required",
-        });
-      }
+      if (!user) return unauthorized(reply);
       try {
-        deleteSpaceProject({
+        deleteProjectCategory({
           spaceId: request.params.spaceId,
-          projectId: request.params.projectId,
+          categoryId: request.params.categoryId,
           userId: user.id,
         });
         return reply.code(204).send(null);
       } catch (error) {
-        return sendProjectError(
+        return sendCategoryError(
           request,
           reply,
           error,
-          "Failed to delete project",
+          "Failed to delete project category",
         );
       }
     },
   );
 
   server.post(
-    "/spaces/:spaceId/projects/:projectId/move",
+    "/spaces/:spaceId/categories/:categoryId/move",
     {
       schema: {
-        operationId: "moveProject",
-        summary: "Move a project",
-        tags: ["Projects"],
+        operationId: "moveProjectCategory",
+        summary: "Move a project category",
+        tags: ["Project categories"],
         security: [{ bearerAuth: [] }],
-        params: ProjectParamsSchema,
-        body: MoveProjectBodySchema,
+        params: CategoryParamsSchema,
+        body: MoveProjectCategoryBodySchema,
         response: {
-          200: ProjectResponseSchema,
+          200: ProjectCategoryResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -233,33 +226,35 @@ export const projectRoutes: FastifyPluginAsyncZod = async (server) => {
     },
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) {
-        return reply.code(401).send({
-          code: "UNAUTHORIZED",
-          message: "A valid bearer token is required",
-        });
-      }
+      if (!user) return unauthorized(reply);
       try {
-        const project = moveSpaceProject({
+        const category = moveProjectCategory({
           spaceId: request.params.spaceId,
-          projectId: request.params.projectId,
+          categoryId: request.params.categoryId,
           userId: user.id,
           ...request.body,
         });
-        return reply.code(200).send({ project });
+        return reply.code(200).send({ category });
       } catch (error) {
-        return sendProjectError(
+        return sendCategoryError(
           request,
           reply,
           error,
-          "Failed to move project",
+          "Failed to move project category",
         );
       }
     },
   );
 };
 
-function sendProjectError(
+function unauthorized(reply: FastifyReply) {
+  return reply.code(401).send({
+    code: "UNAUTHORIZED",
+    message: "A valid bearer token is required",
+  });
+}
+
+function sendCategoryError(
   request: FastifyRequest,
   reply: FastifyReply,
   error: unknown,

@@ -125,6 +125,27 @@ export const allTasks = selector({
   },
 });
 
+export const projectCategoryTasksByState = selector({
+  name: "projectCategoryTasksByState",
+  args: {
+    projectCategoryId: v.string(),
+    state: v.union(v.literal("todo"), v.literal("done")),
+  },
+  handler: function* projectCategoryTasksByState({ projectCategoryId, state }) {
+    if (state === "done") {
+      return yield* selectFrom(tasksTable, "byCategoryIdStatesToggledAt")
+        .where((q) =>
+          q.eq("projectCategoryId", projectCategoryId).eq("state", state),
+        )
+        .order("desc");
+    }
+
+    return yield* selectFrom(tasksTable, "byCategoryIdOrderStates").where((q) =>
+      q.eq("projectCategoryId", projectCategoryId).eq("state", state),
+    );
+  },
+});
+
 export const deleteTasks = action({
   name: "deleteTasks",
   args: { ids: v.array(v.string()) },

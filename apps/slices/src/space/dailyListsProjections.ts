@@ -279,9 +279,7 @@ export const dailyProjectionSiblings = selector({
     const sortedProjections = yield* dailyProjectionsByDailyListId({
       dailyListId: projection.dailyListId,
     });
-
     const index = sortedProjections.findIndex((p) => p.id === taskId);
-
     const before = index > 0 ? sortedProjections[index - 1] : undefined;
     const after =
       index < sortedProjections.length - 1
@@ -579,16 +577,23 @@ export const addToDailyList = action({
     let orderToken: string;
 
     if (position === "append") {
-      const projections = yield* dailyProjectionsByDailyListId({ dailyListId });
-      const lastToken =
-        projections.length > 0
-          ? projections[projections.length - 1].orderToken
-          : null;
+      const projections = yield* selectFrom(
+        taskProjectionsTable,
+        "byDailyListIdTokenOrdered",
+      )
+        .where((q) => q.eq("dailyListId", dailyListId))
+        .order("desc")
+        .limit(1);
+      const lastToken = projections[0]?.orderToken ?? null;
       orderToken = generateJitteredKeyBetween(lastToken, null);
     } else if (position === "prepend") {
-      const projections = yield* dailyProjectionsByDailyListId({ dailyListId });
-      const firstToken =
-        projections.length > 0 ? projections[0].orderToken : null;
+      const projections = yield* selectFrom(
+        taskProjectionsTable,
+        "byDailyListIdTokenOrdered",
+      )
+        .where((q) => q.eq("dailyListId", dailyListId))
+        .limit(1);
+      const firstToken = projections[0]?.orderToken ?? null;
       orderToken = generateJitteredKeyBetween(null, firstToken);
     } else {
       const siblings = normalizeOrderPosition(position) as [
@@ -604,6 +609,24 @@ export const addToDailyList = action({
     yield* upsertDailyProjection({
       projection: { id: taskId, dailyListId, orderToken },
     });
+  },
+});
+
+export const scheduleTask = action({
+  name: "scheduleTask",
+  args: {
+    taskId: v.string(),
+    date: v.string(),
+    position: orderPositionArg,
+  },
+  handler: function* scheduleTask({ taskId, date, position }) {
+    const dailyList = yield* createDailyListIfNotPresent({ date });
+    yield* addToDailyList({
+      taskId,
+      dailyListId: dailyList.id,
+      position,
+    });
+    return yield* dailyProjectionByTaskId({ taskId });
   },
 });
 
