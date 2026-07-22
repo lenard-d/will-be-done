@@ -250,6 +250,19 @@ export const ScheduleTaskResponseSchema = z.object({
   date: z.iso.date(),
 });
 
+export const DailyListCardsParamsSchema = z.object({
+  spaceId: z.string().min(1).describe("Space identifier"),
+  date: z.iso.date().describe("Daily-list date in YYYY-MM-DD format"),
+});
+
+export const DailyListCardsQuerySchema = z.object({
+  state: TaskStateSchema.optional().default("todo"),
+});
+
+export const DailyListCardsResponseSchema = z.object({
+  cards: z.array(TaskSchema),
+});
+
 export const UpdateTaskBodySchema = z
   .object({
     title: z.string().trim().min(1).optional(),

@@ -115,6 +115,32 @@ export const dailyProjectionsByDailyListId = selector({
   },
 });
 
+export const dailyListTasksByState = selector({
+  name: "dailyListTasksByState",
+  args: {
+    dailyListId: v.string(),
+    state: v.union(v.literal("todo"), v.literal("done")),
+  },
+  handler: function* dailyListTasksByState({ dailyListId, state }) {
+    const projections = yield* dailyProjectionsByDailyListId({ dailyListId });
+    if (projections.length === 0) return [] as Task[];
+
+    const tasks = (yield* selectFrom(tasksTable, "byId").where((q) =>
+      projections.map((projection) => q.eq("id", projection.id)),
+    )) as Task[];
+    const matchingTasks = tasks.filter((task) => task.state === state);
+
+    if (state === "done") {
+      return matchingTasks.sort((a, b) => b.lastToggledAt - a.lastToggledAt);
+    }
+
+    const taskById = new Map(matchingTasks.map((task) => [task.id, task]));
+    return projections
+      .map((projection) => taskById.get(projection.id))
+      .filter((task): task is Task => task !== undefined);
+  },
+});
+
 export const dailyProjectionChildrenIds = selector({
   name: "dailyProjectionChildrenIds",
   args: { dailyListId: v.string() },

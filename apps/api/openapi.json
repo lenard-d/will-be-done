@@ -4104,6 +4104,192 @@
           }
         }
       }
+    },
+    "/api/v1/spaces/{spaceId}/daily-lists/{date}/cards": {
+      "get": {
+        "operationId": "listDailyListCards",
+        "summary": "List daily-list cards",
+        "tags": ["Daily lists"],
+        "description": "Returns scheduled todo tasks in daily-list order by default, or completed tasks ordered by most recently completed.",
+        "parameters": [
+          {
+            "schema": {
+              "default": "todo",
+              "type": "string",
+              "enum": ["todo", "done"]
+            },
+            "in": "query",
+            "name": "state",
+            "required": false
+          },
+          {
+            "schema": { "type": "string", "minLength": 1 },
+            "in": "path",
+            "name": "spaceId",
+            "required": true,
+            "description": "Space identifier"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+            },
+            "in": "path",
+            "name": "date",
+            "required": true,
+            "description": "Daily-list date in YYYY-MM-DD format"
+          }
+        ],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cards": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["task"] },
+                          "id": {
+                            "type": "string",
+                            "description": "Task identifier"
+                          },
+                          "title": { "type": "string" },
+                          "content": { "type": "string" },
+                          "state": {
+                            "type": "string",
+                            "enum": ["todo", "done"]
+                          },
+                          "projectCategoryId": {
+                            "type": "string",
+                            "description": "Parent project category identifier"
+                          },
+                          "nature": {
+                            "type": "string",
+                            "enum": ["red", "green", "unknown"]
+                          },
+                          "createdAt": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991,
+                            "description": "Creation time as Unix milliseconds"
+                          },
+                          "lastToggledAt": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991,
+                            "description": "Last state change time as Unix milliseconds"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "id",
+                          "title",
+                          "state",
+                          "projectCategoryId",
+                          "nature",
+                          "createdAt",
+                          "lastToggledAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["cards"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

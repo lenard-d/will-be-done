@@ -55,6 +55,7 @@ import {
   updateSpaceProject,
 } from "./projects";
 import { scheduleTask } from "./scheduling";
+import { listDailyListCards } from "./dailyLists";
 
 const action = createAction();
 const orderA = generateJitteredKeyBetween(null, null);
@@ -477,6 +478,35 @@ describe("category and task services", () => {
         args: { dailyListId: firstList!.id },
       }).map((projection) => projection.id),
     ).toEqual(["task-a", "task-c"]);
+    expect(
+      listDailyListCards({
+        spaceId: "space-1",
+        userId: "user-1",
+        date: "2026-07-22",
+      }).map((card) => card.id),
+    ).toEqual(["task-a", "task-c"]);
+
+    scheduleTask({
+      spaceId: "space-1",
+      taskId: "done-new",
+      userId: "user-1",
+      date: "2026-07-22",
+    });
+    expect(
+      listDailyListCards({
+        spaceId: "space-1",
+        userId: "user-1",
+        date: "2026-07-22",
+        state: "done",
+      }).map((card) => card.id),
+    ).toEqual(["done-new"]);
+    expect(
+      listDailyListCards({
+        spaceId: "space-1",
+        userId: "user-1",
+        date: "2026-07-24",
+      }),
+    ).toEqual([]);
 
     scheduleTask({
       spaceId: "space-1",
@@ -489,6 +519,6 @@ describe("category and task services", () => {
         selector: dailyProjectionsByDailyListId,
         args: { dailyListId: firstList!.id },
       }).map((projection) => projection.id),
-    ).toEqual(["task-c"]);
+    ).toEqual(["task-c", "done-new"]);
   });
 });
