@@ -16,8 +16,8 @@ import {
   dailyProjectionDateOfTask,
   deleteTemplates,
   moveTaskToProject,
-  projectCategoriesByProjectId,
-  projectOfCategoryOrDefault,
+  taskSectionsByProjectId,
+  projectOfTaskSectionOrDefault,
   type Task,
   taskTemplateById,
   taskTemplateRuleText,
@@ -34,7 +34,7 @@ import {
   EditableTitle,
   DetailRow,
   ProjectDetailRow,
-  CategoryDetailRow,
+  SectionDetailRow,
   EditableDescription,
 } from "./shared.tsx";
 import { useOpenProject } from "@/hooks/useOpenProject.ts";
@@ -59,11 +59,11 @@ export function TaskBody({
   const openProject = useOpenProject();
 
   const { data: project } = useAsyncSelector({
-    selector: projectOfCategoryOrDefault,
-    args: { categoryId: task.projectCategoryId },
+    selector: projectOfTaskSectionOrDefault,
+    args: { taskSectionId: task.taskSectionId },
   });
-  const { data: projectCategories = [] } = useAsyncSelector({
-    selector: projectCategoriesByProjectId,
+  const { data: taskSections = [] } = useAsyncSelector({
+    selector: taskSectionsByProjectId,
     args: { projectId: project?.id ?? "" },
     enabled: !!project,
     defaultValue: [],
@@ -200,15 +200,15 @@ export function TaskBody({
           onEditClick={() => setIsMoveProjectModalOpen(true)}
         />
 
-        <CategoryDetailRow
-          projectCategoryId={task.projectCategoryId}
-          projectCategories={projectCategories}
-          onChange={(categoryId) =>
+        <SectionDetailRow
+          taskSectionId={task.taskSectionId}
+          taskSections={taskSections}
+          onChange={(taskSectionId) =>
             void dispatch(
               updateTask({
                 id: taskId,
                 task: {
-                  projectCategoryId: categoryId,
+                  taskSectionId: taskSectionId,
                 },
               }),
             )

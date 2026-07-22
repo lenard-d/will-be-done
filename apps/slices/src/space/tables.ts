@@ -14,7 +14,7 @@ export const tasksTable = defineTable("tasks", {
   title: v.string(),
   content: v.optional(v.string()),
   state: v.union(v.literal("todo"), v.literal("done")),
-  projectCategoryId: v.string(),
+  taskSectionId: v.string(),
   orderToken: v.string(),
   lastToggledAt: v.number(),
   nature: v.optional(
@@ -25,13 +25,9 @@ export const tasksTable = defineTable("tasks", {
   templateDate: v.union(v.number(), v.null()),
 })
   .index("byIds", ["id"])
-  .index("byCategoryIdOrderStates", [
-    "projectCategoryId",
-    "state",
-    "orderToken",
-  ])
-  .index("byCategoryIdStatesToggledAt", [
-    "projectCategoryId",
+  .index("byTaskSectionIdOrderStates", ["taskSectionId", "state", "orderToken"])
+  .index("byTaskSectionIdStatesToggledAt", [
+    "taskSectionId",
     "state",
     "lastToggledAt",
   ])
@@ -53,13 +49,13 @@ export const taskTemplatesTable = defineTable("task_templates", {
   repeatRuleDtStart: v.number(),
   createdAt: v.number(),
   lastGeneratedAt: v.number(),
-  projectCategoryId: v.string(),
+  taskSectionId: v.string(),
   nature: v.optional(
     v.union(v.literal("red"), v.literal("green"), v.literal("unknown")),
   ),
 })
   .index("byIds", ["id"])
-  .index("byCategoryIdOrderStates", ["projectCategoryId", "orderToken"]);
+  .index("byTaskSectionIdOrderStates", ["taskSectionId", "orderToken"]);
 registerSpaceSyncableTable(taskTemplatesTable, taskTemplateType);
 export type TaskTemplate = ExtractSchema<typeof taskTemplatesTable>;
 export const isTaskTemplate = isObjectType<TaskTemplate>(taskTemplateType);
@@ -108,9 +104,9 @@ registerSpaceSyncableTable(taskProjectionsTable, projectionType);
 export type TaskProjection = ExtractSchema<typeof taskProjectionsTable>;
 export const isTaskProjection = isObjectType<TaskProjection>(projectionType);
 
-export const projectCategoryType = "projectCategory";
-export const projectCategoriesTable = defineTable("project_categories", {
-  type: v.literal(projectCategoryType),
+export const taskSectionType = "taskSection";
+export const taskSectionsTable = defineTable("task_sections", {
+  type: v.literal(taskSectionType),
   id: v.string(),
   orderToken: v.string(),
   title: v.string(),
@@ -119,14 +115,13 @@ export const projectCategoriesTable = defineTable("project_categories", {
 })
   .index("byIds", ["id"])
   .index("byProjectIdOrderToken", ["projectId", "orderToken"]);
-registerSpaceSyncableTable(projectCategoriesTable, projectCategoryType);
+registerSpaceSyncableTable(taskSectionsTable, taskSectionType);
 
-export type ProjectCategory = ExtractSchema<typeof projectCategoriesTable>;
-export const isProjectCategory =
-  isObjectType<ProjectCategory>(projectCategoryType);
+export type TaskSection = ExtractSchema<typeof taskSectionsTable>;
+export const isTaskSection = isObjectType<TaskSection>(taskSectionType);
 
-export const projectCategoryTaskStatsTable = defineTable(
-  "project_category_task_stats",
+export const taskSectionTaskStatsTable = defineTable(
+  "task_section_task_stats",
   {
     id: v.string(),
     total: v.number(),
@@ -134,18 +129,18 @@ export const projectCategoryTaskStatsTable = defineTable(
     done: v.number(),
   },
 ).index("byIds", ["id"]);
-export type ProjectCategoryTaskStats = ExtractSchema<
-  typeof projectCategoryTaskStatsTable
+export type TaskSectionTaskStats = ExtractSchema<
+  typeof taskSectionTaskStatsTable
 >;
 
 export const scheduledTodoTasksTable = defineTable("scheduled_todo_tasks", {
   id: v.string(),
   scheduledAt: v.number(),
-  projectCategoryId: v.string(),
+  taskSectionId: v.string(),
 })
   .index("byIds", ["id"])
   .index("byScheduledAt", ["scheduledAt"])
-  .index("byProjectCategoryId", ["projectCategoryId"]);
+  .index("byTaskSectionId", ["taskSectionId"]);
 export type ScheduledTodoTask = ExtractSchema<typeof scheduledTodoTasksTable>;
 
 export const spaceMigrationsTable = defineTable("space_migrations", {
@@ -221,7 +216,7 @@ export const possibleModel = v.union(
   taskTemplatesTable.v(),
   projectsTable.v(),
   dailyListsTable.v(),
-  projectCategoriesTable.v(),
+  taskSectionsTable.v(),
   taskProjectionsTable.v(),
   stashProjectionsTable.v(),
   checklistItemsTable.v(),
@@ -235,7 +230,7 @@ export type AnyTable =
   | typeof dailyListsTable
   | typeof projectsTable
   | typeof taskProjectionsTable
-  | typeof projectCategoriesTable
+  | typeof taskSectionsTable
   | typeof stashProjectionsTable
   | typeof checklistItemsTable;
 
@@ -244,7 +239,7 @@ export const possibleModelType = v.union(
   v.literal(taskTemplateType),
   v.literal(projectType),
   v.literal(dailyListType),
-  v.literal(projectCategoryType),
+  v.literal(taskSectionType),
   v.literal(projectionType),
   v.literal(stashProjectionType),
   v.literal(checklistItemType),

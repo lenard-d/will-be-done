@@ -4,6 +4,11 @@ import { dbIdTrait } from "@will-be-done/slices/traits";
 import { getDevtoolsEnabled } from "@/lib/devtools";
 import { openPersistentDriver } from "./persistentDriver";
 import type { SyncConfig } from "./syncTypes";
+import {
+  migrateLegacyTaskSections,
+  taskSectionStorageMigrationTables,
+} from "@will-be-done/slices/space";
+import { asyncDispatch } from "@will-be-done/hyperdb";
 
 export const createStoreDbs = async (
   dbName: string,
@@ -22,6 +27,11 @@ export const createStoreDbs = async (
     freezeRows: process.env.NODE_ENV === "development",
     dbName: "persistent",
   });
+
+  if (syncConfig.dbType === "space") {
+    await execAsync(persistentDB.loadTables(taskSectionStorageMigrationTables));
+    await asyncDispatch(persistentDB, migrateLegacyTaskSections({}));
+  }
 
   await execAsync(persistentDB.loadTables(syncConfig.persistDBTables));
 

@@ -171,8 +171,8 @@ apps/slices/src/slices/
 ├── cardsTaskTemplates.ts       # Recurring task templates (RRule-based)
 ├── projects.ts                 # Project hierarchy
 ├── projectsAll.ts              # All projects view
-├── projectsCategories.ts       # Project categorization
-├── projectsCategoriesCards.ts  # Cards within project categories
+├── taskSections.ts              # Project sections
+├── taskSectionCards.ts          # Cards within project sections
 ├── dailyLists.ts               # Daily task lists
 ├── dailyListsProjections.ts    # Task projections (views/filters)
 ├── backup.ts                   # Backup/restore functionality
@@ -193,7 +193,7 @@ All entities follow a consistent pattern:
 
 **Key Data Models:**
 
-The application uses a hierarchical structure: **Project → ProjectCategory → Tasks**
+The application uses a hierarchical structure: **Project → TaskSection → Tasks**
 
 1. **Task**
 
@@ -203,7 +203,7 @@ The application uses a hierarchical structure: **Project → ProjectCategory →
      id: string,
      title: string,
      state: "todo" | "done",
-     projectCategoryId: string,  // Parent category (replaces projectId + taskGroupId)
+     taskSectionId: string,  // Parent section (replaces projectId + taskGroupId)
      orderToken: string,
      lastToggledAt: number,
      createdAt: number,
@@ -226,11 +226,11 @@ The application uses a hierarchical structure: **Project → ProjectCategory →
    }
    ```
 
-3. **ProjectCategory** - Organizational categories within projects
+3. **TaskSection** - Organizational sections within projects
 
    ```typescript
    {
-     type: "projectCategory",
+     type: "taskSection",
      id: string,
      title: string,
      projectId: string,  // Parent project
@@ -272,7 +272,7 @@ The application supports multiple workspaces (called "spaces"), enabling users t
 
 - **Isolated Databases**: Each space has its own SQLite database (`dbs/{spaceId}.sqlite`)
 - **User Ownership**: Each space is owned by a specific user (tied to userId)
-- **Independent Data**: Projects, tasks, categories, and settings are completely separate per space
+- **Independent Data**: Projects, tasks, sections, and settings are completely separate per space
 - **Space-Scoped Routing**: All routes are structured as `spaces.$spaceId.*` to scope operations to the current space
 - **Independent Sync**: Each space maintains its own sync state and change tracking
 
@@ -282,7 +282,7 @@ The application supports multiple workspaces (called "spaces"), enabling users t
 - Switching between spaces changes the active database and context
 - Authentication system ties users to their spaces for access control
 - Each space contains:
-  - Projects and project categories
+  - Projects and project sections
   - Tasks and task templates
   - Daily lists and projections
   - Space-specific settings and preferences

@@ -266,13 +266,13 @@ const GenerateTestDataButton = () => {
   const dispatch = useAsyncDispatch();
   const [open, setOpen] = useState(false);
   const [projects, setProjects] = useState("5");
-  const [categories, setCategories] = useState("3");
+  const [sections, setSections] = useState("3");
   const [done, setDone] = useState("10");
   const [todo, setTodo] = useState("10");
 
   const handleGenerate = () => {
     const n = parseInt(projects, 10) || 0;
-    const m = parseInt(categories, 10) || 0;
+    const m = parseInt(sections, 10) || 0;
     const k = parseInt(done, 10) || 0;
     const l = parseInt(todo, 10) || 0;
 
@@ -326,19 +326,19 @@ const GenerateTestDataButton = () => {
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-[12px] text-content-tinted">
-                Categories per project
+                Sections per project
               </span>
               <input
                 type="number"
                 min="0"
-                value={categories}
-                onChange={(e) => setCategories(e.target.value)}
+                value={sections}
+                onChange={(e) => setSections(e.target.value)}
                 className={inputClass}
               />
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-[12px] text-content-tinted">
-                Done tasks per category
+                Done tasks per section
               </span>
               <input
                 type="number"
@@ -350,7 +350,7 @@ const GenerateTestDataButton = () => {
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-[12px] text-content-tinted">
-                Todo tasks per category
+                Todo tasks per section
               </span>
               <input
                 type="number"

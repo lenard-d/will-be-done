@@ -1,8 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { toast } from "sonner";
 import { useRegisterSW } from "virtual:pwa-register/react";
+import {
+  getSyncUpdateRequired,
+  subscribeSyncUpdateRequired,
+} from "@/store/syncCompatibility";
 
 const UPDATE_TOAST_ID = "pwa-update-available";
+const REQUIRED_UPDATE_TOAST_ID = "pwa-update-required";
 const UPDATE_TOAST_PREVIEW_ID = "pwa-update-available-preview";
 const UPDATE_TOAST_PREVIEW_PARAM = "pwa-update-toast";
 const UPDATE_CHECK_INTERVAL_MS = 30_000;
@@ -59,6 +70,11 @@ export function PwaUpdateController() {
   const hasControllerRef = useRef(false);
   const controllerReloadingRef = useRef(false);
   const manualReloadActivationStartedRef = useRef(false);
+  const syncUpdateRequired = useSyncExternalStore(
+    subscribeSyncUpdateRequired,
+    getSyncUpdateRequired,
+    getSyncUpdateRequired,
+  );
 
   const {
     needRefresh: [needRefresh],
@@ -78,6 +94,22 @@ export function PwaUpdateController() {
       console.error("Service worker update activation failed", error);
     });
   }, [updateServiceWorker]);
+
+  const activateRequiredUpdate = useCallback(() => {
+    void (async () => {
+      try {
+        await registration?.update();
+        if (registration?.waiting || needRefresh) {
+          await updateServiceWorker(true);
+          return;
+        }
+      } catch (error) {
+        console.error("Required update check failed", error);
+      }
+
+      window.location.reload();
+    })();
+  }, [needRefresh, registration, updateServiceWorker]);
 
   useEffect(() => {
     if (!shouldPreviewUpdateToast()) {
@@ -191,6 +223,25 @@ export function PwaUpdateController() {
       },
     });
   }, [activateUpdateServiceWorker, needRefresh, updateToastDismissed]);
+
+  useEffect(() => {
+    if (!syncUpdateRequired) {
+      toast.dismiss(REQUIRED_UPDATE_TOAST_ID);
+      return;
+    }
+
+    toast.dismiss(UPDATE_TOAST_ID);
+    toast("Update required", {
+      id: REQUIRED_UPDATE_TOAST_ID,
+      description: "Update Will Be Done to resume synchronization.",
+      duration: Infinity,
+      dismissible: false,
+      action: {
+        label: "Update",
+        onClick: activateRequiredUpdate,
+      },
+    });
+  }, [activateRequiredUpdate, syncUpdateRequired]);
 
   return null;
 }

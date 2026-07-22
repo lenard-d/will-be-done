@@ -225,9 +225,9 @@ export function buildBackup(
     });
   }
 
-  const categoryIdMap = new Map<string, string>(); // todoist section id → wbd category id
-  const defaultCategoryMap = new Map<string, string>(); // todoist project id → default wbd category id
-  const projectCategories: Backup["projectCategories"] = [];
+  const taskSectionIdMap = new Map<string, string>(); // todoist section id → wbd section id
+  const defaultSectionMap = new Map<string, string>(); // todoist project id → default wbd section id
+  const taskSections: Backup["taskSections"] = [];
 
   // Group sections by project for ordering
   const sectionsByProject = new Map<string, TodoistSection[]>();
@@ -237,23 +237,26 @@ export function buildBackup(
     sectionsByProject.set(s.projectId, arr);
   }
 
-  // For each project: create default category + one category per section
+  // For each project: create a default section plus one per Todoist section
   for (const tp of todoistProjects) {
     const wbdProjectId = projectIdMap.get(tp.id)!;
-    let prevCatToken: string | null = null;
+    let previousSectionToken: string | null = null;
 
-    // Default category for tasks with no section
-    const defaultCatId = uuidv7();
-    const defaultCatToken = generateJitteredKeyBetween(prevCatToken, null);
-    prevCatToken = defaultCatToken;
+    // Default section for tasks with no section
+    const defaultSectionId = uuidv7();
+    const defaultSectionToken = generateJitteredKeyBetween(
+      previousSectionToken,
+      null,
+    );
+    previousSectionToken = defaultSectionToken;
 
-    defaultCategoryMap.set(tp.id, defaultCatId);
-    projectCategories.push({
-      id: defaultCatId,
+    defaultSectionMap.set(tp.id, defaultSectionId);
+    taskSections.push({
+      id: defaultSectionId,
       title: "Tasks",
       projectId: wbdProjectId,
       createdAt: parseEpoch(tp.createdAt),
-      orderToken: defaultCatToken,
+      orderToken: defaultSectionToken,
     });
 
     // Sections sorted by sectionOrder
@@ -262,18 +265,21 @@ export function buildBackup(
     );
 
     for (const sec of sections) {
-      const catId = uuidv7();
-      categoryIdMap.set(sec.id, catId);
+      const sectionId = uuidv7();
+      taskSectionIdMap.set(sec.id, sectionId);
 
-      const catToken = generateJitteredKeyBetween(prevCatToken, null);
-      prevCatToken = catToken;
+      const sectionToken = generateJitteredKeyBetween(
+        previousSectionToken,
+        null,
+      );
+      previousSectionToken = sectionToken;
 
-      projectCategories.push({
-        id: catId,
+      taskSections.push({
+        id: sectionId,
         title: sec.name,
         projectId: wbdProjectId,
         createdAt: parseEpoch(sec.addedAt),
-        orderToken: catToken,
+        orderToken: sectionToken,
       });
     }
   }
@@ -284,28 +290,28 @@ export function buildBackup(
   const dailyListProjections: NonNullable<Backup["dailyListProjections"]> = [];
   const projectionLastToken = new Map<string, string | null>();
 
-  const tasksByCategory = new Map<string, TodoistTask[]>();
+  const tasksBySection = new Map<string, TodoistTask[]>();
 
   for (const t of allTodoistTasks) {
-    let catId: string;
+    let sectionId: string;
     if (t.sectionId) {
-      catId =
-        categoryIdMap.get(t.sectionId) ||
-        defaultCategoryMap.get(t.projectId) ||
+      sectionId =
+        taskSectionIdMap.get(t.sectionId) ||
+        defaultSectionMap.get(t.projectId) ||
         "";
     } else {
-      catId = defaultCategoryMap.get(t.projectId) || "";
+      sectionId = defaultSectionMap.get(t.projectId) || "";
     }
-    if (!catId) continue; // project not found
+    if (!sectionId) continue; // project not found
 
-    const arr = tasksByCategory.get(catId) || [];
+    const arr = tasksBySection.get(sectionId) || [];
     arr.push(t);
-    tasksByCategory.set(catId, arr);
+    tasksBySection.set(sectionId, arr);
   }
 
-  // Process tasks per category, sorted by childOrder
-  for (const [catId, catTasks] of tasksByCategory) {
-    const sorted = catTasks.sort((a, b) => a.childOrder - b.childOrder);
+  // Process tasks per section, sorted by childOrder
+  for (const [sectionId, sectionTasks] of tasksBySection) {
+    const sorted = sectionTasks.sort((a, b) => a.childOrder - b.childOrder);
     let prevToken: string | null = null;
 
     for (const t of sorted) {
@@ -332,7 +338,7 @@ export function buildBackup(
             repeatRuleDtStart: dtStart,
             createdAt,
             lastGeneratedAt: createdAt,
-            projectCategoryId: catId,
+            taskSectionId: sectionId,
           });
           continue; // don't create a regular task
         }
@@ -345,7 +351,7 @@ export function buildBackup(
         title: t.content,
         content: t.description || "",
         state: t.checked ? "done" : "todo",
-        projectCategoryId: catId,
+        taskSectionId: sectionId,
         orderToken,
         lastToggledAt: t.completedAt ? parseEpoch(t.completedAt) : createdAt,
         createdAt,
@@ -374,7 +380,7 @@ export function buildBackup(
 
   return {
     projects,
-    projectCategories,
+    taskSections,
     tasks,
     taskTemplates,
     dailyLists: [...dailyListsMap.values()],

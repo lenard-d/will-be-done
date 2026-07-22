@@ -7,10 +7,10 @@ import {
   generateTasksFromTemplates,
   installProjectTaskStatsHooks,
   loadSpaceBackup,
-  migrateProjectCategoryTaskStats,
+  migrateTaskSectionTaskStats,
   migrateScheduledTodoTasks,
-  projectCategoriesTable,
-  projectCategoryTaskStatsTable,
+  taskSectionsTable,
+  taskSectionTaskStatsTable,
   projectsTable,
   registeredSpaceSyncableTableNameMap,
   registeredSpaceSyncableTables,
@@ -39,7 +39,7 @@ export const spaceDBConfig = (dbId: string) => {
     dbType: spaceDbType,
     persistDBTables: [
       ...registeredSpaceSyncableTables,
-      projectCategoryTaskStatsTable,
+      taskSectionTaskStatsTable,
       scheduledTodoTasksTable,
       spaceMigrationsTable,
       changesTable,
@@ -60,15 +60,15 @@ export const spaceDBConfig = (dbId: string) => {
           { table: dailyListsTable, scanIndex: "byIds" },
           { table: taskProjectionsTable, scanIndex: "byIds" },
           { table: projectsTable, scanIndex: "byIds" },
-          { table: projectCategoriesTable, scanIndex: "byIds" },
+          { table: taskSectionsTable, scanIndex: "byIds" },
           { table: stashProjectionsTable, scanIndex: "byIds" },
-          { table: projectCategoryTaskStatsTable, scanIndex: "byIds" },
+          { table: taskSectionTaskStatsTable, scanIndex: "byIds" },
           { table: scheduledTodoTasksTable, scanIndex: "byIds" },
           { table: stashProjectionsTable, scanIndex: "byIds" },
           { table: checklistItemsTable, scanIndex: "byIds" },
         ]),
       );
-      await asyncDispatch(db, migrateProjectCategoryTaskStats({}));
+      await asyncDispatch(db, migrateTaskSectionTaskStats({}));
       await asyncDispatch(db, migrateScheduledTodoTasks({}));
 
       // To make load faster
@@ -112,14 +112,14 @@ export const demoSpaceDBConfig = () => {
       await execAsync(
         db.preloadTables([
           { table: projectsTable, scanIndex: "byIds" },
-          { table: projectCategoriesTable, scanIndex: "byIds" },
+          { table: taskSectionsTable, scanIndex: "byIds" },
           { table: taskProjectionsTable, scanIndex: "byIds" },
           { table: stashProjectionsTable, scanIndex: "byIds" },
-          { table: projectCategoryTaskStatsTable, scanIndex: "byIds" },
+          { table: taskSectionTaskStatsTable, scanIndex: "byIds" },
           { table: scheduledTodoTasksTable, scanIndex: "byIds" },
         ]),
       );
-      await asyncDispatch(db, migrateProjectCategoryTaskStats({}));
+      await asyncDispatch(db, migrateTaskSectionTaskStats({}));
       await asyncDispatch(db, migrateScheduledTodoTasks({}));
 
       // To make load faster

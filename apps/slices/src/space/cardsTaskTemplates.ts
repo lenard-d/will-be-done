@@ -18,9 +18,9 @@ import {
 import { createProjectionInDailyList } from "./dailyListsProjections";
 import {
   createTaskCardAfter,
-  projectCategoryCardSiblings,
-} from "./projectsCategoriesCards";
-import { firstProjectCategoryChild } from "./projectsCategories";
+  taskSectionCardSiblings,
+} from "./taskSectionCards";
+import { firstTaskSectionChild } from "./taskSections";
 import {
   deleteTasks,
   taskById,
@@ -52,7 +52,7 @@ export const defaultTaskTemplate: TaskTemplate = {
   repeatRuleDtStart: 0,
   createdAt: 0,
   lastGeneratedAt: 0,
-  projectCategoryId: "abeee7aa-8bf4-4a5f-9167-ce42ad6187b6",
+  taskSectionId: "abeee7aa-8bf4-4a5f-9167-ce42ad6187b6",
 };
 
 // Template utility functions
@@ -83,7 +83,7 @@ const templateToTask = selector({
       title: tmpl.title,
       content: "",
       state: "todo",
-      projectCategoryId: tmpl.projectCategoryId,
+      taskSectionId: tmpl.taskSectionId,
       orderToken: tmpl.orderToken,
       lastToggledAt: epoch,
       nature: tmpl.nature,
@@ -235,7 +235,7 @@ export const allTaskTemplates = selector({
   handler: function* allTaskTemplates() {
     const templates = yield* selectFrom(
       taskTemplatesTable,
-      "byCategoryIdOrderStates",
+      "byTaskSectionIdOrderStates",
     );
     return templates;
   },
@@ -426,7 +426,7 @@ export const createTaskTemplate = action({
     now: v.number(),
     template: v.required(v.partial(taskTemplatesTable.v()), [
       "orderToken",
-      "projectCategoryId",
+      "taskSectionId",
     ]),
   },
   handler: function* createTaskTemplate({ now, template }) {
@@ -513,7 +513,7 @@ export const createTaskTemplateFromTask = action({
       repeatRule: defaultRule,
       repeatRuleDtStart: now,
       lastGeneratedAt: now,
-      projectCategoryId: task.projectCategoryId,
+      taskSectionId: task.taskSectionId,
       ...data,
     };
 
@@ -557,7 +557,7 @@ export const taskTemplateHandleDrop = action({
 
     const orderToken = generateKeyPositionedBetween(
       template,
-      yield* projectCategoryCardSiblings({ cardId: taskTemplateId }),
+      yield* taskSectionCardSiblings({ cardId: taskTemplateId }),
       edge === "top" ? "before" : "after",
     );
 
@@ -565,7 +565,7 @@ export const taskTemplateHandleDrop = action({
       yield* updateTask({
         id: dropItem.id,
         task: {
-          projectCategoryId: template.projectCategoryId,
+          taskSectionId: template.taskSectionId,
           orderToken,
         },
       });
@@ -573,7 +573,7 @@ export const taskTemplateHandleDrop = action({
       yield* updateTemplate({
         id: dropItem.id,
         template: {
-          projectCategoryId: template.projectCategoryId,
+          taskSectionId: template.taskSectionId,
           orderToken,
         },
       });
@@ -583,7 +583,7 @@ export const taskTemplateHandleDrop = action({
         yield* updateTask({
           id: droppedTask.id,
           task: {
-            projectCategoryId: template.projectCategoryId,
+            taskSectionId: template.taskSectionId,
             orderToken,
           },
         });
@@ -622,7 +622,7 @@ export const generateTasksFromTemplates = action({
         throw new Error("TemplateId is null");
       }
 
-      // Create task card after the template card in the project category
+      // Create task card after the template card in the project section
       yield* createTaskCardAfter({
         cardId: task.templateId,
         taskParams: {
@@ -678,13 +678,13 @@ export const moveTemplateToProject = action({
     const template = yield* taskTemplateById({ id: templateId });
     if (!template) throw new Error("Template not found");
 
-    const firstCategory = yield* firstProjectCategoryChild({ projectId });
-    if (!firstCategory) throw new Error("No categories found");
+    const firstSection = yield* firstTaskSectionChild({ projectId });
+    if (!firstSection) throw new Error("No sections found");
 
     yield* updateTemplate({
       id: templateId,
       template: {
-        projectCategoryId: firstCategory.id,
+        taskSectionId: firstSection.id,
       },
     });
   },

@@ -8,10 +8,12 @@ import {
 import { dbIdTrait } from "@will-be-done/slices/traits";
 import {
   createInboxIfNotExists,
-  createProjectCategoryTask,
-  firstProjectCategoryChild,
+  createTaskInSection,
+  firstTaskSectionChild,
   registeredSpaceSyncableTables,
   tasksTable,
+  migrateLegacyTaskSections,
+  taskSectionStorageMigrationTables,
 } from "@will-be-done/slices/space";
 import { BroadcastChannel } from "broadcast-channel";
 import { authUtils } from "@/lib/auth";
@@ -20,6 +22,7 @@ import {
   resolvePersistentDriverKind,
 } from "./persistentDriver";
 import { getClientId, initClock } from "./syncClock";
+import { syncChannelName } from "./syncCompatibility";
 
 export async function initPopupStore(spaceId: string) {
   const dbName = "space-" + spaceId;
@@ -38,6 +41,8 @@ export async function initPopupStore(spaceId: string) {
     traits: [dbIdTrait("space", spaceId)],
   });
 
+  await execAsync(asyncDB.loadTables(taskSectionStorageMigrationTables));
+  await asyncDispatch(asyncDB, migrateLegacyTaskSections({}));
   await execAsync(asyncDB.loadTables(persistDBTables));
 
   // Ensure inbox exists
@@ -51,17 +56,17 @@ export async function initPopupStore(spaceId: string) {
           // Get inbox project
           const inbox = yield* createInboxIfNotExists({});
 
-          // Get first category of inbox
-          const inboxCategory = yield* firstProjectCategoryChild({
+          // Get first section of inbox
+          const inboxSection = yield* firstTaskSectionChild({
             projectId: inbox.id,
           });
-          if (!inboxCategory) {
-            throw new Error("Inbox category not found");
+          if (!inboxSection) {
+            throw new Error("Inbox section not found");
           }
 
           // Create task at the top (prepend)
-          const task = yield* createProjectCategoryTask({
-            categoryId: inboxCategory.id,
+          const task = yield* createTaskInSection({
+            taskSectionId: inboxSection.id,
             position: "prepend",
             taskAttrs: { title },
           });
@@ -79,7 +84,7 @@ export async function initPopupStore(spaceId: string) {
       );
 
       // Notify main window via BroadcastChannel
-      const bc = new BroadcastChannel(`changes-${clientId}`);
+      const bc = new BroadcastChannel(syncChannelName("changes", clientId));
       const changeset: ChangesetArrayType = [
         {
           tableName: tasksTable.tableName,

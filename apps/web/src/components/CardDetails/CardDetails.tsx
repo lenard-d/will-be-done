@@ -7,7 +7,7 @@ import {
   cardExists,
   isTask,
   isTaskTemplate,
-  projectCategoryCardById,
+  taskSectionCardById,
 } from "@will-be-done/slices/space";
 import { useGlobalListener } from "@/components/GlobalListener/hooks.tsx";
 import { TaskBody } from "./TaskBody.tsx";
@@ -319,7 +319,7 @@ function CardDetailsBody({
   onCardIdChange?: (cardId: string) => void;
 }) {
   const { data: card } = useAsyncSelector({
-    selector: projectCategoryCardById,
+    selector: taskSectionCardById,
     args: { id: cardId },
   });
 

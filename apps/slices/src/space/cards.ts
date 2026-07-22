@@ -5,7 +5,7 @@ import {
   createDailyProjectionSibling,
   deleteDailyProjections,
 } from "./dailyListsProjections";
-import { createSiblingTask } from "./projectsCategoriesCards";
+import { createSiblingTask } from "./taskSectionCards";
 import {
   createStashProjectionSibling,
   deleteStashProjections,

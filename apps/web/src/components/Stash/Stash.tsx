@@ -80,7 +80,7 @@ const StashColumnView = ({
           <PreloadedTaskComp
             key={displayData.cardWrapper.id}
             card={displayData.card}
-            category={displayData.category}
+            section={displayData.section}
             cardWrapper={displayData.cardWrapper}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
@@ -92,7 +92,7 @@ const StashColumnView = ({
           <PreloadedTaskComp
             key={displayData.cardWrapper.id}
             card={displayData.card}
-            category={displayData.category}
+            section={displayData.section}
             cardWrapper={displayData.cardWrapper}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
@@ -180,7 +180,7 @@ export const Stash = () => {
         createTaskInStash({
           projectId: inboxId,
           position: "prepend",
-          categoryPosition: "prepend",
+          sectionPosition: "prepend",
         }),
       );
 

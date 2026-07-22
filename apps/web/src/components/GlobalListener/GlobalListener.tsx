@@ -13,7 +13,7 @@ import {
   appHandleDrop,
   checklistItemType,
   dailyListType,
-  projectCategoryType,
+  taskSectionType,
   projectionType,
   projectType,
   stashProjectionType,
@@ -188,7 +188,7 @@ export function GlobalListener() {
               taskTemplateType,
               stashType,
               dailyListType,
-              projectCategoryType,
+              taskSectionType,
               projectType,
             ];
 

@@ -14,9 +14,9 @@ import { appById } from "./app";
 import { createProjectTask } from "./projects";
 import {
   createSiblingTask,
-  projectCategoryCardsForDisplay,
+  taskSectionCardsForDisplay,
   type CardForDisplay,
-} from "./projectsCategoriesCards";
+} from "./taskSectionCards";
 import { deleteDailyProjections } from "./dailyListsProjections";
 import { taskById, taskByIdOrDefault } from "./cardsTasks";
 import { orderPositionArg } from "./utils";
@@ -160,7 +160,7 @@ export const stashProjectionChildrenForDisplay = selector({
       }
     }
 
-    return yield* projectCategoryCardsForDisplay({ cards, cardWrappers });
+    return yield* taskSectionCardsForDisplay({ cards, cardWrappers });
   },
 });
 
@@ -221,7 +221,7 @@ export const doneStashProjectionChildrenForDisplay = selector({
       (a, b) => b.card.lastToggledAt - a.card.lastToggledAt,
     );
 
-    return yield* projectCategoryCardsForDisplay({
+    return yield* taskSectionCardsForDisplay({
       cards: cardsWithProjections.map(({ card }) => card),
       cardWrappers: cardsWithProjections.map(({ cardWrapper }) => cardWrapper),
     });
@@ -702,16 +702,16 @@ export const createTaskInStash = action({
   args: {
     projectId: v.string(),
     position: orderPositionArg,
-    categoryPosition: orderPositionArg,
+    sectionPosition: orderPositionArg,
   },
   handler: function* createTaskInStash({
     projectId,
     position,
-    categoryPosition,
+    sectionPosition,
   }): Generator<unknown, Task, unknown> {
     const task = yield* createProjectTask({
       projectId,
-      position: categoryPosition,
+      position: sectionPosition,
     });
 
     yield* addToStash({

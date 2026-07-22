@@ -110,16 +110,16 @@ function createTinyBackup({
         createdAt,
       },
     ],
-    projectCategories: [
+    taskSections: [
       {
-        id: "e2e-inbox-category",
+        id: "e2e-inbox-section",
         title: "Miscellaneous",
         projectId: "e2e-inbox-project",
         orderToken: "a",
         createdAt,
       },
       {
-        id: "e2e-restored-category",
+        id: "e2e-restored-section",
         title: "Restored",
         projectId: "e2e-restored-project",
         orderToken: "a",
@@ -132,7 +132,7 @@ function createTinyBackup({
         title: taskTitle,
         content: taskDescription,
         state: "todo",
-        projectCategoryId: "e2e-restored-category",
+        taskSectionId: "e2e-restored-section",
         orderToken: "a",
         lastToggledAt: 0,
         createdAt,

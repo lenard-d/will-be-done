@@ -9,7 +9,7 @@ import {
   tasksTable,
   taskTemplatesTable,
   taskProjectionsTable,
-  projectCategoriesTable,
+  taskSectionsTable,
   projectsTable,
   dailyListsTable,
   checklistItemsTable,
@@ -19,7 +19,7 @@ import {
   type Task,
   type TaskTemplate,
   type Project,
-  type ProjectCategory,
+  type TaskSection,
   type DailyList,
   type TaskProjection,
   Card,
@@ -27,7 +27,7 @@ import {
 
 export type CardForDisplay = {
   card: Card;
-  category: ProjectCategory;
+  section: TaskSection;
   cardWrapper: CardWrapper;
   project: Project;
   dailyList: DailyList | undefined;
@@ -38,51 +38,49 @@ export type CardForDisplay = {
 
 // TODO: check if all items renamed to card
 
-export const firstProjectCategoryCard = selector({
-  name: "firstProjectCategoryCard",
-  args: { projectCategoryId: v.string() },
-  handler: function* firstProjectCategoryCard({
-    projectCategoryId,
+export const firstTaskSectionCard = selector({
+  name: "firstTaskSectionCard",
+  args: { taskSectionId: v.string() },
+  handler: function* firstTaskSectionCard({
+    taskSectionId,
   }): Generator<unknown, Card, unknown> {
-    const ids = yield* projectCategoryCardIds({ projectCategoryId });
+    const ids = yield* taskSectionCardIds({ taskSectionId });
     if (ids.length === 0) return defaultTask;
 
-    return yield* projectCategoryCardByIdOrDefault({ id: ids[0] });
+    return yield* taskSectionCardByIdOrDefault({ id: ids[0] });
   },
 });
 
-export const lastProjectCategoryCard = selector({
-  name: "lastProjectCategoryCard",
-  args: { projectCategoryId: v.string() },
-  handler: function* lastProjectCategoryCard({
-    projectCategoryId,
+export const lastTaskSectionCard = selector({
+  name: "lastTaskSectionCard",
+  args: { taskSectionId: v.string() },
+  handler: function* lastTaskSectionCard({
+    taskSectionId,
   }): Generator<unknown, Card, unknown> {
-    const ids = yield* projectCategoryCardIds({ projectCategoryId });
+    const ids = yield* taskSectionCardIds({ taskSectionId });
     if (ids.length === 0) return defaultTask;
 
-    return yield* projectCategoryCardByIdOrDefault({ id: ids[ids.length - 1] });
+    return yield* taskSectionCardByIdOrDefault({ id: ids[ids.length - 1] });
   },
 });
 
-export const projectCategoryCards = selector({
-  name: "projectCategoryCards",
-  args: { projectCategoryId: v.string() },
+export const taskSectionCards = selector({
+  name: "taskSectionCards",
+  args: { taskSectionId: v.string() },
   memoization: { selfChild: true },
-  handler: function* ({ projectCategoryId }) {
+  handler: function* ({ taskSectionId }) {
     // TODO: make separate table that will maintain list
-    // of all cards in a project category
+    // of all cards in a project section
     // or you merge sort
     const tasks = yield* selectFrom(
       tasksTable,
-      "byCategoryIdOrderStates",
-    ).where((q) =>
-      q.eq("projectCategoryId", projectCategoryId).eq("state", "todo"),
-    );
+      "byTaskSectionIdOrderStates",
+    ).where((q) => q.eq("taskSectionId", taskSectionId).eq("state", "todo"));
 
     const templates = yield* selectFrom(
       taskTemplatesTable,
-      "byCategoryIdOrderStates",
-    ).where((q) => q.eq("projectCategoryId", projectCategoryId));
+      "byTaskSectionIdOrderStates",
+    ).where((q) => q.eq("taskSectionId", taskSectionId));
 
     const allCards = [...tasks, ...templates];
 
@@ -99,33 +97,30 @@ export const projectCategoryCards = selector({
   },
 });
 
-export const projectCategoryCardsForDisplay = selector({
-  name: "projectCategoryCardsForDisplay",
+export const taskSectionCardsForDisplay = selector({
+  name: "taskSectionCardsForDisplay",
   args: {
     cards: v.array(v.union(tasksTable.v(), taskTemplatesTable.v())),
     cardWrappers: v.array(cardWrapper),
   },
-  handler: function* projectCategoryCardsForDisplay({
+  handler: function* taskSectionCardsForDisplay({
     cards,
     cardWrappers,
   }): Generator<unknown, CardForDisplay[], unknown> {
-    const categoryIds = [
-      ...new Set(cards.map((card) => card.projectCategoryId)),
+    const taskSectionIds = [
+      ...new Set(cards.map((card) => card.taskSectionId)),
     ];
-    const categories = categoryIds.length
-      ? yield* selectFrom(projectCategoriesTable, "byId").where((q) =>
-          categoryIds.map((id) => q.eq("id", id)),
+    const sections = taskSectionIds.length
+      ? yield* selectFrom(taskSectionsTable, "byId").where((q) =>
+          taskSectionIds.map((id) => q.eq("id", id)),
         )
       : [];
-    const categoryMap = new Map(
-      (categories as ProjectCategory[]).map((category) => [
-        category.id,
-        category,
-      ]),
+    const sectionMap = new Map(
+      (sections as TaskSection[]).map((section) => [section.id, section]),
     );
 
     const projectIds = [
-      ...new Set((categories as ProjectCategory[]).map((c) => c.projectId)),
+      ...new Set((sections as TaskSection[]).map((c) => c.projectId)),
     ];
     const projects = projectIds.length
       ? yield* selectFrom(projectsTable, "byId").where((q) =>
@@ -184,10 +179,10 @@ export const projectCategoryCardsForDisplay = selector({
 
     return cards
       .map((card) => {
-        const category = categoryMap.get(card.projectCategoryId);
-        if (!category) return;
+        const section = sectionMap.get(card.taskSectionId);
+        if (!section) return;
 
-        const project = projectMap.get(category.projectId);
+        const project = projectMap.get(section.projectId);
         if (!project) return;
 
         const cardWrapper =
@@ -206,7 +201,7 @@ export const projectCategoryCardsForDisplay = selector({
 
         return {
           card,
-          category,
+          section,
           project,
           cardWrapper,
           dailyList,
@@ -219,56 +214,53 @@ export const projectCategoryCardsForDisplay = selector({
   },
 });
 
-export const projectCategoryCardsForDisplayChildren = selector({
-  name: "projectCategoryCardsForDisplayChildren",
-  args: { projectCategoryId: v.string() },
-  handler: function* projectCategoryCardsForDisplayChildren({
-    projectCategoryId,
-  }) {
-    const cards = yield* projectCategoryCards({ projectCategoryId });
-    return yield* projectCategoryCardsForDisplay({
+export const taskSectionCardsForDisplayChildren = selector({
+  name: "taskSectionCardsForDisplayChildren",
+  args: { taskSectionId: v.string() },
+  handler: function* taskSectionCardsForDisplayChildren({ taskSectionId }) {
+    const cards = yield* taskSectionCards({ taskSectionId });
+    return yield* taskSectionCardsForDisplay({
       cards,
       cardWrappers: cards,
     });
   },
 });
 
-export const projectCategoryCardIds = selector({
-  name: "projectCategoryCardIds",
-  args: { projectCategoryId: v.string() },
-  handler: function* projectCategoryCardIds({ projectCategoryId }) {
-    return (yield* projectCategoryCards({ projectCategoryId })).map(
-      (card) => card.id,
-    );
+export const taskSectionCardIds = selector({
+  name: "taskSectionCardIds",
+  args: { taskSectionId: v.string() },
+  handler: function* taskSectionCardIds({ taskSectionId }) {
+    return (yield* taskSectionCards({ taskSectionId })).map((card) => card.id);
   },
 });
 
-export const doneProjectCategoryCardsForDisplay = selector({
-  name: "doneProjectCategoryCardsForDisplay",
-  args: { projectCategoryId: v.string(), limited: v.boolean() },
-  handler: function* doneProjectCategoryCardsForDisplay({
-    projectCategoryId,
+export const doneTaskSectionCardsForDisplay = selector({
+  name: "doneTaskSectionCardsForDisplay",
+  args: { taskSectionId: v.string(), limited: v.boolean() },
+  handler: function* doneTaskSectionCardsForDisplay({
+    taskSectionId,
     limited,
   }) {
-    const tasks = yield* selectFrom(tasksTable, "byCategoryIdStatesToggledAt")
-      .where((q) =>
-        q.eq("projectCategoryId", projectCategoryId).eq("state", "done"),
-      )
+    const tasks = yield* selectFrom(
+      tasksTable,
+      "byTaskSectionIdStatesToggledAt",
+    )
+      .where((q) => q.eq("taskSectionId", taskSectionId).eq("state", "done"))
       // fetch one more, so UI will show "Show more" button and limit to show only 5 cards
       .limit(limited ? 6 : 9999)
       .order("desc");
 
-    return yield* projectCategoryCardsForDisplay({
+    return yield* taskSectionCardsForDisplay({
       cards: tasks,
       cardWrappers: tasks,
     });
   },
 });
 
-export const projectCategoryCardById = selector({
-  name: "projectCategoryCardById",
+export const taskSectionCardById = selector({
+  name: "taskSectionCardById",
   args: { id: v.string() },
-  handler: function* projectCategoryCardById({
+  handler: function* taskSectionCardById({
     id,
   }): Generator<unknown, Card | undefined, unknown> {
     const task = yield* taskById({ id });
@@ -281,27 +273,27 @@ export const projectCategoryCardById = selector({
   },
 });
 
-export const projectCategoryCardByIdOrDefault = selector({
-  name: "projectCategoryCardByIdOrDefault",
+export const taskSectionCardByIdOrDefault = selector({
+  name: "taskSectionCardByIdOrDefault",
   args: { id: v.string() },
-  handler: function* projectCategoryCardByIdOrDefault({
+  handler: function* taskSectionCardByIdOrDefault({
     id,
   }): Generator<unknown, Card, unknown> {
-    return (yield* projectCategoryCardById({ id })) || defaultTask;
+    return (yield* taskSectionCardById({ id })) || defaultTask;
   },
 });
 
-export const projectCategoryCardSiblings = selector({
-  name: "projectCategoryCardSiblings",
+export const taskSectionCardSiblings = selector({
+  name: "taskSectionCardSiblings",
   args: { cardId: v.string() },
-  handler: function* projectCategoryCardSiblings({
+  handler: function* taskSectionCardSiblings({
     cardId,
   }): Generator<unknown, [Card | undefined, Card | undefined], unknown> {
-    const card = yield* projectCategoryCardByIdOrDefault({ id: cardId });
+    const card = yield* taskSectionCardByIdOrDefault({ id: cardId });
     if (!card) return [undefined, undefined];
 
-    const ids = yield* projectCategoryCardIds({
-      projectCategoryId: card.projectCategoryId,
+    const ids = yield* taskSectionCardIds({
+      taskSectionId: card.taskSectionId,
     });
     const index = ids.findIndex((id) => id === cardId);
 
@@ -309,10 +301,10 @@ export const projectCategoryCardSiblings = selector({
     const afterId = index < ids.length - 1 ? ids[index + 1] : undefined;
 
     const before = beforeId
-      ? yield* projectCategoryCardByIdOrDefault({ id: beforeId })
+      ? yield* taskSectionCardByIdOrDefault({ id: beforeId })
       : undefined;
     const after = afterId
-      ? yield* projectCategoryCardByIdOrDefault({ id: afterId })
+      ? yield* taskSectionCardByIdOrDefault({ id: afterId })
       : undefined;
 
     return [before, after];
@@ -327,16 +319,16 @@ export const createSiblingTask = action({
     taskParams: v.optional(v.partial(tasksTable.v())),
   },
   handler: function* createSiblingTask({ cardId, position, taskParams }) {
-    const card = yield* projectCategoryCardById({ id: cardId });
+    const card = yield* taskSectionCardById({ id: cardId });
     if (!card) throw new Error("Card not found");
 
     return yield* createTask({
       task: {
         ...taskParams,
-        projectCategoryId: card.projectCategoryId,
+        taskSectionId: card.taskSectionId,
         orderToken: generateKeyPositionedBetween(
           card,
-          yield* projectCategoryCardSiblings({ cardId }),
+          yield* taskSectionCardSiblings({ cardId }),
           position,
         ),
       },
@@ -351,10 +343,10 @@ export const createTaskCardAfter = action({
     taskParams: v.optional(v.partial(tasksTable.v())),
   },
   handler: function* createTaskCardAfter({ cardId, taskParams }) {
-    const card = yield* projectCategoryCardById({ id: cardId });
+    const card = yield* taskSectionCardById({ id: cardId });
     if (!card) throw new Error("Card not found");
 
-    const [, after] = yield* projectCategoryCardSiblings({ cardId });
+    const [, after] = yield* taskSectionCardSiblings({ cardId });
     const orderToken = generateJitteredKeyBetween(
       card.orderToken,
       after?.orderToken || null,
@@ -363,7 +355,7 @@ export const createTaskCardAfter = action({
     return yield* createTask({
       task: {
         ...taskParams,
-        projectCategoryId: card.projectCategoryId,
+        taskSectionId: card.taskSectionId,
         orderToken,
       },
     });

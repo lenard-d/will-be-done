@@ -3,6 +3,7 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { syncDispatch } from "@will-be-done/hyperdb";
 import { getMainHyperDB } from "./db/db";
 import { validateToken } from "./slices/authSlice";
+import { UnsupportedSyncVersionError } from "@will-be-done/slices/common";
 
 /**
  * Context type definition
@@ -65,7 +66,22 @@ export async function createContext({
  * Initialization of tRPC backend
  * Should be done only once per backend!
  */
-const t = initTRPC.context<Context>().create();
+const t = initTRPC.context<Context>().create({
+  errorFormatter({ shape, error }) {
+    const syncVersionError =
+      error.cause instanceof UnsupportedSyncVersionError
+        ? error.cause.data
+        : undefined;
+
+    return {
+      ...shape,
+      data: {
+        ...shape.data,
+        ...(syncVersionError ? { syncVersion: syncVersionError } : {}),
+      },
+    };
+  },
+});
 
 /**
  * Export reusable router and procedure helpers

@@ -16,15 +16,15 @@ import {
 } from "./utils";
 import { appById } from "./app";
 import {
-  createCategory,
-  deleteCategories,
-  firstProjectCategoryChild,
-  inboxCategoryId,
-  projectCategoryById,
-  projectCategoriesByProjectId,
-  projectCategoriesByProjectIds,
-  createProjectCategoryTask,
-} from "./projectsCategories";
+  createTaskSection,
+  deleteTaskSections,
+  firstTaskSectionChild,
+  inboxTaskSectionId,
+  taskSectionById,
+  taskSectionsByProjectId,
+  taskSectionsByProjectIds,
+  createTaskInSection,
+} from "./taskSections";
 import {
   firstProjectChild,
   lastProjectChild,
@@ -64,15 +64,17 @@ export const defaultProject: Project = {
 function* projectTodoTaskIds(
   projectId: string,
 ): Generator<unknown, string[], unknown> {
-  const categories = yield* projectCategoriesByProjectId({ projectId });
-  const categoryIds = categories.map((category) => category.id);
-  if (categoryIds.length === 0) return [];
+  const sections = yield* taskSectionsByProjectId({ projectId });
+  const taskSectionIds = sections.map((section) => section.id);
+  if (taskSectionIds.length === 0) return [];
 
-  const tasks = yield* selectFrom(tasksTable, "byCategoryIdOrderStates").where(
-    (q) =>
-      categoryIds.map((categoryId) =>
-        q.eq("projectCategoryId", categoryId).eq("state", "todo"),
-      ),
+  const tasks = yield* selectFrom(
+    tasksTable,
+    "byTaskSectionIdOrderStates",
+  ).where((q) =>
+    taskSectionIds.map((taskSectionId) =>
+      q.eq("taskSectionId", taskSectionId).eq("state", "todo"),
+    ),
   );
 
   return tasks.map((task) => task.id);
@@ -343,25 +345,25 @@ export const createProject = action({
 
     yield* insert(projectsTable, [newProject]);
     if (isInbox) {
-      yield* createCategory({
-        categoryDraft: {
+      yield* createTaskSection({
+        sectionDraft: {
           projectId: newProject.id,
           title: "Inbox",
-          id: yield* inboxCategoryId({}),
+          id: yield* inboxTaskSectionId({}),
         },
         position: "append",
       });
     } else {
-      yield* createCategory({
-        categoryDraft: { projectId: newProject.id, title: "Week" },
+      yield* createTaskSection({
+        sectionDraft: { projectId: newProject.id, title: "Week" },
         position: "append",
       });
-      yield* createCategory({
-        categoryDraft: { projectId: newProject.id, title: "Month" },
+      yield* createTaskSection({
+        sectionDraft: { projectId: newProject.id, title: "Month" },
         position: "append",
       });
-      yield* createCategory({
-        categoryDraft: { projectId: newProject.id, title: "Ideas" },
+      yield* createTaskSection({
+        sectionDraft: { projectId: newProject.id, title: "Ideas" },
         position: "append",
       });
     }
@@ -420,11 +422,11 @@ export const deleteProjects = action({
   handler: function* deleteProjects({
     ids,
   }): Generator<unknown, void, unknown> {
-    const projectCategories = yield* projectCategoriesByProjectIds({
+    const taskSections = yield* taskSectionsByProjectIds({
       projectIds: ids,
     });
 
-    yield* deleteCategories({ ids: projectCategories.map((c) => c.id) });
+    yield* deleteTaskSections({ ids: taskSections.map((c) => c.id) });
     yield* deleteRows(projectsTable, ids);
   },
 });
@@ -485,24 +487,24 @@ export const projectHandleDrop = action({
       isTaskTemplate(dropItem) ||
       isTaskProjection(dropItem)
     ) {
-      const category = yield* firstProjectCategoryChild({
+      const section = yield* firstTaskSectionChild({
         projectId: project.id,
       });
-      if (!category) throw new Error("No categories found in project");
+      if (!section) throw new Error("No sections found in project");
 
       // Move task/template to this project
       if (isTask(dropItem)) {
         yield* updateTask({
           id: dropItem.id,
           task: {
-            projectCategoryId: category.id,
+            taskSectionId: section.id,
           },
         });
       } else if (isTaskTemplate(dropItem)) {
         yield* updateTemplate({
           id: dropItem.id,
           template: {
-            projectCategoryId: category.id,
+            taskSectionId: section.id,
           },
         });
       } else if (isTaskProjection(dropItem)) {
@@ -512,7 +514,7 @@ export const projectHandleDrop = action({
           yield* updateTask({
             id: task.id,
             task: {
-              projectCategoryId: category.id,
+              taskSectionId: section.id,
             },
           });
           // Keep the projection in the daily list
@@ -539,20 +541,20 @@ export const createProjectTask = action({
     const project = yield* projectById({ id: projectId });
     if (!project) throw new Error("Project not found");
 
-    let projectCategoryId = taskAttrs?.projectCategoryId;
-    if (projectCategoryId) {
-      const category = yield* projectCategoryById({ id: projectCategoryId });
-      if (!category || category.projectId !== projectId) {
-        throw new Error("Project category does not belong to project");
+    let taskSectionId = taskAttrs?.taskSectionId;
+    if (taskSectionId) {
+      const section = yield* taskSectionById({ id: taskSectionId });
+      if (!section || section.projectId !== projectId) {
+        throw new Error("Project section does not belong to project");
       }
     } else {
-      const firstCategory = yield* firstProjectCategoryChild({ projectId });
-      if (!firstCategory) throw new Error("No categories found");
-      projectCategoryId = firstCategory.id;
+      const firstSection = yield* firstTaskSectionChild({ projectId });
+      if (!firstSection) throw new Error("No sections found");
+      taskSectionId = firstSection.id;
     }
 
-    return yield* createProjectCategoryTask({
-      categoryId: projectCategoryId,
+    return yield* createTaskInSection({
+      taskSectionId: taskSectionId,
       position,
       taskAttrs,
     });
