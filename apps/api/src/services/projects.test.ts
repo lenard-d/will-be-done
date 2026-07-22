@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import {
   createAction,
   DB,
@@ -12,6 +12,7 @@ import {
   projectsTable,
   type Project,
 } from "@will-be-done/slices/space";
+import * as databases from "../db/db";
 import { dbsTable } from "../slices/dbSlice";
 import { DatabaseAccessDeniedError } from "./databaseAccess";
 import { listSpaceProjects } from "./projects";
@@ -47,6 +48,10 @@ const seedProjects = action({
 });
 
 describe("listSpaceProjects", () => {
+  afterEach(() => {
+    mock.restore();
+  });
+
   test("returns public project fields in display order and enforces ownership", () => {
     const mainDB = new DB(new BptreeInmemDriver());
     const spaceDB = new DB(new BptreeInmemDriver());
@@ -54,14 +59,15 @@ describe("listSpaceProjects", () => {
     execSync(spaceDB.loadTables([projectsTable]));
     syncDispatch(spaceDB, seedProjects({}));
 
-    const dependencies = {
-      mainDB,
-      getSpaceDatabase: () => spaceDB,
-    };
-    const projects = listSpaceProjects(
-      { spaceId: "space-1", userId: "user-1" },
-      dependencies,
+    spyOn(databases, "getMainHyperDB").mockImplementation(() => mainDB);
+    spyOn(databases, "getHyperDB").mockImplementation(
+      () =>
+        ({ db: spaceDB }) as unknown as ReturnType<typeof databases.getHyperDB>,
     );
+    const projects = listSpaceProjects({
+      spaceId: "space-1",
+      userId: "user-1",
+    });
 
     expect(projects).toEqual([
       {
@@ -69,6 +75,7 @@ describe("listSpaceProjects", () => {
         title: "First",
         icon: "1",
         isInbox: true,
+        orderToken: "a",
         createdAt: 100,
       },
       {
@@ -76,15 +83,13 @@ describe("listSpaceProjects", () => {
         title: "Second",
         icon: "2",
         isInbox: false,
+        orderToken: "b",
         createdAt: 200,
       },
     ]);
 
     expect(() =>
-      listSpaceProjects(
-        { spaceId: "space-1", userId: "another-user" },
-        dependencies,
-      ),
+      listSpaceProjects({ spaceId: "space-1", userId: "another-user" }),
     ).toThrow(DatabaseAccessDeniedError);
   });
 });

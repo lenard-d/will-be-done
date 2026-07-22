@@ -1,4 +1,4 @@
-import { selectSync, type DB, type HyperDB } from "@will-be-done/hyperdb";
+import { selectSync } from "@will-be-done/hyperdb";
 import { allProjects } from "@will-be-done/slices/space";
 import { getHyperDB } from "../db/db";
 import { spaceDBConfig } from "../db/configs";
@@ -9,39 +9,30 @@ export interface PublicProject {
   title: string;
   icon: string;
   isInbox: boolean;
+  orderToken: string;
   createdAt: number;
 }
 
-export interface ListSpaceProjectsDependencies {
-  mainDB?: DB;
-  getSpaceDatabase?: (spaceId: string) => HyperDB;
-}
+export function listSpaceProjects({
+  spaceId,
+  userId,
+}: {
+  spaceId: string;
+  userId: string;
+}): PublicProject[] {
+  ensureDatabaseAccessOrCreate({ dbId: spaceId, dbType: "space", userId });
 
-export function listSpaceProjects(
-  {
-    spaceId,
-    userId,
-  }: {
-    spaceId: string;
-    userId: string;
-  },
-  dependencies: ListSpaceProjectsDependencies = {},
-): PublicProject[] {
-  ensureDatabaseAccessOrCreate(
-    { dbId: spaceId, dbType: "space", userId },
-    dependencies.mainDB,
-  );
-
-  const db =
-    dependencies.getSpaceDatabase?.(spaceId) ??
-    getHyperDB(spaceDBConfig(spaceId)).db;
+  const db = getHyperDB(spaceDBConfig(spaceId)).db;
   const projects = selectSync(db, { selector: allProjects, args: {} });
 
-  return projects.map(({ id, title, icon, isInbox, createdAt }) => ({
-    id,
-    title,
-    icon,
-    isInbox,
-    createdAt,
-  }));
+  return projects.map(
+    ({ id, title, icon, isInbox, createdAt, orderToken }) => ({
+      id,
+      title,
+      icon,
+      isInbox,
+      orderToken,
+      createdAt,
+    }),
+  );
 }

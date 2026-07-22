@@ -18,20 +18,18 @@ import {
 } from "fastify-type-provider-zod";
 import type { AppRouter } from "./appRouter";
 import { createContext } from "./trpc";
-import { v1Routes, type V1RouteDependencies } from "./http/v1";
+import { v1Routes } from "./http/v1";
 
 export interface CreateServerOptions {
   appRouter: AppRouter;
   logger?: boolean;
   serveFrontend?: boolean;
-  v1Dependencies?: Partial<V1RouteDependencies>;
 }
 
 export function createServer({
   appRouter,
   logger = true,
   serveFrontend = true,
-  v1Dependencies,
 }: CreateServerOptions) {
   const server = fastify({
     logger,
@@ -73,7 +71,6 @@ export function createServer({
 
   server.register(v1Routes, {
     prefix: "/api/v1",
-    dependencies: v1Dependencies,
   });
 
   server.register(fastifyTRPCPlugin, {
