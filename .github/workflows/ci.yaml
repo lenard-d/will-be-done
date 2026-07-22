@@ -68,6 +68,40 @@ jobs:
         if: matrix.package == 'api' || matrix.package == 'slices'
         run: pnpm -C apps/${{ matrix.package }} test
 
+      - name: Check OpenAPI snapshot
+        if: matrix.package == 'api'
+        run: pnpm -C apps/api openapi:check
+
+  openapi-compatibility:
+    if: github.event_name == 'pull_request'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Fetch base branch
+        run: git fetch --depth=1 origin ${{ github.base_ref }}
+
+      - name: Check for an existing OpenAPI baseline
+        id: baseline
+        run: |
+          if git cat-file -e "origin/${{ github.base_ref }}:apps/api/openapi.json"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check for breaking OpenAPI changes
+        if: steps.baseline.outputs.exists == 'true'
+        uses: oasdiff/oasdiff-action/breaking@35b32248b144707e94e72a8d0a1456da9d6618c2
+        with:
+          base: origin/${{ github.base_ref }}:apps/api/openapi.json
+          revision: HEAD:apps/api/openapi.json
+          fail-on: WARN
+          review: false
+
   web-e2e:
     runs-on: blacksmith-4vcpu-ubuntu-2404
 
