@@ -112,7 +112,7 @@ const ColumnView = ({
             <PreloadedTaskComp
               key={displayData.cardWrapper.id}
               card={displayData.card}
-              category={displayData.category}
+              section={displayData.section}
               cardWrapper={displayData.cardWrapper}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
@@ -127,7 +127,7 @@ const ColumnView = ({
             <PreloadedTaskComp
               key={displayData.cardWrapper.id}
               card={displayData.card}
-              category={displayData.category}
+              section={displayData.section}
               cardWrapper={displayData.cardWrapper}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
@@ -201,7 +201,7 @@ const BoardView = ({
             dailyListId: dailyList.id,
             projectId: inboxId,
             listPosition: "prepend",
-            categoryPosition: "prepend",
+            sectionPosition: "prepend",
           }),
         );
 

@@ -140,27 +140,31 @@ export function ProjectDetailRow({
   );
 }
 
-// ─── CategoryDetailRow ────────────────────────────────────────────────────────
+// ─── SectionDetailRow ────────────────────────────────────────────────────────
 
-export function CategoryDetailRow({
-  projectCategoryId,
-  projectCategories,
+export function SectionDetailRow({
+  taskSectionId,
+  taskSections,
   onChange,
 }: {
-  projectCategoryId: string;
-  projectCategories: { id: string; title: string }[];
-  onChange: (categoryId: string) => void;
+  taskSectionId: string;
+  taskSections: { id: string; title: string }[];
+  onChange: (taskSectionId: string) => void;
 }) {
   return (
-    <DetailRow icon={<Hash className="h-3 w-3 shrink-0" />} label="Category">
+    <DetailRow icon={<Hash className="h-3 w-3 shrink-0" />} label="Section">
       <select
-        value={projectCategoryId}
+        value={taskSectionId}
         onChange={(e) => onChange(e.target.value)}
         className="bg-transparent text-content text-xs focus:outline-none cursor-pointer rounded px-1 -mx-1 hover:bg-task-panel-hover transition-colors"
       >
-        {projectCategories.map((cat) => (
-          <option key={cat.id} value={cat.id} className="bg-panel text-content">
-            {cat.title}
+        {taskSections.map((section) => (
+          <option
+            key={section.id}
+            value={section.id}
+            className="bg-panel text-content"
+          >
+            {section.title}
           </option>
         ))}
       </select>

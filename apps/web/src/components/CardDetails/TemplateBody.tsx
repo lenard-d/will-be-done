@@ -7,8 +7,8 @@ import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   createTaskFromTemplate,
   moveTemplateToProject,
-  projectCategoriesByProjectId,
-  projectOfCategoryOrDefault,
+  taskSectionsByProjectId,
+  projectOfTaskSectionOrDefault,
   type TaskTemplate,
   taskTemplateRuleText,
   updateTemplate,
@@ -20,7 +20,7 @@ import {
   EditableTitle,
   DetailRow,
   ProjectDetailRow,
-  CategoryDetailRow,
+  SectionDetailRow,
   EditableDescription,
 } from "./shared.tsx";
 import { SquareCheckboxIcon } from "@/components/ui/icons.tsx";
@@ -47,11 +47,11 @@ export function TemplateBody({
   const openProject = useOpenProject();
 
   const { data: project } = useAsyncSelector({
-    selector: projectOfCategoryOrDefault,
-    args: { categoryId: template.projectCategoryId },
+    selector: projectOfTaskSectionOrDefault,
+    args: { taskSectionId: template.taskSectionId },
   });
-  const { data: projectCategories = [] } = useAsyncSelector({
-    selector: projectCategoriesByProjectId,
+  const { data: taskSections = [] } = useAsyncSelector({
+    selector: taskSectionsByProjectId,
     args: { projectId: project?.id ?? "" },
     enabled: !!project,
     defaultValue: [],
@@ -158,15 +158,15 @@ export function TemplateBody({
           onEditClick={() => setIsMoveProjectModalOpen(true)}
         />
 
-        <CategoryDetailRow
-          projectCategoryId={template.projectCategoryId}
-          projectCategories={projectCategories}
-          onChange={(categoryId) =>
+        <SectionDetailRow
+          taskSectionId={template.taskSectionId}
+          taskSections={taskSections}
+          onChange={(taskSectionId) =>
             void dispatch(
               updateTemplate({
                 id: templateId,
                 template: {
-                  projectCategoryId: categoryId,
+                  taskSectionId: taskSectionId,
                 },
               }),
             )

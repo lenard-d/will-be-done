@@ -306,17 +306,17 @@ export const createTaskInList = action({
     dailyListId: v.string(),
     projectId: v.string(),
     listPosition: orderPositionArg,
-    categoryPosition: orderPositionArg,
+    sectionPosition: orderPositionArg,
   },
   handler: function* createTaskInList({
     dailyListId,
     projectId,
     listPosition,
-    categoryPosition,
+    sectionPosition,
   }): Generator<unknown, Task, unknown> {
     const task = yield* createProjectTask({
       projectId,
-      position: categoryPosition,
+      position: sectionPosition,
     });
 
     yield* addToDailyList({

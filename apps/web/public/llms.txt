@@ -5,8 +5,8 @@
 ## Features
 
 - **Weekly timeline**: See your entire week as columns. Drag tasks between days.
-- **Kanban per project**: Organize tasks within project categories.
-- **Drag & drop**: Move tasks between days, projects, and categories.
+- **Kanban per project**: Organize tasks within project sections.
+- **Drag & drop**: Move tasks between days, projects, and sections.
 - **Vim keybindings**: Navigate with j/k, quick actions with keyboard shortcuts.
 - **Multiple spaces**: Separate workspaces for work, personal, and side projects.
 - **Offline first**: Works without internet. Syncs automatically when back online.

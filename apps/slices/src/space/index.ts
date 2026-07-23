@@ -3,14 +3,15 @@ export * from "./utils";
 export * from "./maps";
 export * from "./syncMap";
 export * from "./tables";
+export * from "./taskSectionStorageMigration";
 
 // Slice selectors and actions
 export * from "./app";
 export * from "./cards";
 export * from "./cardsTasks";
 export * from "./cardsTaskTemplates";
-export * from "./projectsCategories";
-export * from "./projectsCategoriesCards";
+export * from "./taskSections";
+export * from "./taskSectionCards";
 export * from "./projects";
 export * from "./projectsAll";
 export * from "./taskStats";

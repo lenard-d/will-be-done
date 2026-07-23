@@ -107,7 +107,7 @@ function toDateString(isoStr: string): string {
  *
  * Mapping:
  *   Folder/List → Project (title = "Folder/List", one project per unique pair)
- *   Each Project gets one default ProjectCategory (titled after the List)
+ *   Each Project gets one default TaskSection (titled after the List)
  *   Repeat + Status=0 → TaskTemplate (recurring active)
  *   Otherwise   → Task (state based on Status: 0=todo, 1/2=done)
  */
@@ -122,27 +122,27 @@ export function parseTickTickCSV(csv: string): Backup {
   const dataRows = allRows.slice(4); // skip 3 metadata rows + 1 header row
 
   // Collect unique (folder, list) pairs, preserving insertion order
-  const seenCatKeysSet = new Set<string>();
-  const seenCatKeys: string[] = [];
+  const seenSectionKeysSet = new Set<string>();
+  const seenSectionKeys: string[] = [];
 
   for (const row of dataRows) {
     const folder = row[COL_FOLDER] ?? "";
     const list = row[COL_LIST] ?? "";
-    const catKey = `${folder}::${list}`;
+    const sectionKey = `${folder}::${list}`;
 
-    if (!seenCatKeysSet.has(catKey)) {
-      seenCatKeysSet.add(catKey);
-      seenCatKeys.push(catKey);
+    if (!seenSectionKeysSet.has(sectionKey)) {
+      seenSectionKeysSet.add(sectionKey);
+      seenSectionKeys.push(sectionKey);
     }
   }
 
   // Each (folder, list) pair → one Project titled "Folder/List"
-  // and one default ProjectCategory within it.
+  // and one default TaskSection within it.
   const projectsMap = new Map<
     string,
     { id: string; title: string; createdAt: number; orderToken: string }
   >();
-  const categoriesMap = new Map<
+  const sectionsMap = new Map<
     string,
     {
       id: string;
@@ -154,25 +154,25 @@ export function parseTickTickCSV(csv: string): Backup {
   >();
   {
     let prevProject: string | null = null;
-    for (const catKey of seenCatKeys) {
-      const sepIdx = catKey.indexOf("::");
-      const folder = catKey.slice(0, sepIdx);
-      const listName = catKey.slice(sepIdx + 2);
+    for (const sectionKey of seenSectionKeys) {
+      const sepIdx = sectionKey.indexOf("::");
+      const folder = sectionKey.slice(0, sepIdx);
+      const listName = sectionKey.slice(sepIdx + 2);
       const projectTitle = folder ? `${folder}/${listName}` : listName;
 
       const projectId = uuidv7();
       const projectToken = generateJitteredKeyBetween(prevProject, null);
       prevProject = projectToken;
 
-      projectsMap.set(catKey, {
+      projectsMap.set(sectionKey, {
         id: projectId,
         title: projectTitle,
         createdAt: Date.now(),
         orderToken: projectToken,
       });
 
-      // Single default category per project, named after the list
-      categoriesMap.set(catKey, {
+      // Single default section per project, named after the list
+      sectionsMap.set(sectionKey, {
         id: uuidv7(),
         title: "Tasks",
         projectId,
@@ -182,7 +182,7 @@ export function parseTickTickCSV(csv: string): Backup {
     }
   }
 
-  // Sort rows by (folder, list, Order) for sequential orderToken generation within each category
+  // Sort rows by (folder, list, Order) for sequential orderToken generation within each section
   const sortedRows = [...dataRows].sort((a, b) => {
     const folderCmp = (a[COL_FOLDER] ?? "").localeCompare(b[COL_FOLDER] ?? "");
     if (folderCmp !== 0) return folderCmp;
@@ -191,7 +191,7 @@ export function parseTickTickCSV(csv: string): Backup {
     return Number(a[COL_ORDER] ?? 0) - Number(b[COL_ORDER] ?? 0);
   });
 
-  const categoryLastToken = new Map<string, string | null>();
+  const sectionLastToken = new Map<string, string | null>();
 
   const tasks: Backup["tasks"] = [];
   const taskTemplates: Backup["taskTemplates"] = [];
@@ -203,9 +203,9 @@ export function parseTickTickCSV(csv: string): Backup {
   for (const row of sortedRows) {
     const folder = row[COL_FOLDER] ?? "";
     const list = row[COL_LIST] ?? "";
-    const catKey = `${folder}::${list}`;
-    const category = categoriesMap.get(catKey);
-    if (!category) continue;
+    const sectionKey = `${folder}::${list}`;
+    const section = sectionsMap.get(sectionKey);
+    if (!section) continue;
 
     const title = row[COL_TITLE] ?? "";
     const content = row[COL_CONTENT] ?? "";
@@ -221,10 +221,10 @@ export function parseTickTickCSV(csv: string): Backup {
       ? parseEpoch(completedTimeStr)
       : createdAt;
 
-    // Generate sequential orderToken within this category
-    const prev = categoryLastToken.get(category.id) ?? null;
+    // Generate sequential orderToken within this section
+    const prev = sectionLastToken.get(section.id) ?? null;
     const orderToken = generateJitteredKeyBetween(prev, null);
-    categoryLastToken.set(category.id, orderToken);
+    sectionLastToken.set(section.id, orderToken);
 
     const isRecurring = repeat !== "";
     const isActive = status === "0";
@@ -240,7 +240,7 @@ export function parseTickTickCSV(csv: string): Backup {
         repeatRuleDtStart: startDateStr ? parseEpoch(startDateStr) : createdAt,
         createdAt,
         lastGeneratedAt: createdAt,
-        projectCategoryId: category.id,
+        taskSectionId: section.id,
       });
     } else {
       // Regular task or completed recurring instance → Task
@@ -250,7 +250,7 @@ export function parseTickTickCSV(csv: string): Backup {
         title,
         content: content || "",
         state: isActive ? "todo" : "done",
-        projectCategoryId: category.id,
+        taskSectionId: section.id,
         orderToken,
         lastToggledAt,
         createdAt,
@@ -288,7 +288,7 @@ export function parseTickTickCSV(csv: string): Backup {
       createdAt: p.createdAt,
     })),
 
-    projectCategories: [...categoriesMap.values()].map((c) => ({
+    taskSections: [...sectionsMap.values()].map((c) => ({
       id: c.id,
       title: c.title,
       projectId: c.projectId,

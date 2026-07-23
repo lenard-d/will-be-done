@@ -26,6 +26,10 @@ import {
 } from "../slices/backupSlice";
 import { dbIdTrait } from "@will-be-done/slices/traits";
 import fs from "fs";
+import {
+  migrateLegacyTaskSections,
+  taskSectionStorageMigrationTables,
+} from "@will-be-done/slices/space";
 
 export interface DBConfig {
   dbId: string;
@@ -91,7 +95,13 @@ const getDB = (dbType: string, dbId: string) => {
     },
   });
 
-  return new DB(sqliteDriver, { traits: [dbIdTrait(dbType, dbId)] });
+  const db = new DB(sqliteDriver, { traits: [dbIdTrait(dbType, dbId)] });
+  if (dbType === "space") {
+    execSync(db.loadTables(taskSectionStorageMigrationTables));
+    syncDispatch(db, migrateLegacyTaskSections({}));
+  }
+
+  return db;
 };
 
 let mainDB: DB | undefined = undefined;

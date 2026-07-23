@@ -2,17 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
-  createCategory,
-  createProjectCategoryTask,
-  deleteCategories,
-  doneProjectCategoryCardsForDisplay,
+  createTaskSection,
+  createTaskInSection,
+  deleteTaskSections,
+  doneTaskSectionCardsForDisplay,
   moveLeft,
   moveRight,
   projectByIdOrDefault,
-  projectCategoriesByProjectId,
-  projectCategoryByIdOrDefault,
-  projectCategoryCardsForDisplayChildren,
-  updateCategory,
+  taskSectionsByProjectId,
+  taskSectionByIdOrDefault,
+  taskSectionCardsForDisplayChildren,
+  updateTaskSection,
 } from "@will-be-done/slices/space";
 import { PreloadedTaskComp } from "@/components/Task/Task.tsx";
 import {
@@ -63,11 +63,11 @@ const TrashIcon = () => (
   </svg>
 );
 
-const CategorySection = ({
-  categoryId,
+const SectionSection = ({
+  taskSectionId,
   projectId,
 }: {
-  categoryId: string;
+  taskSectionId: string;
   projectId: string;
 }) => {
   const dispatch = useAsyncDispatch();
@@ -75,30 +75,30 @@ const CategorySection = ({
   const [isDndOver, setIsDndOver] = useState(false);
   const [isPlaceholderFocused, setIsPlaceholderFocused] = useState(false);
 
-  const { data: category } = useAsyncSelector({
-    selector: projectCategoryByIdOrDefault,
-    args: { id: categoryId },
+  const { data: section } = useAsyncSelector({
+    selector: taskSectionByIdOrDefault,
+    args: { id: taskSectionId },
   });
 
   const { data: cardsForDisplay = [] } = useAsyncSelector({
-    selector: projectCategoryCardsForDisplayChildren,
-    args: { projectCategoryId: category?.id ?? categoryId },
+    selector: taskSectionCardsForDisplayChildren,
+    args: { taskSectionId: section?.id ?? taskSectionId },
   });
 
   const [isShowMore, setIsShowMore] = useState(false);
   const { data: doneCardsForDisplay = [] } = useAsyncSelector({
-    selector: doneProjectCategoryCardsForDisplay,
-    args: { projectCategoryId: categoryId, limited: !isShowMore },
+    selector: doneTaskSectionCardsForDisplay,
+    args: { taskSectionId: taskSectionId, limited: !isShowMore },
   });
 
   useEffect(() => {
-    if (!category) return;
+    if (!section) return;
     invariant(columnRef.current);
     return dropTargetForElements({
       element: columnRef.current,
       getData: (): DndModelData => ({
-        modelId: categoryId,
-        modelType: category.type,
+        modelId: taskSectionId,
+        modelType: section.type,
       }),
       canDrop: ({ source }) => {
         const data = source.data;
@@ -111,7 +111,7 @@ const CategorySection = ({
       onDragStart: () => setIsDndOver(true),
       onDrop: () => setIsDndOver(false),
     });
-  }, [category, categoryId]);
+  }, [section, taskSectionId]);
 
   const visibleDoneIds = useMemo(() => {
     if (isShowMore) return doneCardsForDisplay;
@@ -119,11 +119,11 @@ const CategorySection = ({
   }, [doneCardsForDisplay, isShowMore]);
 
   const handleTitleClick = async () => {
-    if (!category) return;
-    const newTitle = await promptDialog("Section name", category.title);
+    if (!section) return;
+    const newTitle = await promptDialog("Section name", section.title);
     if (newTitle == null || newTitle === "") return;
     await dispatch(
-      updateCategory({ categoryId, category: { title: newTitle } }),
+      updateTaskSection({ taskSectionId, section: { title: newTitle } }),
     );
   };
 
@@ -132,7 +132,7 @@ const CategorySection = ({
 
     void (async () => {
       const task = await dispatch(
-        createProjectCategoryTask({ categoryId, position: "prepend" }),
+        createTaskInSection({ taskSectionId, position: "prepend" }),
       );
       const focusKey = buildFocusKey(task.id, "task");
       useFocusStore.getState().editByKey(focusKey);
@@ -146,17 +146,17 @@ const CategorySection = ({
   };
 
   const handleDelete = () => {
-    if (!category) return;
-    if (confirm(`Delete category "${category.title}"?`)) {
-      void dispatch(deleteCategories({ ids: [categoryId] }));
+    if (!section) return;
+    if (confirm(`Delete section "${section.title}"?`)) {
+      void dispatch(deleteTaskSections({ ids: [taskSectionId] }));
     }
   };
 
-  if (!category) return null;
+  if (!section) return null;
 
   return (
     <div className="mb-5">
-      {/* Category header */}
+      {/* Section header */}
       <div
         className={cn(
           "flex items-center gap-1 mb-2 px-1 rounded-md transition-all",
@@ -170,13 +170,15 @@ const CategorySection = ({
           onClick={() => void handleTitleClick()}
           className="text-xs uppercase text-subheader font-semibold flex-1 min-w-0 text-left hover:text-primary transition-colors cursor-pointer truncate py-0.5"
         >
-          {category.title || <span className="opacity-40">Untitled</span>}
+          {section.title || <span className="opacity-40">Untitled</span>}
         </button>
 
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
             type="button"
-            onClick={() => void dispatch(moveLeft({ categoryId: categoryId }))}
+            onClick={() =>
+              void dispatch(moveLeft({ taskSectionId: taskSectionId }))
+            }
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move up"
           >
@@ -184,7 +186,9 @@ const CategorySection = ({
           </button>
           <button
             type="button"
-            onClick={() => void dispatch(moveRight({ categoryId: categoryId }))}
+            onClick={() =>
+              void dispatch(moveRight({ taskSectionId: taskSectionId }))
+            }
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-primary transition-colors cursor-pointer rounded"
             title="Move down"
           >
@@ -194,7 +198,7 @@ const CategorySection = ({
             type="button"
             onClick={handleDelete}
             className="w-5 h-5 flex items-center justify-center text-content-tinted hover:text-notice transition-colors cursor-pointer rounded"
-            title="Delete category"
+            title="Delete section"
           >
             <TrashIcon />
           </button>
@@ -223,8 +227,8 @@ const CategorySection = ({
       <div
         ref={columnRef}
         data-focus-column
-        data-column-model-id={categoryId}
-        data-column-model-type={category.type}
+        data-column-model-id={taskSectionId}
+        data-column-model-type={section.type}
         className="relative"
       >
         <div className="flex flex-col gap-2">
@@ -232,7 +236,7 @@ const CategorySection = ({
             <PreloadedTaskComp
               key={displayData.cardWrapper.id}
               card={displayData.card}
-              category={displayData.category}
+              section={displayData.section}
               cardWrapper={displayData.cardWrapper}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
@@ -245,7 +249,7 @@ const CategorySection = ({
             <PreloadedTaskComp
               key={displayData.cardWrapper.id}
               card={displayData.card}
-              category={displayData.category}
+              section={displayData.section}
               cardWrapper={displayData.cardWrapper}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
@@ -267,8 +271,8 @@ const CategorySection = ({
         <div
           data-focus-placeholder
           data-focusable-key={buildFocusKey(
-            categoryId,
-            category.type,
+            taskSectionId,
+            section.type,
             "Column",
           )}
           tabIndex={0}
@@ -321,8 +325,8 @@ export const ProjectTaskPanel = ({
     args: { id: projectId },
   });
 
-  const { data: categories = [] } = useAsyncSelector({
-    selector: projectCategoriesByProjectId,
+  const { data: sections = [] } = useAsyncSelector({
+    selector: taskSectionsByProjectId,
     args: { projectId: projectId },
   });
 
@@ -330,8 +334,8 @@ export const ProjectTaskPanel = ({
     const title = await promptDialog("Section name");
     if (!title) return;
     await dispatch(
-      createCategory({
-        categoryDraft: { projectId, title },
+      createTaskSection({
+        sectionDraft: { projectId, title },
         position: "append",
       }),
     );
@@ -340,10 +344,10 @@ export const ProjectTaskPanel = ({
   if (embedded) {
     return (
       <div data-focus-region-direction="column" className="flex flex-col gap-1">
-        {categories.map((cat) => (
-          <CategorySection
-            key={cat.id}
-            categoryId={cat.id}
+        {sections.map((section) => (
+          <SectionSection
+            key={section.id}
+            taskSectionId={section.id}
             projectId={projectId}
           />
         ))}
@@ -366,10 +370,10 @@ export const ProjectTaskPanel = ({
         data-focus-region-direction="column"
         className="flex-1 overflow-y-auto px-3 pb-4"
       >
-        {categories.map((cat) => (
-          <CategorySection
-            key={cat.id}
-            categoryId={cat.id}
+        {sections.map((section) => (
+          <SectionSection
+            key={section.id}
+            taskSectionId={section.id}
             projectId={projectId}
           />
         ))}

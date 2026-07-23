@@ -41,6 +41,7 @@ import { getEnvConfig } from "./env";
 import { getCaptchaConfig } from "./captcha/types";
 import { verifyCaptchaToken } from "./captcha/verifyCaptchaToken";
 import { importFromTodoist } from "./todoist/importTodoist";
+import { assertSupportedSyncVersion } from "./syncVersion";
 
 dotenv.config();
 
@@ -84,9 +85,11 @@ const appRouter = router({
         dbId: z.string(),
         dbType: z.union([z.literal("user"), z.literal("space")]),
         clientId: z.string(),
+        syncVersion: z.number().int().optional(),
       }),
     )
     .query(async (opts) => {
+      assertSupportedSyncVersion(opts.input.syncVersion);
       if (!opts.ctx.user) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
@@ -114,9 +117,11 @@ const appRouter = router({
         dbId: z.string(),
         dbType: z.union([z.literal("user"), z.literal("space")]),
         changeset: ChangesetArray,
+        syncVersion: z.number().int().optional(),
       }),
     )
     .mutation(async (opts) => {
+      assertSupportedSyncVersion(opts.input.syncVersion);
       if (!opts.ctx.user) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }
@@ -154,9 +159,11 @@ const appRouter = router({
       z.object({
         dbId: z.string(),
         dbType: z.union([z.literal("user"), z.literal("space")]),
+        syncVersion: z.number().int().optional(),
       }),
     )
     .subscription(async function* (opts) {
+      assertSupportedSyncVersion(opts.input.syncVersion);
       if (!opts.ctx.user) {
         throw new TRPCError({ code: "UNAUTHORIZED" });
       }

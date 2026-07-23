@@ -83,26 +83,26 @@ describe("buildBackup", () => {
     });
   });
 
-  // -- Categories ---------------------------------------------------------
+  // -- Sections ---------------------------------------------------------
 
-  describe("projectCategories", () => {
-    it("creates a default 'Tasks' category for each project", () => {
+  describe("taskSections", () => {
+    it("creates a default 'Tasks' section for each project", () => {
       for (const proj of backup.projects) {
-        const cats = backup.projectCategories.filter(
+        const sections = backup.taskSections.filter(
           (c) => c.projectId === proj.id,
         );
-        expect(cats.length).toBeGreaterThanOrEqual(1);
-        expect(cats[0].title).toBe("Tasks");
+        expect(sections.length).toBeGreaterThanOrEqual(1);
+        expect(sections[0].title).toBe("Tasks");
       }
     });
 
-    it("Test project has 4 categories (1 default + 3 sections)", () => {
+    it("Test project has 4 sections (1 default + 3 sections)", () => {
       const testProj = backup.projects.find((p) => p.title === "Test project")!;
-      const cats = backup.projectCategories.filter(
+      const sections = backup.taskSections.filter(
         (c) => c.projectId === testProj.id,
       );
-      expect(cats).toHaveLength(4);
-      expect(cats.map((c) => c.title)).toEqual([
+      expect(sections).toHaveLength(4);
+      expect(sections.map((c) => c.title)).toEqual([
         "Tasks",
         "sectoin 1",
         "section 2",
@@ -110,12 +110,12 @@ describe("buildBackup", () => {
       ]);
     });
 
-    it("categories within a project are ordered by sectionOrder", () => {
+    it("sections within a project are ordered by sectionOrder", () => {
       const testProj = backup.projects.find((p) => p.title === "Test project")!;
-      const cats = backup.projectCategories.filter(
+      const sections = backup.taskSections.filter(
         (c) => c.projectId === testProj.id,
       );
-      const tokens = cats.map((c) => c.orderToken);
+      const tokens = sections.map((c) => c.orderToken);
       for (let i = 1; i < tokens.length; i++) {
         expect(tokens[i] > tokens[i - 1]).toBe(true);
       }
@@ -148,25 +148,25 @@ describe("buildBackup", () => {
       expect(task!.content).toBe("Description 1");
     });
 
-    it("tasks with no section go to default category", () => {
+    it("tasks with no section go to default section", () => {
       // "Task 1" is in project "Топ лего" with no section
       const legoProj = backup.projects.find((p) => p.title === "Топ лего")!;
-      const defaultCat = backup.projectCategories.find(
+      const defaultCat = backup.taskSections.find(
         (c) => c.projectId === legoProj.id && c.title === "Tasks",
       )!;
       const task = backup.tasks.find((t) => t.title === "Task 1");
-      expect(task!.projectCategoryId).toBe(defaultCat.id);
+      expect(task!.taskSectionId).toBe(defaultCat.id);
     });
 
-    it("tasks within a category are sorted by childOrder", () => {
-      // Pick a category with multiple tasks and verify orderToken ordering
-      const catIds = [...new Set(backup.tasks.map((t) => t.projectCategoryId))];
-      for (const catId of catIds) {
-        const catTasks = backup.tasks.filter(
-          (t) => t.projectCategoryId === catId,
+    it("tasks within a section are sorted by childOrder", () => {
+      // Pick a section with multiple tasks and verify orderToken ordering
+      const sectionIds = [...new Set(backup.tasks.map((t) => t.taskSectionId))];
+      for (const sectionId of sectionIds) {
+        const sectionTasks = backup.tasks.filter(
+          (t) => t.taskSectionId === sectionId,
         );
-        if (catTasks.length < 2) continue;
-        const tokens = catTasks.map((t) => t.orderToken);
+        if (sectionTasks.length < 2) continue;
+        const tokens = sectionTasks.map((t) => t.orderToken);
         for (let i = 1; i < tokens.length; i++) {
           expect(tokens[i] > tokens[i - 1]).toBe(true);
         }

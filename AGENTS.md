@@ -2,21 +2,21 @@
 
 # Definitions
 
-- Task: a concrete work item with a title, state, project category, order, and optional template origin.
+- Task: a concrete work item with a title, state, project section, order, and optional template origin.
 - TaskNature: the optional color/nature marker for a Task or TaskTemplate: `red`, `green`, or `unknown`.
 - TaskTemplate: a repeatable task blueprint that generates Tasks from a recurrence rule.
-- Project: a top-level container for organizing task categories; one Project can be the inbox.
-- ProjectCategory: an ordered section inside a Project that contains Tasks and TaskTemplates.
+- Project: a top-level container for organizing task sections; one Project can be the inbox.
+- TaskSection: an ordered section inside a Project that contains Tasks and TaskTemplates.
 - DailyList: a dated schedule list, identified by date, that contains scheduled Task placements.
 - Projection / TaskProjection: a scheduled placement of a Task in a DailyList. Its `id` is the Task id; it stores the DailyList and order for that task on that date.
-- Stash: the unscheduled holding area represented by StashProjections.It's need to keep items that you can access fast, and
-  always available at any page.
-- StashProjection: an unscheduled placement of a Task in the stash. Its `id` is the Task id; it stores the stash order. - ChecklistItem: an ordered checklist row attached to a Task or TaskTemplate.
+- Stash: the unscheduled holding area represented by StashProjections. It keeps items quickly accessible from any page.
+- StashProjection: an unscheduled placement of a Task in the stash. Its `id` is the Task id; it stores the stash order.
+- ChecklistItem: an ordered checklist row attached to a Task or TaskTemplate.
 - ChecklistParentType: the model types that can own ChecklistItems: Task or TaskTemplate.
-- Card: a Task or TaskTemplate, the two primary content items shown in project/category lists.
+- Card: a Task or TaskTemplate, the two primary content items shown in project/section lists.
 - CardWrapper: a Card or a projection wrapper that can stand in for a Card in ordered views.
 - CardWrapperType: the model type of a CardWrapper.
-- ProjectCategoryTaskStats: derived counts of total, todo, and done Tasks for a ProjectCategory.
+- TaskSectionTaskStats: derived counts of total, todo, and done Tasks for a TaskSection.
 - ScheduledTodoTask: a derived index row for a todo Task scheduled through a Projection.
 - SpaceMigration: a record that a space-level migration has been applied.
 - Model / AnyModel: a syncable domain object from the space tables.

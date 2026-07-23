@@ -99,7 +99,7 @@ describe("parseCSV", () => {
 });
 
 describe("parseTickTickCSV", () => {
-  it("imports a single task into the correct project and category", () => {
+  it("imports a single task into the correct project and section", () => {
     const csv =
       METADATA + makeRow({ folder: "Work", list: "Inbox", title: "Buy milk" });
     const backup = parseTickTickCSV(csv);
@@ -109,17 +109,15 @@ describe("parseTickTickCSV", () => {
     expect(backup.projects[0]!.title).toBe("Work/Inbox");
     expect(backup.projects[0]!.isInbox).toBe(false);
 
-    // One default category per project
-    expect(backup.projectCategories).toHaveLength(1);
-    expect(backup.projectCategories[0]!.title).toBe("Tasks");
-    expect(backup.projectCategories[0]!.projectId).toBe(backup.projects[0]!.id);
+    // One default section per project
+    expect(backup.taskSections).toHaveLength(1);
+    expect(backup.taskSections[0]!.title).toBe("Tasks");
+    expect(backup.taskSections[0]!.projectId).toBe(backup.projects[0]!.id);
 
     expect(backup.tasks).toHaveLength(1);
     expect(backup.tasks[0]!.title).toBe("Buy milk");
     expect(backup.tasks[0]!.state).toBe("todo");
-    expect(backup.tasks[0]!.projectCategoryId).toBe(
-      backup.projectCategories[0]!.id,
-    );
+    expect(backup.tasks[0]!.taskSectionId).toBe(backup.taskSections[0]!.id);
 
     expect(backup.taskTemplates).toHaveLength(0);
     expect(backup.dailyLists).toHaveLength(0);
@@ -134,9 +132,9 @@ describe("parseTickTickCSV", () => {
     ].join("\n");
     const backup = parseTickTickCSV(METADATA + rows);
 
-    // 4 (folder, list) pairs → 4 projects, 4 categories (one per project)
+    // 4 (folder, list) pairs → 4 projects, 4 sections (one per project)
     expect(backup.projects).toHaveLength(4);
-    expect(backup.projectCategories).toHaveLength(4);
+    expect(backup.taskSections).toHaveLength(4);
 
     const titles = backup.projects.map((p) => p.title).sort();
     expect(titles).toEqual([
@@ -146,12 +144,12 @@ describe("parseTickTickCSV", () => {
       "Work/Projects",
     ]);
 
-    // Each project has exactly one category
+    // Each project has exactly one section
     for (const project of backup.projects) {
-      const cats = backup.projectCategories.filter(
+      const sections = backup.taskSections.filter(
         (c) => c.projectId === project.id,
       );
-      expect(cats).toHaveLength(1);
+      expect(sections).toHaveLength(1);
     }
   });
 
@@ -232,7 +230,7 @@ describe("parseTickTickCSV", () => {
     expect(backup.tasks[0]!.content).toBe("Some detailed notes here");
   });
 
-  it("preserves relative order from TickTick Order column within a category", () => {
+  it("preserves relative order from TickTick Order column within a section", () => {
     // Order values: higher negative = earlier in TickTick's display (they use negative descending)
     const rows = [
       makeRow({ title: "Third", order: "-3" }),

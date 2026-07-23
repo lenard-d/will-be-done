@@ -107,8 +107,8 @@ The Docker server hosts the web app, stores server-side data under `/var/lib/wil
 **Projects and planning**
 
 - Organize tasks into projects.
-- Split projects into ordered categories or columns.
-- Drag tasks between projects, categories, daily lists, and stash.
+- Split projects into ordered sections or columns.
+- Drag tasks between projects, sections, daily lists, and stash.
 - Use multiple spaces to separate work, personal tasks, and side projects.
 - Keep an inbox project for quick capture.
 - Use Stash as a persistent focus list available from every page.
@@ -133,7 +133,7 @@ The Docker server hosts the web app, stores server-side data under `/var/lib/wil
 **Keyboard and workflow**
 
 - Vim keybindings for navigation and task actions.
-- Drag and drop for tasks, days, projects, and categories.
+- Drag and drop for tasks, days, projects, and sections.
 - Desktop app with global quick add.
 - Mobile-ready PWA for planning away from the desktop.
 
@@ -323,7 +323,7 @@ This table captures the feature set I was optimizing for while building Will Be 
 | Mobile version                          | ✅           | ✅                 | ✅       | ✅     | ✅      | ✅        |
 | Keyboard shortcuts / Vim bindings       | ✅           | ✅                 | ✅       | ✅     | ✅      | 🟨        |
 | Weekly planner                          | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
-| Categories or columns inside projects   | ✅           | ✅                 | 🟥       | 🟥     | ✅      | ✅        |
+| Sections or columns inside projects     | ✅           | ✅                 | 🟥       | 🟥     | ✅      | ✅        |
 | Desktop app with global quick add       | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
 | Local-first architecture                | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
 

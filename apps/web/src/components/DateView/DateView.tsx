@@ -236,7 +236,7 @@ const SingleDayColumn = ({
           <PreloadedTaskComp
             key={displayData.cardWrapper.id}
             card={displayData.card}
-            category={displayData.category}
+            section={displayData.section}
             cardWrapper={displayData.cardWrapper}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
@@ -251,7 +251,7 @@ const SingleDayColumn = ({
           <PreloadedTaskComp
             key={displayData.cardWrapper.id}
             card={displayData.card}
-            category={displayData.category}
+            section={displayData.section}
             cardWrapper={displayData.cardWrapper}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
@@ -302,7 +302,7 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
             dailyListId: dailyList.id,
             projectId: inboxId,
             listPosition: "prepend",
-            categoryPosition: "prepend",
+            sectionPosition: "prepend",
           }),
         );
 
