@@ -14,16 +14,16 @@ import {
 import { registerModelSlice } from "./maps";
 import { uuidv7 } from "uuidv7";
 import { appById } from "./app";
-import { deleteCardsByIds } from "./cards";
+import { deleteItemsByIds } from "./items";
 import {
-  firstTaskSectionCard,
-  lastTaskSectionCard,
-  taskSectionCardByIdOrDefault,
-  taskSectionCardIds,
-} from "./taskSectionCards";
+  firstTaskSectionItem,
+  lastTaskSectionItem,
+  taskSectionItemByIdOrDefault,
+  taskSectionItemIds,
+} from "./taskSectionItems";
 import { projectById, projectByIdOrDefault } from "./projects";
-import { createTask, taskById, updateTask } from "./cardsTasks";
-import { updateTemplate } from "./cardsTaskTemplates";
+import { createTask, taskById, updateTask } from "./tasks";
+import { updateTemplate } from "./taskTemplates";
 import { defaultProject } from "./projects";
 import { noop } from "@will-be-done/hyperdb";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
@@ -38,7 +38,7 @@ import {
   Project,
   isTask,
   isTaskTemplate,
-  isTaskProjection,
+  isDailyEntry,
   taskTemplatesTable,
 } from "./tables";
 
@@ -316,8 +316,8 @@ export const createTaskInSection = action({
     const orderToken = yield* generateOrderTokenPositioned(
       taskSectionId,
       {
-        firstChild: (taskSectionId) => firstTaskSectionCard({ taskSectionId }),
-        lastChild: (taskSectionId) => lastTaskSectionCard({ taskSectionId }),
+        firstChild: (taskSectionId) => firstTaskSectionItem({ taskSectionId }),
+        lastChild: (taskSectionId) => lastTaskSectionItem({ taskSectionId }),
       },
       normalizeOrderPosition(position),
     );
@@ -366,7 +366,7 @@ export const deleteTaskSections = action({
     }
 
     if (idsToDelete.length > 0) {
-      yield* deleteCardsByIds({ ids: idsToDelete });
+      yield* deleteItemsByIds({ ids: idsToDelete });
     }
 
     yield* deleteRows(taskSectionsTable, ids);
@@ -393,19 +393,19 @@ export const taskSectionHandleDrop = action({
     });
     if (!dropItem) return;
 
-    const childrenIds = yield* taskSectionCardIds({
+    const childrenIds = yield* taskSectionItemIds({
       taskSectionId: taskSectionId,
     });
     let orderToken: string;
     if (childrenIds.length === 0) {
       orderToken = generateJitteredKeyBetween(null, null);
     } else if (edge === "top") {
-      const first = yield* taskSectionCardByIdOrDefault({
+      const first = yield* taskSectionItemByIdOrDefault({
         id: childrenIds[0],
       });
       orderToken = generateJitteredKeyBetween(null, first.orderToken || null);
     } else {
-      const last = yield* taskSectionCardByIdOrDefault({
+      const last = yield* taskSectionItemByIdOrDefault({
         id: childrenIds[childrenIds.length - 1],
       });
       orderToken = generateJitteredKeyBetween(last.orderToken || null, null);
@@ -427,8 +427,8 @@ export const taskSectionHandleDrop = action({
           orderToken,
         },
       });
-    } else if (isTaskProjection(dropItem)) {
-      // When dropping a projection onto a section, move the underlying task
+    } else if (isDailyEntry(dropItem)) {
+      // When dropping a entry onto a section, move the underlying task
       const task = yield* taskById({ id: dropItem.id });
       if (task) {
         yield* updateTask({
@@ -438,7 +438,7 @@ export const taskSectionHandleDrop = action({
             orderToken,
           },
         });
-        // Keep the projection in the daily list
+        // Keep the entry in the daily list
       }
     }
   },
@@ -468,7 +468,7 @@ export const taskSectionCanDrop = selector({
       return true;
     }
 
-    if (isTaskProjection(dropItem)) {
+    if (isDailyEntry(dropItem)) {
       const task = yield* taskById({ id: dropItem.id });
       return task !== undefined && task.state === "todo";
     }

@@ -13,7 +13,7 @@ import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   createTaskTemplateFromTask,
-  dailyProjectionDateOfTask,
+  dailyEntryDateOfTask,
   deleteTemplates,
   moveTaskToProject,
   taskSectionsByProjectId,
@@ -45,14 +45,14 @@ export function TaskBody({
   setIsEditingTitle,
   isEditingDescription,
   setIsEditingDescription,
-  onCardIdChange,
+  onItemIdChange,
 }: {
   task: Task;
   isEditingTitle: boolean;
   setIsEditingTitle: (v: boolean) => void;
   isEditingDescription: boolean;
   setIsEditingDescription: (v: boolean) => void;
-  onCardIdChange?: (cardId: string) => void;
+  onItemIdChange?: (itemId: string) => void;
 }) {
   const dispatch = useAsyncDispatch();
   const taskId = task.id;
@@ -69,7 +69,7 @@ export function TaskBody({
     defaultValue: [],
   });
   const { data: scheduleDate } = useAsyncSelector({
-    selector: dailyProjectionDateOfTask,
+    selector: dailyEntryDateOfTask,
     args: { taskId: taskId },
   });
 
@@ -161,11 +161,11 @@ export function TaskBody({
           useFocusStore
             .getState()
             .focusByKey(buildFocusKey(template.id, template.type));
-          onCardIdChange?.(template.id);
+          onItemIdChange?.(template.id);
         })();
       }
     },
-    [task, dispatch, onCardIdChange],
+    [task, dispatch, onItemIdChange],
   );
 
   if (!project) return null;

@@ -18,20 +18,20 @@ import {
   copyItems,
   deleteForParents,
 } from "./checklistItems";
-import { deleteDailyProjections } from "./dailyListsProjections";
+import { deleteDailyEntries } from "./dailyEntries";
 import { firstTaskSectionChild } from "./taskSections";
-import { taskSectionCardSiblings } from "./taskSectionCards";
-import { updateTemplate } from "./cardsTaskTemplates";
+import { taskSectionItemSiblings } from "./taskSectionItems";
+import { updateTemplate } from "./taskTemplates";
 import { registerModelSlice } from "./maps";
 import {
   taskType,
-  taskProjectionsTable,
+  dailyEntriesTable,
   tasksTable,
   taskTemplatesTable,
   possibleModelType,
   Task,
   isTask,
-  isTaskProjection,
+  isDailyEntry,
   isTaskTemplate,
 } from "./tables";
 
@@ -75,22 +75,18 @@ export const preloadEntities = selector({
   args: {
     ids: v.array(v.string()),
     tableName: v.string(),
-    preloadTaskProjections: v.boolean(),
+    preloadDailyEntries: v.boolean(),
   },
-  handler: function* preloadEntities({
-    ids,
-    tableName,
-    preloadTaskProjections,
-  }) {
+  handler: function* preloadEntities({ ids, tableName, preloadDailyEntries }) {
     if (ids.length === 0) return;
 
     yield* selectFrom(changesTable, "byEntityIdAndTableName").where((q) =>
       or(...ids.map((id) => q.eq("entityId", id).eq("tableName", tableName))),
     );
 
-    if (!preloadTaskProjections) return;
+    if (!preloadDailyEntries) return;
 
-    yield* selectFrom(taskProjectionsTable, "byId").where((q) =>
+    yield* selectFrom(dailyEntriesTable, "byId").where((q) =>
       or(...ids.map((id) => q.eq("id", id))),
     );
   },
@@ -134,7 +130,7 @@ export const deleteTasks = action({
       parentType: taskType,
     });
     yield* deleteRows(tasksTable, ids);
-    yield* deleteDailyProjections({ ids });
+    yield* deleteDailyEntries({ ids });
   },
 });
 
@@ -207,7 +203,7 @@ export const taskCanDrop = selector({
       return false;
     }
 
-    if (isTaskProjection(model)) {
+    if (isDailyEntry(model)) {
       const droppedTask = yield* taskById({ id: model.id });
       return droppedTask !== undefined && droppedTask.state === "todo";
     }
@@ -259,7 +255,7 @@ export const taskHandleDrop = action({
     });
     if (!dropItem) return shouldNeverHappen("drop item not found");
 
-    const [up, down] = yield* taskSectionCardSiblings({ cardId: taskId });
+    const [up, down] = yield* taskSectionItemSiblings({ itemId: taskId });
 
     let between: [string | undefined, string | undefined] = [
       task.orderToken,
@@ -291,8 +287,8 @@ export const taskHandleDrop = action({
           orderToken: orderToken,
         },
       });
-    } else if (isTaskProjection(dropItem)) {
-      // When dropping a projection onto a task, move the underlying task
+    } else if (isDailyEntry(dropItem)) {
+      // When dropping a entry onto a task, move the underlying task
       const droppedTask = yield* taskById({ id: dropItem.id });
       if (droppedTask) {
         yield* updateTask({
@@ -302,7 +298,7 @@ export const taskHandleDrop = action({
             orderToken: orderToken,
           },
         });
-        // Keep the projection in the daily list
+        // Keep the entry in the daily list
       }
     } else if (
       yield* checklistItemCanDropOnParent({
@@ -420,10 +416,10 @@ export const deleteTaskById = action({
 });
 
 // Local slice object for registerModelSlice (not exported)
-const cardsTasksSlice = {
+const tasksSlice = {
   byId: taskById,
   delete: deleteTasks,
   canDrop: taskCanDrop,
   handleDrop: taskHandleDrop,
 };
-registerModelSlice(cardsTasksSlice, tasksTable, taskType);
+registerModelSlice(tasksSlice, tasksTable, taskType);

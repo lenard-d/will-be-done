@@ -6,7 +6,7 @@ import {
   openSpace,
   signInUser,
   signupUser,
-  taskCard,
+  taskItem,
   uniqueE2EName,
 } from "./helpers";
 
@@ -33,5 +33,5 @@ test("signs up, signs in, creates a space, and keeps today's task after reload",
   await page.reload();
 
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/dates\/\d{4}-\d{2}-\d{2}$/);
-  await expect(taskCard(page, taskTitle)).toBeVisible();
+  await expect(taskItem(page, taskTitle)).toBeVisible();
 });

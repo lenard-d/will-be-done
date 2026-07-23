@@ -250,7 +250,7 @@ describe("parseTickTickCSV", () => {
     expect(tasksByToken[2]!.title).toBe("First");
   });
 
-  it("creates a daily list and projection for tasks with a due date", () => {
+  it("creates a daily list and entry for tasks with a due date", () => {
     const rows = [
       makeRow({
         title: "Scheduled task",
@@ -268,13 +268,13 @@ describe("parseTickTickCSV", () => {
     const scheduledTask = backup.tasks.find(
       (t) => t.title === "Scheduled task",
     )!;
-    const projection = backup.dailyListProjections![0]!;
+    const entry = backup.dailyListProjections![0]!;
     const dailyList = backup.dailyLists[0]!;
 
-    // projection.id = taskId in new format
-    expect(projection.id).toBe(scheduledTask.id);
-    expect(projection.listId).toBe(dailyList.id);
-    expect(projection.orderToken).toBeTruthy();
+    // entry.id = taskId in new format
+    expect(entry.id).toBe(scheduledTask.id);
+    expect(entry.listId).toBe(dailyList.id);
+    expect(entry.orderToken).toBeTruthy();
   });
 
   it("falls back to start date if due date is absent", () => {
@@ -301,7 +301,7 @@ describe("parseTickTickCSV", () => {
     expect(backup.dailyListProjections).toHaveLength(3);
   });
 
-  it("does not create a projection for recurring active tasks", () => {
+  it("does not create a entry for recurring active tasks", () => {
     const row = makeRow({
       title: "Recurring",
       repeat: "FREQ=DAILY;INTERVAL=1",

@@ -89,9 +89,10 @@ registerSpaceSyncableTable(dailyListsTable, dailyListType);
 export type DailyList = ExtractSchema<typeof dailyListsTable>;
 export const isDailyList = isObjectType<DailyList>(dailyListType);
 
-export const projectionType = "projection";
-export const taskProjectionsTable = defineTable("task_projections", {
-  type: v.literal(projectionType),
+// Persisted discriminator retained for compatibility with existing spaces.
+export const dailyEntryType = "projection";
+export const dailyEntriesTable = defineTable("task_projections", {
+  type: v.literal(dailyEntryType),
   id: v.string(),
   orderToken: v.string(),
   dailyListId: v.string(),
@@ -99,10 +100,10 @@ export const taskProjectionsTable = defineTable("task_projections", {
 })
   .index("byIds", ["id"])
   .index("byDailyListIdTokenOrdered", ["dailyListId", "orderToken"]);
-registerSpaceSyncableTable(taskProjectionsTable, projectionType);
+registerSpaceSyncableTable(dailyEntriesTable, dailyEntryType);
 
-export type TaskProjection = ExtractSchema<typeof taskProjectionsTable>;
-export const isTaskProjection = isObjectType<TaskProjection>(projectionType);
+export type DailyEntry = ExtractSchema<typeof dailyEntriesTable>;
+export const isDailyEntry = isObjectType<DailyEntry>(dailyEntryType);
 
 export const taskSectionType = "taskSection";
 export const taskSectionsTable = defineTable("task_sections", {
@@ -149,20 +150,20 @@ export const spaceMigrationsTable = defineTable("space_migrations", {
 }).index("byIds", ["id"]);
 export type SpaceMigration = ExtractSchema<typeof spaceMigrationsTable>;
 
-export const stashProjectionType = "stashProjection";
-export const stashProjectionsTable = defineTable("stash_projections", {
-  type: v.literal(stashProjectionType),
+// Persisted discriminator retained for compatibility with existing spaces.
+export const stashEntryType = "stashProjection";
+export const stashEntriesTable = defineTable("stash_projections", {
+  type: v.literal(stashEntryType),
   id: v.string(),
   orderToken: v.string(),
   createdAt: v.number(),
 })
   .index("byIds", ["id"])
   .index("byTokenOrdered", ["orderToken"]);
-registerSpaceSyncableTable(stashProjectionsTable, stashProjectionType);
+registerSpaceSyncableTable(stashEntriesTable, stashEntryType);
 
-export type StashProjection = ExtractSchema<typeof stashProjectionsTable>;
-export const isStashProjection =
-  isObjectType<StashProjection>(stashProjectionType);
+export type StashEntry = ExtractSchema<typeof stashEntriesTable>;
+export const isStashEntry = isObjectType<StashEntry>(stashEntryType);
 
 export const checklistItemType = "checklistItem";
 export const checklistParentType = v.union(
@@ -193,22 +194,38 @@ export function isChecklistParentType(
   return modelType === taskType || modelType === taskTemplateType;
 }
 
-export type Card = Task | TaskTemplate;
+export const item = v.union(tasksTable.v(), taskTemplatesTable.v());
+export type Item = Infer<typeof item>;
+export type ItemType = Item["type"];
 
-export const cardWrapper = v.union(
-  tasksTable.v(),
-  taskTemplatesTable.v(),
-  taskProjectionsTable.v(),
-  stashProjectionsTable.v(),
-);
-export type CardWrapper = Infer<typeof cardWrapper>;
-export type CardWrapperType = Infer<typeof cardWrapper>["type"];
-
-export const cardWrapperType = v.union(
+export const itemType = v.union(
   v.literal(taskType),
   v.literal(taskTemplateType),
-  v.literal(projectionType),
-  v.literal(stashProjectionType),
+);
+
+export const entry = v.union(dailyEntriesTable.v(), stashEntriesTable.v());
+export type Entry = Infer<typeof entry>;
+export type EntryType = Entry["type"];
+
+export const entryType = v.union(
+  v.literal(dailyEntryType),
+  v.literal(stashEntryType),
+);
+
+export const listItem = v.union(
+  tasksTable.v(),
+  taskTemplatesTable.v(),
+  dailyEntriesTable.v(),
+  stashEntriesTable.v(),
+);
+export type ListItem = Infer<typeof listItem>;
+export type ListItemType = ListItem["type"];
+
+export const listItemType = v.union(
+  v.literal(taskType),
+  v.literal(taskTemplateType),
+  v.literal(dailyEntryType),
+  v.literal(stashEntryType),
 );
 
 export const possibleModel = v.union(
@@ -217,8 +234,8 @@ export const possibleModel = v.union(
   projectsTable.v(),
   dailyListsTable.v(),
   taskSectionsTable.v(),
-  taskProjectionsTable.v(),
-  stashProjectionsTable.v(),
+  dailyEntriesTable.v(),
+  stashEntriesTable.v(),
   checklistItemsTable.v(),
 );
 
@@ -229,9 +246,9 @@ export type AnyTable =
   | typeof taskTemplatesTable
   | typeof dailyListsTable
   | typeof projectsTable
-  | typeof taskProjectionsTable
+  | typeof dailyEntriesTable
   | typeof taskSectionsTable
-  | typeof stashProjectionsTable
+  | typeof stashEntriesTable
   | typeof checklistItemsTable;
 
 export const possibleModelType = v.union(
@@ -240,8 +257,8 @@ export const possibleModelType = v.union(
   v.literal(projectType),
   v.literal(dailyListType),
   v.literal(taskSectionType),
-  v.literal(projectionType),
-  v.literal(stashProjectionType),
+  v.literal(dailyEntryType),
+  v.literal(stashEntryType),
   v.literal(checklistItemType),
   v.literal("stash"),
 );

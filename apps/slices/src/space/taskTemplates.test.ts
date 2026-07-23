@@ -14,15 +14,15 @@ import {
   taskTemplateNewTasksInRange,
   newTasksToGenForTaskTemplate,
   createTaskTemplateFromTask,
-} from "./cardsTaskTemplates";
+} from "./taskTemplates";
 import { dbIdTrait } from "@/traits";
 import {
   checklistItemsTable,
   DailyList,
   dailyListsTable,
   Task,
-  TaskProjection,
-  taskProjectionsTable,
+  DailyEntry,
+  dailyEntriesTable,
   tasksTable,
   TaskTemplate,
   taskTemplatesTable,
@@ -57,7 +57,7 @@ function createDB(timezoneOffsetMinutes: number) {
     db.loadTables([
       checklistItemsTable,
       dailyListsTable,
-      taskProjectionsTable,
+      dailyEntriesTable,
       tasksTable,
       taskTemplatesTable,
     ]),
@@ -104,7 +104,7 @@ function getNewTasksInRange(db: DB, fromDate: Date, toDate: Date): Task[] {
   );
 }
 
-describe("cardsTaskTemplates timezone consistency", () => {
+describe("taskTemplates timezone consistency", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
@@ -501,10 +501,10 @@ describe("cardsTaskTemplates timezone consistency", () => {
       },
       [],
     );
-    const projections = runSelector<TaskProjection[]>(
+    const entries = runSelector<DailyEntry[]>(
       db,
       function* () {
-        return yield* selectFrom(taskProjectionsTable, "byIds");
+        return yield* selectFrom(dailyEntriesTable, "byIds");
       },
       [],
     );
@@ -525,8 +525,8 @@ describe("cardsTaskTemplates timezone consistency", () => {
     expect(tasks[0].templateDate).toBe(
       new Date("2026-03-04T00:00:00Z").getTime(),
     );
-    expect(projections).toHaveLength(1);
-    expect(projections[0].id).toBe(tasks[0].id);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).toBe(tasks[0].id);
     expect(dailyLists).toHaveLength(1);
     expect(dailyLists[0].date).toBe("2026-03-04");
   });

@@ -15,18 +15,18 @@ import {
   checklistItemCanDropOnParent,
   checklistItemHandleDropOnParent,
 } from "./checklistItems";
-import { createProjectionInDailyList } from "./dailyListsProjections";
+import { createEntryInDailyList } from "./dailyEntries";
 import {
-  createTaskCardAfter,
-  taskSectionCardSiblings,
-} from "./taskSectionCards";
+  createTaskAfterSectionItem,
+  taskSectionItemSiblings,
+} from "./taskSectionItems";
 import { firstTaskSectionChild } from "./taskSections";
 import {
   deleteTasks,
   taskById,
   taskIdsOfTemplateId,
   updateTask,
-} from "./cardsTasks";
+} from "./tasks";
 import { registerModelSlice } from "./maps";
 import { genUUIDV5 } from "../traits/";
 import { generateKeyPositionedBetween, getDMY } from "./utils";
@@ -40,7 +40,7 @@ import {
   possibleModelType,
   isTaskTemplate,
   isTask,
-  isTaskProjection,
+  isDailyEntry,
 } from "./tables";
 
 export const defaultTaskTemplate: TaskTemplate = {
@@ -399,7 +399,7 @@ export const taskTemplateCanDrop = selector({
       return model.state === "todo";
     }
 
-    if (isTaskProjection(model)) {
+    if (isDailyEntry(model)) {
       const droppedTask = yield* taskById({ id: model.id });
       return droppedTask !== undefined && droppedTask.state === "todo";
     }
@@ -557,7 +557,7 @@ export const taskTemplateHandleDrop = action({
 
     const orderToken = generateKeyPositionedBetween(
       template,
-      yield* taskSectionCardSiblings({ cardId: taskTemplateId }),
+      yield* taskSectionItemSiblings({ itemId: taskTemplateId }),
       edge === "top" ? "before" : "after",
     );
 
@@ -577,7 +577,7 @@ export const taskTemplateHandleDrop = action({
           orderToken,
         },
       });
-    } else if (isTaskProjection(dropItem)) {
+    } else if (isDailyEntry(dropItem)) {
       const droppedTask = yield* taskById({ id: dropItem.id });
       if (droppedTask) {
         yield* updateTask({
@@ -622,9 +622,9 @@ export const generateTasksFromTemplates = action({
         throw new Error("TemplateId is null");
       }
 
-      // Create task card after the template card in the project section
-      yield* createTaskCardAfter({
-        cardId: task.templateId,
+      // Create task item after the template item in the project section
+      yield* createTaskAfterSectionItem({
+        itemId: task.templateId,
         taskParams: {
           ...task,
         },
@@ -636,10 +636,10 @@ export const generateTasksFromTemplates = action({
         toParentType: taskType,
       });
 
-      // Create projection at top of daily list for the task's date
+      // Create entry at top of daily list for the task's date
       const localDate = fromUTC(new Date(task.createdAt));
       const dmy = getDMY(localDate);
-      yield* createProjectionInDailyList({
+      yield* createEntryInDailyList({
         taskId: task.id,
         date: dmy,
       });
@@ -691,15 +691,11 @@ export const moveTemplateToProject = action({
 });
 
 // Local slice object for registerModelSlice (not exported)
-const cardsTaskTemplatesSlice = {
+const taskTemplatesSlice = {
   byId: taskTemplateById,
   delete: deleteTemplates,
   canDrop: taskTemplateCanDrop,
   handleDrop: taskTemplateHandleDrop,
 };
 
-registerModelSlice(
-  cardsTaskTemplatesSlice,
-  taskTemplatesTable,
-  taskTemplateType,
-);
+registerModelSlice(taskTemplatesSlice, taskTemplatesTable, taskTemplateType);

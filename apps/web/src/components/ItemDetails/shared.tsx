@@ -2,7 +2,7 @@ import { Folder, Hash, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TextareaAutosize from "react-textarea-autosize";
 
-// ─── EditableTitle ────────────────────────────────────────────────────────────
+// Editable title
 
 export function EditableTitle({
   icon,

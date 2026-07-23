@@ -4,14 +4,14 @@ import { getDMY, orderPositionArg } from "./utils";
 import { appById } from "./app";
 import {
   addToDailyList,
-  dailyProjectionChildrenIds,
-  doneDailyProjectionChildrenIds,
-  firstDailyProjectionChild,
-  lastDailyProjectionChild,
-} from "./dailyListsProjections";
+  dailyEntryChildrenIds,
+  doneDailyEntryChildrenIds,
+  firstDailyEntryChild,
+  lastDailyEntryChild,
+} from "./dailyEntries";
 import { createProjectTask } from "./projects";
-import { deleteStashProjections } from "./stashProjections";
-import { taskById, taskByIdOrDefault } from "./cardsTasks";
+import { deleteStashEntries } from "./stashEntries";
+import { taskById, taskByIdOrDefault } from "./tasks";
 import { registerModelSlice } from "./maps";
 import { genUUIDV5, genUUIDV5Many } from "../traits";
 import {
@@ -21,8 +21,8 @@ import {
   isTask,
   possibleModelType,
   DailyList,
-  isTaskProjection,
-  isStashProjection,
+  isDailyEntry,
+  isStashEntry,
 } from "./tables";
 
 export const defaultDailyList: DailyList = {
@@ -91,7 +91,7 @@ export const dailyListChildrenIds = selector({
   handler: function* dailyListChildrenIds({
     dailyListId,
   }): Generator<unknown, string[], unknown> {
-    return yield* dailyProjectionChildrenIds({ dailyListId });
+    return yield* dailyEntryChildrenIds({ dailyListId });
   },
 });
 
@@ -101,7 +101,7 @@ export const dailyListDoneChildrenIds = selector({
   handler: function* dailyListDoneChildrenIds({
     dailyListId,
   }): Generator<unknown, string[], unknown> {
-    return yield* doneDailyProjectionChildrenIds({ dailyListId });
+    return yield* doneDailyEntryChildrenIds({ dailyListId });
   },
 });
 
@@ -180,7 +180,7 @@ export const firstDailyListChild = selector({
   handler: function* firstDailyListChild({
     dailyListId,
   }): Generator<unknown, Task | undefined, unknown> {
-    return yield* firstDailyProjectionChild({ dailyListId });
+    return yield* firstDailyEntryChild({ dailyListId });
   },
 });
 
@@ -190,7 +190,7 @@ export const lastDailyListChild = selector({
   handler: function* lastDailyListChild({
     dailyListId,
   }): Generator<unknown, Task | undefined, unknown> {
-    return yield* lastDailyProjectionChild({ dailyListId });
+    return yield* lastDailyEntryChild({ dailyListId });
   },
 });
 
@@ -216,12 +216,12 @@ export const dailyListCanDrop = selector({
       return model.state === "todo";
     }
 
-    if (isTaskProjection(model)) {
+    if (isDailyEntry(model)) {
       const task = yield* taskById({ id: model.id });
       return task !== undefined && task.state === "todo";
     }
 
-    if (isStashProjection(model)) {
+    if (isStashEntry(model)) {
       const task = yield* taskById({ id: model.id });
       return task !== undefined && task.state === "todo";
     }
@@ -350,14 +350,14 @@ export const dailyListHandleDrop = action({
     if (!drop) return;
 
     let taskId: string;
-    let shouldDeleteStashProjection = false;
+    let shouldDeleteStashEntry = false;
     if (isTask(drop)) {
       taskId = drop.id;
-    } else if (isTaskProjection(drop)) {
-      taskId = drop.id; // projection.id is the same as task.id
-    } else if (isStashProjection(drop)) {
+    } else if (isDailyEntry(drop)) {
+      taskId = drop.id; // entry.id is the same as task.id
+    } else if (isStashEntry(drop)) {
       taskId = drop.id;
-      shouldDeleteStashProjection = true;
+      shouldDeleteStashEntry = true;
     } else {
       return;
     }
@@ -368,8 +368,8 @@ export const dailyListHandleDrop = action({
       position: edge === "top" ? "prepend" : "append",
     });
 
-    if (shouldDeleteStashProjection) {
-      yield* deleteStashProjections({ ids: [taskId] });
+    if (shouldDeleteStashEntry) {
+      yield* deleteStashEntries({ ids: [taskId] });
     }
   },
 });

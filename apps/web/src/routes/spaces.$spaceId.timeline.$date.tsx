@@ -10,12 +10,12 @@ import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
   createManyDailyListsIfNotPresent,
   dailyListsByDates,
-  dailyProjectionChildrenForDisplay,
-  doneDailyProjectionChildrenForDisplay,
-  doneTaskSectionCardsForDisplay,
+  dailyEntryChildrenForDisplay,
+  doneDailyEntryChildrenForDisplay,
+  doneTaskSectionItemsForDisplay,
   inboxProjectId as getInboxProjectId,
   taskSectionsByProjectId,
-  taskSectionCardsForDisplayChildren,
+  taskSectionItemsForDisplayChildren,
   projectsWithTaskStats,
 } from "@will-be-done/slices/space";
 
@@ -73,13 +73,13 @@ export const Route = createFileRoute("/spaces/$spaceId/timeline/$date")({
     for (const section of taskSections) {
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: taskSectionCardsForDisplayChildren,
+          selector: taskSectionItemsForDisplayChildren,
           args: { taskSectionId: section.id },
         }),
       );
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: doneTaskSectionCardsForDisplay,
+          selector: doneTaskSectionItemsForDisplay,
           args: { taskSectionId: section.id, limited: true },
         }),
       );
@@ -88,13 +88,13 @@ export const Route = createFileRoute("/spaces/$spaceId/timeline/$date")({
     for (const dailyList of dailyLists) {
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: dailyProjectionChildrenForDisplay,
+          selector: dailyEntryChildrenForDisplay,
           args: { dailyListId: dailyList.id },
         }),
       );
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: doneDailyProjectionChildrenForDisplay,
+          selector: doneDailyEntryChildrenForDisplay,
           args: { dailyListId: dailyList.id },
         }),
       );

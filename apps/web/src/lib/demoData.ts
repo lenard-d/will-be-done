@@ -469,7 +469,7 @@ export function generateDemoBackup(): Backup {
   ];
 
   // ── Tasks ────────────────────────────────────────────────────────────────────
-  // Each projected task must appear on at most ONE daily list (projection.id = taskId).
+  // Each projected task must appear on at most ONE daily list (entry.id = taskId).
   const tasks = [
     // Inbox
     {
@@ -1184,9 +1184,9 @@ export function generateDemoBackup(): Backup {
     content: "",
   }));
 
-  // ── Daily lists & projections ────────────────────────────────────────────────
+  // ── Daily lists & entries ────────────────────────────────────────────────
   // Current week: 5 unique task IDs per day, Mon=0 … Sun=6.
-  const projectionSlots: string[][] = [
+  const dailyEntrySlots: string[][] = [
     /* Mon */ [
       "tk-be-1",
       "tk-dc-2",
@@ -1257,7 +1257,7 @@ export function generateDemoBackup(): Backup {
   ];
 
   // Previous week: mix of completed tasks and overdue tasks not done last week.
-  const prevProjectionSlots: string[][] = [
+  const previousDailyEntrySlots: string[][] = [
     /* Mon */ ["tk-ov-1", "tk-ov-2", "tk-rd-2", "tk-hr-2"],
     /* Tue */ ["tk-ov-3", "tk-ov-4", "tk-sa-4", "tk-st-2"],
     /* Wed */ ["tk-ov-5", "tk-se-2", "tk-co-3"],
@@ -1275,10 +1275,10 @@ export function generateDemoBackup(): Backup {
     })),
   ];
 
-  const dailyListProjections = [
+  const dailyEntries = [
     ...days.flatMap((_, dayIdx) => {
       const listId = `list-day-${dayIdx}`;
-      return (projectionSlots[dayIdx] ?? []).map((taskId, pos) => ({
+      return (dailyEntrySlots[dayIdx] ?? []).map((taskId, pos) => ({
         id: taskId,
         orderToken: K[pos],
         listId,
@@ -1287,7 +1287,7 @@ export function generateDemoBackup(): Backup {
     }),
     ...prevWeekDays.flatMap((_, dayIdx) => {
       const listId = `list-prev-${dayIdx}`;
-      return (prevProjectionSlots[dayIdx] ?? []).map((taskId, pos) => ({
+      return (previousDailyEntrySlots[dayIdx] ?? []).map((taskId, pos) => ({
         id: taskId,
         orderToken: K[pos],
         listId,
@@ -1302,6 +1302,7 @@ export function generateDemoBackup(): Backup {
     tasks: backupTasks,
     taskTemplates: [],
     dailyLists,
-    dailyListProjections,
+    // Retain the serialized key for backup compatibility.
+    dailyListProjections: dailyEntries,
   };
 }

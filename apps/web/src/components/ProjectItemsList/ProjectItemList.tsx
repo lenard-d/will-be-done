@@ -8,13 +8,13 @@ import {
   createTaskSection,
   createTaskInSection,
   deleteTaskSections,
-  doneTaskSectionCardsForDisplay,
+  doneTaskSectionItemsForDisplay,
   moveLeft,
   moveRight,
   type Project,
   taskSectionsByProjectId,
   type TaskSection,
-  taskSectionCardsForDisplayChildren,
+  taskSectionItemsForDisplayChildren,
   taskSectionSiblings,
   updateTaskSection,
 } from "@will-be-done/slices/space";
@@ -48,22 +48,22 @@ const ProjectTasksColumn = ({
     !!lastScheduleTime &&
     !!weekDayTimes?.has(startOfDay(lastScheduleTime).getTime());
 
-  const { data: cardsForDisplay = [] } = useAsyncSelector({
-    selector: taskSectionCardsForDisplayChildren,
+  const { data: itemsForDisplay = [] } = useAsyncSelector({
+    selector: taskSectionItemsForDisplayChildren,
     args: { taskSectionId: section.id },
   });
   const [isHiddenClicked, setIsHiddenClicked] = useState(false);
   const handleHideClick = () => setIsHiddenClicked((v) => !v);
 
   const [isShowMore, setIsShowMore] = useState(false);
-  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
-    selector: doneTaskSectionCardsForDisplay,
+  const { data: doneItemsForDisplay = [] } = useAsyncSelector({
+    selector: doneTaskSectionItemsForDisplay,
     args: { taskSectionId: section.id, limited: !isShowMore },
   });
 
   const isHidden =
     isHiddenClicked ||
-    (doneCardsForDisplay.length == 0 && cardsForDisplay.length == 0);
+    (doneItemsForDisplay.length == 0 && itemsForDisplay.length == 0);
   const handleAddClick = () => {
     if (isHidden) {
       setIsHiddenClicked(false);
@@ -83,10 +83,10 @@ const ProjectTasksColumn = ({
 
   const finalDoneIds = useMemo(() => {
     if (isShowMore) {
-      return doneCardsForDisplay;
+      return doneItemsForDisplay;
     }
-    return doneCardsForDisplay.slice(0, 5);
-  }, [doneCardsForDisplay, isShowMore]);
+    return doneItemsForDisplay.slice(0, 5);
+  }, [doneItemsForDisplay, isShowMore]);
 
   return (
     <TasksColumn
@@ -222,13 +222,13 @@ const ProjectTasksColumn = ({
       }
     >
       <div className="flex flex-col gap-4 w-full py-4">
-        {cardsForDisplay.map((displayData) => {
+        {itemsForDisplay.map((displayData) => {
           return (
             <PreloadedTaskComp
-              key={displayData.cardWrapper.id}
-              card={displayData.card}
+              key={displayData.listItem.id}
+              item={displayData.item}
               section={displayData.section}
-              cardWrapper={displayData.cardWrapper}
+              listItem={displayData.listItem}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={project.id}
@@ -241,10 +241,10 @@ const ProjectTasksColumn = ({
         {finalDoneIds.map((displayData) => {
           return (
             <PreloadedTaskComp
-              key={displayData.cardWrapper.id}
-              card={displayData.card}
+              key={displayData.listItem.id}
+              item={displayData.item}
               section={displayData.section}
-              cardWrapper={displayData.cardWrapper}
+              listItem={displayData.listItem}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={project.id}
@@ -255,7 +255,7 @@ const ProjectTasksColumn = ({
           );
         })}
 
-        {!isShowMore && doneCardsForDisplay.length > 5 && (
+        {!isShowMore && doneItemsForDisplay.length > 5 && (
           <button
             onClick={() => setIsShowMore(true)}
             className="cursor-pointer text-subheader text-sm"

@@ -7,7 +7,7 @@ type VerticalEdge = Extract<Edge, "top" | "bottom">;
  * DOM attributes used for keyboard focus navigation:
  *
  * data-focusable-key="<FocusKey>"
- *   Marks an element as a keyboard-navigable item (task card, project item, etc.).
+ *   Marks an element as a keyboard-navigable item (task item, project item, etc.).
  *   The value is a FocusKey string ("type^^id^^component"). j/k/h/l navigation
  *   reads and writes this attribute to track the focused item.
  *

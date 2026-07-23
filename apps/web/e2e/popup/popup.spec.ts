@@ -3,7 +3,7 @@ import { expect, test } from "playwright/test";
 import {
   createSpace,
   openSpace,
-  projectTaskCard,
+  projectTaskItem,
   signupUser,
   uniqueE2EName,
 } from "../helpers";
@@ -63,7 +63,7 @@ test("creates inbox tasks and resets when the popup is shown again", async ({
 
   await titleInput.press("Enter");
   await expect.poll(() => popupCloseCount(popupPage)).toBe(1);
-  await expect(projectTaskCard(page, firstTitle)).toBeVisible();
+  await expect(projectTaskItem(page, firstTitle)).toBeVisible();
 
   await showPopupAgain(popupPage);
   await expect(popup).toHaveAttribute("data-status", "idle");
@@ -73,7 +73,7 @@ test("creates inbox tasks and resets when the popup is shown again", async ({
   await titleInput.fill(secondTitle);
   await titleInput.press("Enter");
   await expect.poll(() => popupCloseCount(popupPage)).toBe(2);
-  await expect(projectTaskCard(page, secondTitle)).toBeVisible();
+  await expect(projectTaskItem(page, secondTitle)).toBeVisible();
 });
 
 async function installDesktopPopupMock(page: import("playwright/test").Page) {

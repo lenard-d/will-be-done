@@ -33,14 +33,14 @@ export function TemplateBody({
   setIsEditingTitle,
   isEditingDescription,
   setIsEditingDescription,
-  onCardIdChange,
+  onItemIdChange,
 }: {
   template: TaskTemplate;
   isEditingTitle: boolean;
   setIsEditingTitle: (v: boolean) => void;
   isEditingDescription: boolean;
   setIsEditingDescription: (v: boolean) => void;
-  onCardIdChange?: (cardId: string) => void;
+  onItemIdChange?: (itemId: string) => void;
 }) {
   const dispatch = useAsyncDispatch();
   const templateId = template.id;
@@ -112,9 +112,9 @@ export function TemplateBody({
         createTaskFromTemplate({ taskTemplate: template }),
       );
       useFocusStore.getState().focusByKey(buildFocusKey(task.id, task.type));
-      onCardIdChange?.(task.id);
+      onItemIdChange?.(task.id);
     })();
-  }, [template, dispatch, onCardIdChange]);
+  }, [template, dispatch, onItemIdChange]);
 
   const handleRepeatConfirm = useCallback(
     (ruleString: string) => {

@@ -1,5 +1,5 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
-import { CardDetails } from "@/components/CardDetails/CardDetails.tsx";
+import { ItemDetails } from "@/components/ItemDetails/ItemDetails.tsx";
 import { GlobalLayout } from "@/components/Layout/GlobalLayout.tsx";
 import { LayoutWithSidebar } from "@/components/Layout/LayoutWithSidebar";
 import { preloadSelectorAsync } from "@will-be-done/hyperdb";
@@ -26,7 +26,7 @@ function RouteComponent() {
             <Outlet />
           </div>
           <div className="hidden h-full sm:block">
-            <CardDetails />
+            <ItemDetails />
           </div>
         </div>
       </LayoutWithSidebar>

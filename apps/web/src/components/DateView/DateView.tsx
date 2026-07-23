@@ -6,8 +6,9 @@ import {
   createTaskInList,
   type DailyList,
   dailyListsByDates,
-  dailyProjectionChildrenForDisplay,
-  doneDailyProjectionChildrenForDisplay,
+  dailyEntryChildrenForDisplay,
+  doneDailyEntryChildrenForDisplay,
+  dailyEntryType,
   inboxProjectId,
 } from "@will-be-done/slices/space";
 
@@ -89,13 +90,13 @@ const SingleDayColumn = ({
   const currentDate = useCurrentDMY();
   const isToday = currentDate === dailyList.date;
 
-  const { data: cardsForDisplay = [] } = useAsyncSelector({
-    selector: dailyProjectionChildrenForDisplay,
+  const { data: itemsForDisplay = [] } = useAsyncSelector({
+    selector: dailyEntryChildrenForDisplay,
     args: { dailyListId: dailyList.id },
   });
 
-  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
-    selector: doneDailyProjectionChildrenForDisplay,
+  const { data: doneItemsForDisplay = [] } = useAsyncSelector({
+    selector: doneDailyEntryChildrenForDisplay,
     args: { dailyListId: dailyList.id },
   });
 
@@ -232,12 +233,12 @@ const SingleDayColumn = ({
         ref={scrollableRef}
         className={cn("flex flex-col gap-4 w-full overflow-y-auto p-1", {})}
       >
-        {cardsForDisplay.map((displayData) => (
+        {itemsForDisplay.map((displayData) => (
           <PreloadedTaskComp
-            key={displayData.cardWrapper.id}
-            card={displayData.card}
+            key={displayData.listItem.id}
+            item={displayData.item}
             section={displayData.section}
-            cardWrapper={displayData.cardWrapper}
+            listItem={displayData.listItem}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
             hasCheclistItems={displayData.hasChecklist}
@@ -247,12 +248,12 @@ const SingleDayColumn = ({
           />
         ))}
 
-        {doneCardsForDisplay.map((displayData) => (
+        {doneItemsForDisplay.map((displayData) => (
           <PreloadedTaskComp
-            key={displayData.cardWrapper.id}
-            card={displayData.card}
+            key={displayData.listItem.id}
+            item={displayData.item}
             section={displayData.section}
-            cardWrapper={displayData.cardWrapper}
+            listItem={displayData.listItem}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
             hasCheclistItems={displayData.hasChecklist}
@@ -306,7 +307,7 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
           }),
         );
 
-        const focusKey = buildFocusKey(task.id, "projection");
+        const focusKey = buildFocusKey(task.id, dailyEntryType);
         useFocusStore.getState().editByKey(focusKey);
 
         if (focusTaskTitleTextareaByKey(focusKey)) return;

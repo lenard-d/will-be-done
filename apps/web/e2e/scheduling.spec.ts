@@ -3,10 +3,10 @@ import { expect, test } from "playwright/test";
 import {
   createProjectTask,
   createSpace,
-  dailyTaskCard,
+  dailyTaskItem,
   openSpace,
   openTaskActions,
-  projectTaskCard,
+  projectTaskItem,
   signupUser,
   uniqueE2EName,
 } from "./helpers";
@@ -26,7 +26,7 @@ test("schedules an Inbox task for Today and clears the schedule", async ({
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/projects\/[^/]+$/);
 
   await createProjectTask(page, taskTitle);
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
   await expect(inboxWithOneTask).toBeVisible();
 
   await openTaskActions(page, taskTitle);
@@ -34,22 +34,22 @@ test("schedules an Inbox task for Today and clears the schedule", async ({
 
   await page.getByRole("link", { name: /today/i }).click();
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/dates\/\d{4}-\d{2}-\d{2}$/);
-  await expect(dailyTaskCard(page, taskTitle)).toBeVisible();
+  await expect(dailyTaskItem(page, taskTitle)).toBeVisible();
 
   await openTaskActions(page, taskTitle);
   await page.getByRole("menuitem", { name: /reset schedule/i }).click();
 
-  await expect(dailyTaskCard(page, taskTitle)).toHaveCount(0);
+  await expect(dailyTaskItem(page, taskTitle)).toHaveCount(0);
   await expect(inboxWithOneTask).toBeVisible();
 
   await page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ }).click();
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/projects\/[^/]+$/);
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
 
   await page.reload();
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
   await expect(inboxWithOneTask).toBeVisible();
 
   await page.getByRole("link", { name: /today/i }).click();
-  await expect(dailyTaskCard(page, taskTitle)).toHaveCount(0);
+  await expect(dailyTaskItem(page, taskTitle)).toHaveCount(0);
 });

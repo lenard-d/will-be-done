@@ -7,17 +7,17 @@ export * from "./taskSectionStorageMigration";
 
 // Slice selectors and actions
 export * from "./app";
-export * from "./cards";
-export * from "./cardsTasks";
-export * from "./cardsTaskTemplates";
+export * from "./items";
+export * from "./tasks";
+export * from "./taskTemplates";
 export * from "./taskSections";
-export * from "./taskSectionCards";
+export * from "./taskSectionItems";
 export * from "./projects";
 export * from "./projectsAll";
 export * from "./taskStats";
 export * from "./dailyLists";
-export * from "./dailyListsProjections";
-export * from "./stashProjections";
+export * from "./dailyEntries";
+export * from "./stashEntries";
 export * from "./checklistItems";
 export * from "./backup";
 export * from "./importer/ticktick";

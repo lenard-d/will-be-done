@@ -94,8 +94,8 @@ export const createStoreDbs = async (
   await execAsync(syncSubDb.loadTables(syncConfig.persistDBTables));
 
   // const canPreloadChanges = syncConfig.persistDBTables.includes(changesTable);
-  // const canPreloadTaskProjections =
-  //   syncConfig.persistDBTables.includes(taskProjectionsTable);
+  // const canPreloadDailyEntries =
+  //   syncConfig.persistDBTables.includes(dailyEntriesTable);
 
   // syncSubDb.afterScan(
   //   function* (_db, table, _indexName, _clauses, _selectOptions, results) {
@@ -110,8 +110,8 @@ export const createStoreDbs = async (
   //     yield* preloadEntities({
   //       ids: results.map((row) => row.id),
   //       tableName: table.tableName,
-  //       preloadTaskProjections:
-  //         table === tasksTable && canPreloadTaskProjections,
+  //       preloadDailyEntries:
+  //         table === tasksTable && canPreloadDailyEntries,
   //     });
   //   },
   // );

@@ -5,13 +5,13 @@ import {
   createTaskSection,
   createTaskInSection,
   deleteTaskSections,
-  doneTaskSectionCardsForDisplay,
+  doneTaskSectionItemsForDisplay,
   moveLeft,
   moveRight,
   projectByIdOrDefault,
   taskSectionsByProjectId,
   taskSectionByIdOrDefault,
-  taskSectionCardsForDisplayChildren,
+  taskSectionItemsForDisplayChildren,
   updateTaskSection,
 } from "@will-be-done/slices/space";
 import { PreloadedTaskComp } from "@/components/Task/Task.tsx";
@@ -80,14 +80,14 @@ const SectionSection = ({
     args: { id: taskSectionId },
   });
 
-  const { data: cardsForDisplay = [] } = useAsyncSelector({
-    selector: taskSectionCardsForDisplayChildren,
+  const { data: itemsForDisplay = [] } = useAsyncSelector({
+    selector: taskSectionItemsForDisplayChildren,
     args: { taskSectionId: section?.id ?? taskSectionId },
   });
 
   const [isShowMore, setIsShowMore] = useState(false);
-  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
-    selector: doneTaskSectionCardsForDisplay,
+  const { data: doneItemsForDisplay = [] } = useAsyncSelector({
+    selector: doneTaskSectionItemsForDisplay,
     args: { taskSectionId: taskSectionId, limited: !isShowMore },
   });
 
@@ -114,9 +114,9 @@ const SectionSection = ({
   }, [section, taskSectionId]);
 
   const visibleDoneIds = useMemo(() => {
-    if (isShowMore) return doneCardsForDisplay;
-    return doneCardsForDisplay.slice(0, 3);
-  }, [doneCardsForDisplay, isShowMore]);
+    if (isShowMore) return doneItemsForDisplay;
+    return doneItemsForDisplay.slice(0, 3);
+  }, [doneItemsForDisplay, isShowMore]);
 
   const handleTitleClick = async () => {
     if (!section) return;
@@ -232,12 +232,12 @@ const SectionSection = ({
         className="relative"
       >
         <div className="flex flex-col gap-2">
-          {cardsForDisplay.map((displayData) => (
+          {itemsForDisplay.map((displayData) => (
             <PreloadedTaskComp
-              key={displayData.cardWrapper.id}
-              card={displayData.card}
+              key={displayData.listItem.id}
+              item={displayData.item}
               section={displayData.section}
-              cardWrapper={displayData.cardWrapper}
+              listItem={displayData.listItem}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={projectId}
@@ -247,10 +247,10 @@ const SectionSection = ({
           ))}
           {visibleDoneIds.map((displayData) => (
             <PreloadedTaskComp
-              key={displayData.cardWrapper.id}
-              card={displayData.card}
+              key={displayData.listItem.id}
+              item={displayData.item}
               section={displayData.section}
-              cardWrapper={displayData.cardWrapper}
+              listItem={displayData.listItem}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={projectId}
@@ -258,13 +258,13 @@ const SectionSection = ({
               displayLastScheduleTime
             />
           ))}
-          {!isShowMore && doneCardsForDisplay.length > 3 && (
+          {!isShowMore && doneItemsForDisplay.length > 3 && (
             <button
               onClick={() => setIsShowMore(true)}
               className="cursor-pointer text-subheader text-sm px-1"
               type="button"
             >
-              Show more ({doneCardsForDisplay.length - 3})
+              Show more ({doneItemsForDisplay.length - 3})
             </button>
           )}
         </div>

@@ -6,7 +6,7 @@ import {
   createSpace,
   openSpace,
   projectSidebarLink,
-  projectTaskCard,
+  projectTaskItem,
   signupUser,
   uniqueE2EName,
 } from "./helpers";
@@ -34,14 +34,14 @@ test("creates projects and moves a task between them", async ({ page }) => {
   ).toBeVisible();
 
   await createProjectTask(page, taskTitle);
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
   await expect(projectSidebarLink(page, sourceProject, 1)).toBeVisible();
   await expect(projectSidebarLink(page, destinationProject, 1)).toHaveCount(0);
 
-  await projectTaskCard(page, taskTitle).click();
+  await projectTaskItem(page, taskTitle).click();
   await page.keyboard.press("KeyV");
 
-  const detailsPanel = page.getByTestId("card-details-panel");
+  const detailsPanel = page.getByTestId("item-details-panel");
   await expect(detailsPanel).toHaveAttribute("aria-hidden", "false");
   await expect(detailsPanel.getByText(sourceProject)).toBeVisible();
 
@@ -56,7 +56,7 @@ test("creates projects and moves a task between them", async ({ page }) => {
     .click();
 
   await expect(projectSearch).toHaveCount(0);
-  await expect(projectTaskCard(page, taskTitle)).toHaveCount(0);
+  await expect(projectTaskItem(page, taskTitle)).toHaveCount(0);
   await expect(projectSidebarLink(page, sourceProject, 1)).toHaveCount(0);
   await expect(projectSidebarLink(page, destinationProject, 1)).toBeVisible();
 
@@ -64,10 +64,10 @@ test("creates projects and moves a task between them", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: destinationProject }),
   ).toBeVisible();
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
 
   await page.reload();
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
   await expect(projectSidebarLink(page, destinationProject, 1)).toBeVisible();
   await expect(projectSidebarLink(page, sourceProject, 1)).toHaveCount(0);
 });

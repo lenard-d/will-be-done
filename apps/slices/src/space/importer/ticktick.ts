@@ -197,8 +197,8 @@ export function parseTickTickCSV(csv: string): Backup {
   const taskTemplates: Backup["taskTemplates"] = [];
   // date string (yyyy-MM-dd) → DailyListBackup (id = date, used as local key)
   const dailyListsMap = new Map<string, { id: string; date: string }>();
-  const dailyListProjections: NonNullable<Backup["dailyListProjections"]> = [];
-  const projectionLastToken = new Map<string, string | null>();
+  const dailyEntries: NonNullable<Backup["dailyListProjections"]> = [];
+  const dailyEntryLastToken = new Map<string, string | null>();
 
   for (const row of sortedRows) {
     const folder = row[COL_FOLDER] ?? "";
@@ -258,19 +258,19 @@ export function parseTickTickCSV(csv: string): Backup {
         templateDate: null,
       });
 
-      // If the task has a due date, create a daily list projection for it
+      // If the task has a due date, create a daily list entry for it
       const plannedDateStr = dueDateStr || startDateStr;
       if (plannedDateStr) {
         const dateKey = toDateString(plannedDateStr);
         if (!dailyListsMap.has(dateKey)) {
           dailyListsMap.set(dateKey, { id: dateKey, date: dateKey });
         }
-        const projPrev = projectionLastToken.get(dateKey) ?? null;
-        const projToken = generateJitteredKeyBetween(projPrev, null);
-        projectionLastToken.set(dateKey, projToken);
-        dailyListProjections.push({
+        const previousEntryToken = dailyEntryLastToken.get(dateKey) ?? null;
+        const entryToken = generateJitteredKeyBetween(previousEntryToken, null);
+        dailyEntryLastToken.set(dateKey, entryToken);
+        dailyEntries.push({
           id: taskId,
-          orderToken: projToken,
+          orderToken: entryToken,
           listId: dateKey,
           createdAt,
         });
@@ -298,6 +298,7 @@ export function parseTickTickCSV(csv: string): Backup {
     tasks,
     taskTemplates,
     dailyLists: [...dailyListsMap.values()],
-    dailyListProjections,
+    // Retain the serialized key for backup compatibility.
+    dailyListProjections: dailyEntries,
   };
 }

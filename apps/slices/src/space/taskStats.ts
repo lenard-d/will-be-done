@@ -12,7 +12,7 @@ import {
   type Project,
   type ScheduledTodoTask,
   type Task,
-  type TaskProjection,
+  type DailyEntry,
   type DailyList,
   dailyListsTable,
   taskSectionsTable,
@@ -20,7 +20,7 @@ import {
   projectsTable,
   scheduledTodoTasksTable,
   spaceMigrationsTable,
-  taskProjectionsTable,
+  dailyEntriesTable,
   tasksTable,
 } from "./tables";
 import { taskSectionsByProjectId } from "./taskSections";
@@ -75,21 +75,14 @@ function* refreshScheduledTodoTasks(
   );
   const taskById = new Map((tasks as Task[]).map((task) => [task.id, task]));
 
-  const projections = yield* selectFrom(taskProjectionsTable, "byId").where(
-    (q) => uniqueTaskIds.map((id) => q.eq("id", id)),
+  const entries = yield* selectFrom(dailyEntriesTable, "byId").where((q) =>
+    uniqueTaskIds.map((id) => q.eq("id", id)),
   );
-  const projectionByTaskId = new Map(
-    (projections as TaskProjection[]).map((projection) => [
-      projection.id,
-      projection,
-    ]),
+  const dailyEntryMapByTaskId = new Map(
+    (entries as DailyEntry[]).map((entry) => [entry.id, entry]),
   );
   const dailyListIds = [
-    ...new Set(
-      (projections as TaskProjection[]).map(
-        (projection) => projection.dailyListId,
-      ),
-    ),
+    ...new Set((entries as DailyEntry[]).map((entry) => entry.dailyListId)),
   ];
   const dailyLists =
     dailyListIds.length > 0
@@ -106,10 +99,8 @@ function* refreshScheduledTodoTasks(
 
   for (const taskId of uniqueTaskIds) {
     const task = taskById.get(taskId);
-    const projection = projectionByTaskId.get(taskId);
-    const dailyList = projection
-      ? dailyListById.get(projection.dailyListId)
-      : undefined;
+    const entry = dailyEntryMapByTaskId.get(taskId);
+    const dailyList = entry ? dailyListById.get(entry.dailyListId) : undefined;
 
     if (task?.state === "todo" && dailyList) {
       nextRows.push({
@@ -136,15 +127,15 @@ function* refreshScheduledTodoTasksForDailyLists(
   const uniqueDailyListIds = [...new Set(dailyListIds)];
   if (uniqueDailyListIds.length === 0) return;
 
-  const projections = yield* selectFrom(
-    taskProjectionsTable,
+  const entries = yield* selectFrom(
+    dailyEntriesTable,
     "byDailyListIdTokenOrdered",
   ).where((q) =>
     uniqueDailyListIds.map((dailyListId) => q.eq("dailyListId", dailyListId)),
   );
 
   yield* refreshScheduledTodoTasks(
-    (projections as TaskProjection[]).map((projection) => projection.id),
+    (entries as DailyEntry[]).map((entry) => entry.id),
   );
 }
 
@@ -226,9 +217,9 @@ export const rebuildScheduledTodoTasks = action({
       );
     }
 
-    const projections = yield* selectFrom(taskProjectionsTable, "byIds");
+    const entries = yield* selectFrom(dailyEntriesTable, "byIds");
     yield* refreshScheduledTodoTasks(
-      (projections as TaskProjection[]).map((projection) => projection.id),
+      (entries as DailyEntry[]).map((entry) => entry.id),
     );
   },
 });
@@ -445,7 +436,7 @@ export function installProjectTaskStatsHooks(db: SubscribableDB) {
     if (ops.length === 0) return;
     if (
       table !== tasksTable &&
-      table !== taskProjectionsTable &&
+      table !== dailyEntriesTable &&
       table !== dailyListsTable &&
       table !== taskSectionsTable
     ) {
@@ -497,14 +488,14 @@ export function installProjectTaskStatsHooks(db: SubscribableDB) {
     const changedTaskIds = new Set<string>();
     for (const op of ops) {
       if (op.type === "insert") {
-        changedTaskIds.add((op.newValue as Task | TaskProjection).id);
+        changedTaskIds.add((op.newValue as Task | DailyEntry).id);
       } else if (op.type === "upsert") {
         if (op.oldValue) {
-          changedTaskIds.add((op.oldValue as Task | TaskProjection).id);
+          changedTaskIds.add((op.oldValue as Task | DailyEntry).id);
         }
-        changedTaskIds.add((op.newValue as Task | TaskProjection).id);
+        changedTaskIds.add((op.newValue as Task | DailyEntry).id);
       } else {
-        changedTaskIds.add((op.oldValue as Task | TaskProjection).id);
+        changedTaskIds.add((op.oldValue as Task | DailyEntry).id);
       }
     }
 
