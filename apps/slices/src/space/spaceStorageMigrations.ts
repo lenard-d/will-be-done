@@ -5,18 +5,18 @@ import {
   migrateLegacyEntries,
 } from "./entryStorageMigration";
 import {
-  isTaskSectionStorageMigrationApplied,
-  migrateLegacyTaskSections,
-  taskSectionStorageMigrationTables,
-} from "./taskSectionStorageMigration";
+  isProjectSectionStorageMigrationApplied,
+  migrateLegacyProjectSections,
+  projectSectionStorageMigrationTables,
+} from "./projectSectionStorageMigration";
 
 export const spaceStorageMigrationTables = [
-  ...taskSectionStorageMigrationTables,
+  ...projectSectionStorageMigrationTables,
   ...entryStorageMigrationTables.filter(
     (entryTable) =>
-      !taskSectionStorageMigrationTables.some(
-        (taskSectionTable) =>
-          taskSectionTable.tableName === entryTable.tableName,
+      !projectSectionStorageMigrationTables.some(
+        (projectSectionTable) =>
+          projectSectionTable.tableName === entryTable.tableName,
       ),
   ),
 ];
@@ -26,7 +26,7 @@ export const areSpaceStorageMigrationsApplied = selector({
   args: {},
   handler: function* areSpaceStorageMigrationsApplied() {
     return (
-      (yield* isTaskSectionStorageMigrationApplied({})) &&
+      (yield* isProjectSectionStorageMigrationApplied({})) &&
       (yield* isEntryStorageMigrationApplied({}))
     );
   },
@@ -36,7 +36,7 @@ export const migrateLegacySpaceStorage = action({
   name: "migrateLegacySpaceStorage",
   args: {},
   handler: function* migrateLegacySpaceStorage() {
-    yield* migrateLegacyTaskSections({});
+    yield* migrateLegacyProjectSections({});
     yield* migrateLegacyEntries({});
   },
 });

@@ -20,9 +20,9 @@ import { appById } from "./app";
 import { dailyListById, createDailyListIfNotPresent } from "./dailyLists";
 import {
   createTaskNextToSectionItem,
-  taskSectionItemsForDisplay,
+  projectSectionItemsForDisplay,
   type ItemForDisplay,
-} from "./taskSectionItems";
+} from "./projectSectionItems";
 import { deleteStashEntries } from "./stashEntries";
 import { taskById } from "./tasks";
 import { parse } from "date-fns";
@@ -160,7 +160,7 @@ export const dailyEntryChildrenForDisplay = selector({
       }
     }
 
-    return yield* taskSectionItemsForDisplay({ items, listItems });
+    return yield* projectSectionItemsForDisplay({ items, listItems });
   },
 });
 
@@ -229,7 +229,7 @@ export const doneDailyEntryChildrenForDisplay = selector({
       (a, b) => b.item.lastToggledAt - a.item.lastToggledAt,
     );
 
-    return yield* taskSectionItemsForDisplay({
+    return yield* projectSectionItemsForDisplay({
       items: itemsWithEntries.map(({ item }) => item),
       listItems: itemsWithEntries.map(({ listItem }) => listItem),
     });

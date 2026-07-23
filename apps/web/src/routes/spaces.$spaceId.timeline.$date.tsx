@@ -12,10 +12,10 @@ import {
   dailyListsByDates,
   dailyEntryChildrenForDisplay,
   doneDailyEntryChildrenForDisplay,
-  doneTaskSectionItemsForDisplay,
+  doneProjectSectionItemsForDisplay,
   inboxProjectId as getInboxProjectId,
-  taskSectionsByProjectId,
-  taskSectionItemsForDisplayChildren,
+  projectSectionsByProjectId,
+  projectSectionItemsForDisplayChildren,
   projectsWithTaskStats,
 } from "@will-be-done/slices/space";
 
@@ -65,22 +65,22 @@ export const Route = createFileRoute("/spaces/$spaceId/timeline/$date")({
       }),
     );
 
-    const taskSections = await preloadSelectorAsync(db, {
-      selector: taskSectionsByProjectId,
+    const projectSections = await preloadSelectorAsync(db, {
+      selector: projectSectionsByProjectId,
       args: { projectId: project.id },
     });
 
-    for (const section of taskSections) {
+    for (const section of projectSections) {
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: taskSectionItemsForDisplayChildren,
-          args: { taskSectionId: section.id },
+          selector: projectSectionItemsForDisplayChildren,
+          args: { projectSectionId: section.id },
         }),
       );
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: doneTaskSectionItemsForDisplay,
-          args: { taskSectionId: section.id, limited: true },
+          selector: doneProjectSectionItemsForDisplay,
+          args: { projectSectionId: section.id, limited: true },
         }),
       );
     }

@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ProjectDetailView } from "@/components/ProjectView/ProjectDetailView.tsx";
 import { preloadSelectorAsync } from "@will-be-done/hyperdb";
 import {
-  doneTaskSectionItemsForDisplay,
+  doneProjectSectionItemsForDisplay,
   projectByIdOrDefault,
-  taskSectionsByProjectId,
-  taskSectionItemsForDisplayChildren,
+  projectSectionsByProjectId,
+  projectSectionItemsForDisplayChildren,
 } from "@will-be-done/slices/space";
 
 export const Route = createFileRoute(
@@ -20,7 +20,7 @@ export const Route = createFileRoute(
     };
 
     const sections = await preloadSelectorAsync(db, {
-      selector: taskSectionsByProjectId,
+      selector: projectSectionsByProjectId,
       args: { projectId: params.projectId },
     });
 
@@ -34,8 +34,8 @@ export const Route = createFileRoute(
     for (const section of sections) {
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: taskSectionItemsForDisplayChildren,
-          args: { taskSectionId: section.id },
+          selector: projectSectionItemsForDisplayChildren,
+          args: { projectSectionId: section.id },
         }),
       );
     }
@@ -43,8 +43,8 @@ export const Route = createFileRoute(
     for (const section of sections) {
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: doneTaskSectionItemsForDisplay,
-          args: { taskSectionId: section.id, limited: true },
+          selector: doneProjectSectionItemsForDisplay,
+          args: { projectSectionId: section.id, limited: true },
         }),
       );
     }

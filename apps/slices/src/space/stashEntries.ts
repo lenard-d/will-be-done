@@ -14,9 +14,9 @@ import { appById } from "./app";
 import { createProjectTask } from "./projects";
 import {
   createTaskNextToSectionItem,
-  taskSectionItemsForDisplay,
+  projectSectionItemsForDisplay,
   type ItemForDisplay,
-} from "./taskSectionItems";
+} from "./projectSectionItems";
 import { deleteDailyEntries } from "./dailyEntries";
 import { taskById, taskByIdOrDefault } from "./tasks";
 import { orderPositionArg } from "./utils";
@@ -160,7 +160,7 @@ export const stashEntryChildrenForDisplay = selector({
       }
     }
 
-    return yield* taskSectionItemsForDisplay({ items, listItems });
+    return yield* projectSectionItemsForDisplay({ items, listItems });
   },
 });
 
@@ -221,7 +221,7 @@ export const doneStashEntryChildrenForDisplay = selector({
       (a, b) => b.item.lastToggledAt - a.item.lastToggledAt,
     );
 
-    return yield* taskSectionItemsForDisplay({
+    return yield* projectSectionItemsForDisplay({
       items: itemsWithEntries.map(({ item }) => item),
       listItems: itemsWithEntries.map(({ listItem }) => listItem),
     });

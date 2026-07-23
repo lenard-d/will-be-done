@@ -8,7 +8,7 @@ import {
   dailyEntryType,
   isTask,
   isTaskTemplate,
-  taskSectionItemById,
+  projectSectionItemById,
 } from "@will-be-done/slices/space";
 import { useGlobalListener } from "@/components/GlobalListener/hooks.tsx";
 import { TaskBody } from "./TaskBody.tsx";
@@ -320,7 +320,7 @@ function ItemDetailsBody({
   onItemIdChange?: (itemId: string) => void;
 }) {
   const { data: item } = useAsyncSelector({
-    selector: taskSectionItemById,
+    selector: projectSectionItemById,
     args: { id: itemId },
   });
 

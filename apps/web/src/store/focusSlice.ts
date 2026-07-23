@@ -1,6 +1,6 @@
 import { shouldNeverHappen } from "@/utils.ts";
 import { create } from "zustand";
-import { dailyEntryType } from "@will-be-done/slices/space";
+import { dailyEntryType, projectSectionType } from "@will-be-done/slices/space";
 
 export type FocusKey = string & { __brand: never };
 
@@ -30,7 +30,7 @@ export const parseColumnKey = (
     | "dailyList"
     | "project"
     | "task"
-    | "taskSection"
+    | typeof projectSectionType
     | typeof dailyEntryType;
   id: string;
   component?: string;
@@ -45,7 +45,7 @@ export const parseColumnKey = (
       | "dailyList"
       | "project"
       | "task"
-      | "taskSection"
+      | typeof projectSectionType
       | typeof dailyEntryType,
     id,
     component,

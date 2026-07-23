@@ -2,7 +2,7 @@ import { v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { assertUnreachable } from "./utils";
 import { createDailyEntrySibling, deleteDailyEntries } from "./dailyEntries";
-import { createTaskNextToSectionItem } from "./taskSectionItems";
+import { createTaskNextToSectionItem } from "./projectSectionItems";
 import { createStashEntrySibling, deleteStashEntries } from "./stashEntries";
 import { deleteTasksByIds, taskById, defaultTask } from "./tasks";
 import { deleteTemplates, taskTemplateById } from "./taskTemplates";

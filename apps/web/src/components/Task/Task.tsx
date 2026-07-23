@@ -56,12 +56,12 @@ import {
   moveTaskToProject,
   moveTemplateToProject,
   Project,
-  TaskSection,
-  taskSectionByIdOrDefault,
-  taskSectionItemByIdOrDefault,
-  taskSectionType,
+  ProjectSection,
+  projectSectionByIdOrDefault,
+  projectSectionItemByIdOrDefault,
+  projectSectionType,
   dailyEntryType,
-  projectOfTaskSectionOrDefault,
+  projectOfProjectSectionOrDefault,
   removeFromDailyList,
   STASH_ID,
   stashEntryType,
@@ -125,7 +125,7 @@ const getFocusKeyForColumnMoveTarget = (
   }
 
   if (
-    targetColumnModelType === taskSectionType &&
+    targetColumnModelType === projectSectionType &&
     (sourceModelType === dailyEntryType || sourceModelType === stashEntryType)
   ) {
     return buildFocusKey(taskId, taskType);
@@ -150,7 +150,7 @@ export const PreloadedTaskComp = ({
   isOnTimeline,
 }: {
   item: Item;
-  section: TaskSection;
+  section: ProjectSection;
   listItem: ListItem;
   project: Project;
   lastScheduleTime: Date | undefined;
@@ -282,11 +282,11 @@ export const PreloadedTaskComp = ({
         : undefined;
 
       const upTask =
-        upModel?.type !== taskSectionType && upModel
+        upModel?.type !== projectSectionType && upModel
           ? await select({ selector: taskOfModel, args: { model: upModel } })
           : undefined;
       const downTask =
-        downModel?.type !== taskSectionType && downModel
+        downModel?.type !== projectSectionType && downModel
           ? await select({ selector: taskOfModel, args: { model: downModel } })
           : undefined;
 
@@ -1431,12 +1431,12 @@ export const TaskComp = ({
   centerScheduleDate?: boolean;
 }) => {
   const { data: item } = useAsyncSelector({
-    selector: taskSectionItemByIdOrDefault,
+    selector: projectSectionItemByIdOrDefault,
     args: { id: taskId },
   });
   const { data: section } = useAsyncSelector({
-    selector: taskSectionByIdOrDefault,
-    args: { id: item?.taskSectionId ?? "" },
+    selector: projectSectionByIdOrDefault,
+    args: { id: item?.projectSectionId ?? "" },
     enabled: !!item,
   });
   const { data: listItem } = useAsyncSelector({
@@ -1444,8 +1444,8 @@ export const TaskComp = ({
     args: { id: listItemId, modelType: listItemType },
   });
   const { data: project } = useAsyncSelector({
-    selector: projectOfTaskSectionOrDefault,
-    args: { taskSectionId: item?.taskSectionId ?? "" },
+    selector: projectOfProjectSectionOrDefault,
+    args: { projectSectionId: item?.projectSectionId ?? "" },
     enabled: !!item,
   });
   const { data: lastScheduleTime } = useAsyncSelector({

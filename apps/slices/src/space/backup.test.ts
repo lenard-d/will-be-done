@@ -82,15 +82,15 @@ describe("space backup compatibility", () => {
       ],
     });
 
-    expect(normalized.taskSections[0]?.id).toBe("section-1");
-    expect(normalized.tasks[0]?.taskSectionId).toBe("section-1");
-    expect(normalized.taskTemplates[0]?.taskSectionId).toBe("section-1");
+    expect(normalized.projectSections[0]?.id).toBe("section-1");
+    expect(normalized.tasks[0]?.projectSectionId).toBe("section-1");
+    expect(normalized.taskTemplates[0]?.projectSectionId).toBe("section-1");
   });
 
   it("keeps the new format semantically unchanged", () => {
     const backup: Backup = {
       ...baseBackup,
-      taskSections: [],
+      projectSections: [],
       tasks: [],
       taskTemplates: [],
     };
@@ -103,7 +103,7 @@ describe("space backup compatibility", () => {
       projects: [],
       dailyLists: [],
       checklistItems: [],
-      taskSections: [],
+      projectSections: [],
       tasks: [],
       taskTemplates: [],
       dailyListProjections: [
@@ -127,7 +127,7 @@ describe("space backup compatibility", () => {
       projects: [],
       dailyLists: [],
       checklistItems: [],
-      taskSections: [],
+      projectSections: [],
       tasks: [],
       taskTemplates: [],
       dailyEntries: [],

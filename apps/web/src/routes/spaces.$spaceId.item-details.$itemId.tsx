@@ -12,9 +12,9 @@ import {
   dailyEntryDateOfTask,
   isTask,
   isTaskTemplate,
-  taskSectionsByProjectId,
-  taskSectionItemById,
-  projectOfTaskSectionOrDefault,
+  projectSectionsByProjectId,
+  projectSectionItemById,
+  projectOfProjectSectionOrDefault,
   taskTemplateById,
   taskTemplateRuleText,
 } from "@will-be-done/slices/space";
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/spaces/$spaceId/item-details/$itemId")({
     );
 
     const item = await preloadSelectorAsync(db, {
-      selector: taskSectionItemById,
+      selector: projectSectionItemById,
       args: { id: params.itemId },
     });
 
@@ -53,13 +53,13 @@ export const Route = createFileRoute("/spaces/$spaceId/item-details/$itemId")({
     );
 
     const project = await preloadSelectorAsync(db, {
-      selector: projectOfTaskSectionOrDefault,
-      args: { taskSectionId: item.taskSectionId },
+      selector: projectOfProjectSectionOrDefault,
+      args: { projectSectionId: item.projectSectionId },
     });
 
     appendPromise(
       preloadSelectorAsync(db, {
-        selector: taskSectionsByProjectId,
+        selector: projectSectionsByProjectId,
         args: { projectId: project.id },
       }),
     );

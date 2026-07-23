@@ -14,7 +14,7 @@ import { dbIdTrait } from "@will-be-done/slices/traits";
 import {
   createInboxIfNotExists,
   createTaskInSection,
-  firstTaskSectionChild,
+  firstProjectSectionChild,
   registeredSpaceSyncableTables,
   tasksTable,
   areSpaceStorageMigrationsApplied,
@@ -75,7 +75,7 @@ export async function initPopupStore(spaceId: string) {
           const inbox = yield* createInboxIfNotExists({});
 
           // Get first section of inbox
-          const inboxSection = yield* firstTaskSectionChild({
+          const inboxSection = yield* firstProjectSectionChild({
             projectId: inbox.id,
           });
           if (!inboxSection) {
@@ -84,7 +84,7 @@ export async function initPopupStore(spaceId: string) {
 
           // Create task at the top (prepend)
           const task = yield* createTaskInSection({
-            taskSectionId: inboxSection.id,
+            projectSectionId: inboxSection.id,
             position: "prepend",
             taskAttrs: { title },
           });
