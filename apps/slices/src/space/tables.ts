@@ -93,7 +93,7 @@ registerSpaceSyncableTable(dailyListsTable, dailyListType);
 export type DailyList = ExtractSchema<typeof dailyListsTable>;
 export const isDailyList = isObjectType<DailyList>(dailyListType);
 
-export const dailyEntryType = "daily_entry";
+export const dailyEntryType = "dailyEntry";
 export const dailyEntriesTable = defineTable("daily_entries", {
   type: v.literal(dailyEntryType),
   id: v.string(),
@@ -108,7 +108,7 @@ registerSpaceSyncableTable(dailyEntriesTable, dailyEntryType);
 export type DailyEntry = ExtractSchema<typeof dailyEntriesTable>;
 export const isDailyEntry = isObjectType<DailyEntry>(dailyEntryType);
 
-export const projectSectionType = "project_section";
+export const projectSectionType = "projectSection";
 export const projectSectionsTable = defineTable("project_sections", {
   type: v.literal(projectSectionType),
   id: v.string(),
@@ -154,7 +154,7 @@ export const spaceMigrationsTable = defineTable("space_migrations", {
 }).index("byIds", ["id"]);
 export type SpaceMigration = ExtractSchema<typeof spaceMigrationsTable>;
 
-export const stashEntryType = "stash_entry";
+export const stashEntryType = "stashEntry";
 export const stashEntriesTable = defineTable("stash_entries", {
   type: v.literal(stashEntryType),
   id: v.string(),

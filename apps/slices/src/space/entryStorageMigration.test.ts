@@ -56,7 +56,7 @@ const seedLegacyEntries = action({
     ]);
     yield* insert(dailyEntriesTable, [
       {
-        type: "daily_entry",
+        type: "dailyEntry",
         id: "daily-collision",
         orderToken: "canonical-collision",
         dailyListId: "list-2",
@@ -142,12 +142,12 @@ describe("entry storage migration", () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: "daily-1",
-          type: "daily_entry",
+          type: "dailyEntry",
           orderToken: "legacy-a",
         }),
         expect.objectContaining({
           id: "daily-collision",
-          type: "daily_entry",
+          type: "dailyEntry",
           orderToken: "canonical-collision",
         }),
       ]),
@@ -155,7 +155,7 @@ describe("entry storage migration", () => {
     expect(firstResult.stashEntries).toEqual([
       expect.objectContaining({
         id: "stash-1",
-        type: "stash_entry",
+        type: "stashEntry",
         orderToken: "legacy-b",
       }),
     ]);
@@ -229,7 +229,7 @@ describe("entry storage migration", () => {
     ).toEqual(
       expect.objectContaining({
         id: "daily-1499",
-        type: "daily_entry",
+        type: "dailyEntry",
       }),
     );
     expect(result.legacyDailyEntries).toHaveLength(1_500);

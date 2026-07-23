@@ -33,7 +33,7 @@ const seedDailyEntry = action({
     ]);
     yield* insert(dailyEntriesTable, [
       {
-        type: "daily_entry",
+        type: "dailyEntry",
         id: "task-1",
         dailyListId: "list-1",
         orderToken: "a",

@@ -178,7 +178,7 @@ describe("ProjectSection storage migration", () => {
     expect(firstResult.sections).toEqual([
       expect.objectContaining({
         id: "section-1",
-        type: "project_section",
+        type: "projectSection",
       }),
     ]);
     expect(firstResult.tasks).toEqual(

@@ -51,7 +51,7 @@ export function migratePersistedSpaceRow(
       tableName: projectSectionsTableName,
       row: {
         ...row,
-        type: row.type === "projectCategory" ? "project_section" : row.type,
+        type: row.type === "projectCategory" ? "projectSection" : row.type,
       },
       changed: true,
     };
@@ -194,7 +194,7 @@ export const migrateLegacyProjectSections = action({
       .filter((row) => !currentSectionIds.has(row.id))
       .map((row) => ({
         ...row,
-        type: projectSectionType as "project_section",
+        type: projectSectionType as "projectSection",
       }));
     if (sectionsToInsert.length > 0) {
       yield* insert(projectSectionsTable, sectionsToInsert);

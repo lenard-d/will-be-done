@@ -83,7 +83,7 @@ export const migrateLegacyEntries = action({
       .filter((row) => !currentDailyEntryIds.has(row.id))
       .map((row) => ({
         ...row,
-        type: dailyEntryType as "daily_entry",
+        type: dailyEntryType as "dailyEntry",
       }));
     if (dailyEntriesToInsert.length > 0) {
       yield* insert(dailyEntriesTable, dailyEntriesToInsert);
@@ -99,7 +99,7 @@ export const migrateLegacyEntries = action({
       .filter((row) => !currentStashEntryIds.has(row.id))
       .map((row) => ({
         ...row,
-        type: stashEntryType as "stash_entry",
+        type: stashEntryType as "stashEntry",
       }));
     if (stashEntriesToInsert.length > 0) {
       yield* insert(stashEntriesTable, stashEntriesToInsert);
