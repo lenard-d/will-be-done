@@ -1303,6 +1303,6 @@ export function generateDemoBackup(): Backup {
     taskTemplates: [],
     dailyLists,
     // Retain the serialized key for backup compatibility.
-    dailyListProjections: dailyEntries,
+    dailyEntries,
   };
 }

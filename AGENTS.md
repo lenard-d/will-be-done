@@ -9,9 +9,9 @@
 - Item: primary content shown in project sections. Currently a Task or TaskTemplate; may include other content such as Note in the future.
 - TaskSection: an ordered section inside a Project that contains Items directly. Tasks and TaskTemplates store their section and section order.
 - DailyList: a dated schedule list, identified by date, that contains DailyEntries.
-- DailyEntry: a scheduled appearance of a Task in a DailyList. Its `id` is the Task id; it stores the DailyList and order for that task on that date. Its persisted discriminator remains `projection`.
+- DailyEntry: a scheduled appearance of a Task in a DailyList. Its `id` is the Task id; it stores the DailyList and order for that task on that date. Its persisted discriminator is `daily_entry`.
 - Stash: the unscheduled holding area represented by StashEntries. It keeps items quickly accessible from any page.
-- StashEntry: an unscheduled appearance of a Task in the stash. Its `id` is the Task id; it stores the stash order. Its persisted discriminator remains `stashProjection`.
+- StashEntry: an unscheduled appearance of a Task in the stash. Its `id` is the Task id; it stores the stash order. Its persisted discriminator is `stash_entry`.
 - Entry: a DailyEntry or StashEntry. This is a TypeScript union, not a shared database table.
 - ListItem: an Item or Entry that can occupy an ordered view.
 - ListItemType: the model type of a ListItem.

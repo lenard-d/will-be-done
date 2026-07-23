@@ -287,8 +287,8 @@ export function buildBackup(
   const tasks: Backup["tasks"] = [];
   const taskTemplates: Backup["taskTemplates"] = [];
   const dailyListsMap = new Map<string, { id: string; date: string }>();
-  const dailyListProjections: NonNullable<Backup["dailyListProjections"]> = [];
-  const projectionLastToken = new Map<string, string | null>();
+  const dailyEntries: NonNullable<Backup["dailyEntries"]> = [];
+  const dailyEntryLastToken = new Map<string, string | null>();
 
   const tasksBySection = new Map<string, TodoistTask[]>();
 
@@ -359,18 +359,18 @@ export function buildBackup(
         templateDate: null,
       });
 
-      // Daily list projection from due date
+      // Daily entry from due date
       if (t.due?.date) {
         const dateKey = toDateKey(t.due.date);
         if (!dailyListsMap.has(dateKey)) {
           dailyListsMap.set(dateKey, { id: dateKey, date: dateKey });
         }
-        const projPrev = projectionLastToken.get(dateKey) ?? null;
-        const projToken = generateJitteredKeyBetween(projPrev, null);
-        projectionLastToken.set(dateKey, projToken);
-        dailyListProjections.push({
+        const entryPreviousToken = dailyEntryLastToken.get(dateKey) ?? null;
+        const entryToken = generateJitteredKeyBetween(entryPreviousToken, null);
+        dailyEntryLastToken.set(dateKey, entryToken);
+        dailyEntries.push({
           id: taskId,
-          orderToken: projToken,
+          orderToken: entryToken,
           listId: dateKey,
           createdAt,
         });
@@ -384,7 +384,7 @@ export function buildBackup(
     tasks,
     taskTemplates,
     dailyLists: [...dailyListsMap.values()],
-    dailyListProjections,
+    dailyEntries,
   };
 }
 

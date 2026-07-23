@@ -10,11 +10,11 @@ import { publicProcedure, router } from "./trpc";
 import { assertSupportedSyncVersion } from "./syncVersion";
 
 describe("sync version enforcement", () => {
-  it("accepts version 1", () => {
-    expect(() => assertSupportedSyncVersion(1)).not.toThrow();
+  it("accepts version 2", () => {
+    expect(() => assertSupportedSyncVersion(2)).not.toThrow();
   });
 
-  it.each([undefined, 0, 2])("rejects unsupported version %s", (version) => {
+  it.each([undefined, 0, 1, 3])("rejects unsupported version %s", (version) => {
     try {
       assertSupportedSyncVersion(version);
       throw new Error("Expected sync version rejection");
@@ -40,7 +40,7 @@ describe("sync version enforcement", () => {
       req: new Request("http://localhost/trpc/sync", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ syncVersion: 2 }),
+        body: JSON.stringify({ syncVersion: 1 }),
       }),
       router: syncRouter,
       createContext: () => ({ user: null }),
@@ -58,9 +58,9 @@ describe("sync version enforcement", () => {
     expect(body.error.data.code).toBe("PRECONDITION_FAILED");
     expect(body.error.data.syncVersion).toEqual({
       code: SYNC_VERSION_UNSUPPORTED,
-      received: 2,
-      minimum: 1,
-      maximum: 1,
+      received: 1,
+      minimum: 2,
+      maximum: 2,
     });
   });
 });

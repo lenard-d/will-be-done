@@ -15,7 +15,7 @@ describe("sync compatibility client helpers", () => {
   });
 
   it("isolates version-1 cross-tab channels", () => {
-    expect(syncChannelName("changes", "client")).toBe("changes-v1-client");
-    expect(syncChannelName("election", "client")).toBe("election-v1-client");
+    expect(syncChannelName("changes", "client")).toBe("changes-v2-client");
+    expect(syncChannelName("election", "client")).toBe("election-v2-client");
   });
 });

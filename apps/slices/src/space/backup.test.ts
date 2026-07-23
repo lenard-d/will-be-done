@@ -1,12 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { normalizeSpaceBackup, type Backup } from "./backup";
+import {
+  createAction,
+  DB,
+  execSync,
+  insert,
+  selectSync,
+  syncDispatch,
+} from "@will-be-done/hyperdb";
+import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
+import { getSpaceBackup, normalizeSpaceBackup, type Backup } from "./backup";
+import { dailyEntriesTable, dailyListsTable } from "./tables";
+import { registeredSpaceSyncableTables } from "./syncMap";
 
 const baseBackup = {
   projects: [],
   dailyLists: [],
-  dailyListProjections: [],
+  dailyEntries: [],
   checklistItems: [],
 };
+const action = createAction();
+
+const seedDailyEntry = action({
+  name: "seedDailyEntryForBackup",
+  args: {},
+  handler: function* seedDailyEntryForBackup() {
+    yield* insert(dailyListsTable, [
+      {
+        type: "dailyList",
+        id: "list-1",
+        date: "2026-07-23",
+      },
+    ]);
+    yield* insert(dailyEntriesTable, [
+      {
+        type: "daily_entry",
+        id: "task-1",
+        dailyListId: "list-1",
+        orderToken: "a",
+        createdAt: 1,
+      },
+    ]);
+  },
+});
 
 describe("space backup compatibility", () => {
   it("normalizes the legacy category shape", () => {
@@ -52,7 +87,7 @@ describe("space backup compatibility", () => {
     expect(normalized.taskTemplates[0]?.taskSectionId).toBe("section-1");
   });
 
-  it("keeps the new format unchanged", () => {
+  it("keeps the new format semantically unchanged", () => {
     const backup: Backup = {
       ...baseBackup,
       taskSections: [],
@@ -60,6 +95,71 @@ describe("space backup compatibility", () => {
       taskTemplates: [],
     };
 
-    expect(normalizeSpaceBackup(backup)).toBe(backup);
+    expect(normalizeSpaceBackup(backup)).toEqual(backup);
+  });
+
+  it("normalizes the legacy daily entry key", () => {
+    const normalized = normalizeSpaceBackup({
+      projects: [],
+      dailyLists: [],
+      checklistItems: [],
+      taskSections: [],
+      tasks: [],
+      taskTemplates: [],
+      dailyListProjections: [
+        {
+          id: "task-1",
+          listId: "list-1",
+          orderToken: "a",
+          createdAt: 1,
+        },
+      ],
+    });
+
+    expect(normalized.dailyEntries).toEqual([
+      expect.objectContaining({ id: "task-1", listId: "list-1" }),
+    ]);
+    expect(normalized).not.toHaveProperty("dailyListProjections");
+  });
+
+  it("prefers the new daily entry key when both keys are present", () => {
+    const normalized = normalizeSpaceBackup({
+      projects: [],
+      dailyLists: [],
+      checklistItems: [],
+      taskSections: [],
+      tasks: [],
+      taskTemplates: [],
+      dailyEntries: [],
+      dailyListProjections: [
+        {
+          id: "legacy-task",
+          listId: "list-1",
+          orderToken: "a",
+          createdAt: 1,
+        },
+      ],
+    });
+
+    expect(normalized.dailyEntries).toEqual([]);
+    expect(normalized).not.toHaveProperty("dailyListProjections");
+  });
+
+  it("exports only the canonical daily entry key", () => {
+    const db = new DB(new BptreeInmemDriver());
+    execSync(db.loadTables(registeredSpaceSyncableTables));
+    syncDispatch(db, seedDailyEntry({}));
+
+    const backup = selectSync(db, { selector: getSpaceBackup, args: {} });
+
+    expect(backup.dailyEntries).toEqual([
+      {
+        id: "task-1",
+        listId: "list-1",
+        orderToken: "a",
+        createdAt: 1,
+      },
+    ]);
+    expect(backup).not.toHaveProperty("dailyListProjections");
   });
 });

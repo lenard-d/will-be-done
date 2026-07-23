@@ -6,11 +6,12 @@ import {
 } from "./syncProtocol";
 
 describe("sync protocol version", () => {
-  it("accepts only version 1", () => {
-    expect(isSupportedSyncVersion(1)).toBe(true);
+  it("accepts only version 2", () => {
+    expect(isSupportedSyncVersion(2)).toBe(true);
     expect(isSupportedSyncVersion(undefined)).toBe(false);
     expect(isSupportedSyncVersion(0)).toBe(false);
-    expect(isSupportedSyncVersion(2)).toBe(false);
+    expect(isSupportedSyncVersion(1)).toBe(false);
+    expect(isSupportedSyncVersion(3)).toBe(false);
   });
 
   it("provides machine-readable compatibility data", () => {
@@ -18,8 +19,8 @@ describe("sync protocol version", () => {
     expect(error.data).toEqual({
       code: SYNC_VERSION_UNSUPPORTED,
       received: null,
-      minimum: 1,
-      maximum: 1,
+      minimum: 2,
+      maximum: 2,
     });
   });
 });

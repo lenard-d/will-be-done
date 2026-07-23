@@ -89,9 +89,8 @@ registerSpaceSyncableTable(dailyListsTable, dailyListType);
 export type DailyList = ExtractSchema<typeof dailyListsTable>;
 export const isDailyList = isObjectType<DailyList>(dailyListType);
 
-// Persisted discriminator retained for compatibility with existing spaces.
-export const dailyEntryType = "projection";
-export const dailyEntriesTable = defineTable("task_projections", {
+export const dailyEntryType = "daily_entry";
+export const dailyEntriesTable = defineTable("daily_entries", {
   type: v.literal(dailyEntryType),
   id: v.string(),
   orderToken: v.string(),
@@ -150,9 +149,8 @@ export const spaceMigrationsTable = defineTable("space_migrations", {
 }).index("byIds", ["id"]);
 export type SpaceMigration = ExtractSchema<typeof spaceMigrationsTable>;
 
-// Persisted discriminator retained for compatibility with existing spaces.
-export const stashEntryType = "stashProjection";
-export const stashEntriesTable = defineTable("stash_projections", {
+export const stashEntryType = "stash_entry";
+export const stashEntriesTable = defineTable("stash_entries", {
   type: v.literal(stashEntryType),
   id: v.string(),
   orderToken: v.string(),

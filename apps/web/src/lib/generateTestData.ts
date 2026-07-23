@@ -121,6 +121,6 @@ export function generateTestBackup(
     tasks: backupTasks,
     taskTemplates: [],
     dailyLists: [],
-    dailyListProjections: [],
+    dailyEntries: [],
   };
 }

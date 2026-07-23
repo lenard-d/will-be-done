@@ -263,12 +263,12 @@ describe("parseTickTickCSV", () => {
 
     expect(backup.tasks).toHaveLength(2);
     expect(backup.dailyLists).toHaveLength(1);
-    expect(backup.dailyListProjections).toHaveLength(1);
+    expect(backup.dailyEntries).toHaveLength(1);
 
     const scheduledTask = backup.tasks.find(
       (t) => t.title === "Scheduled task",
     )!;
-    const entry = backup.dailyListProjections![0]!;
+    const entry = backup.dailyEntries![0]!;
     const dailyList = backup.dailyLists[0]!;
 
     // entry.id = taskId in new format
@@ -286,7 +286,7 @@ describe("parseTickTickCSV", () => {
     const backup = parseTickTickCSV(METADATA + row);
 
     expect(backup.dailyLists).toHaveLength(1);
-    expect(backup.dailyListProjections).toHaveLength(1);
+    expect(backup.dailyEntries).toHaveLength(1);
   });
 
   it("deduplicates daily lists when multiple tasks share the same due date", () => {
@@ -298,7 +298,7 @@ describe("parseTickTickCSV", () => {
     const backup = parseTickTickCSV(METADATA + rows);
 
     expect(backup.dailyLists).toHaveLength(2);
-    expect(backup.dailyListProjections).toHaveLength(3);
+    expect(backup.dailyEntries).toHaveLength(3);
   });
 
   it("does not create a entry for recurring active tasks", () => {
@@ -312,7 +312,7 @@ describe("parseTickTickCSV", () => {
 
     expect(backup.taskTemplates).toHaveLength(1);
     expect(backup.dailyLists).toHaveLength(0);
-    expect(backup.dailyListProjections).toHaveLength(0);
+    expect(backup.dailyEntries).toHaveLength(0);
   });
 
   it("handles quoted fields with commas and newlines in task title/content", () => {

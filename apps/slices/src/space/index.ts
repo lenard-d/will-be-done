@@ -4,6 +4,8 @@ export * from "./maps";
 export * from "./syncMap";
 export * from "./tables";
 export * from "./taskSectionStorageMigration";
+export * from "./entryStorageMigration";
+export * from "./spaceStorageMigrations";
 
 // Slice selectors and actions
 export * from "./app";

@@ -17,10 +17,10 @@ import {
   firstTaskSectionChild,
   registeredSpaceSyncableTables,
   tasksTable,
-  isTaskSectionStorageMigrationApplied,
-  migrateLegacyTaskSections,
+  areSpaceStorageMigrationsApplied,
+  migrateLegacySpaceStorage,
   spaceMigrationsTable,
-  taskSectionStorageMigrationTables,
+  spaceStorageMigrationTables,
 } from "@will-be-done/slices/space";
 import { BroadcastChannel } from "broadcast-channel";
 import { authUtils } from "@/lib/auth";
@@ -52,12 +52,12 @@ export async function initPopupStore(spaceId: string) {
 
     await execAsync(db.loadTables([spaceMigrationsTable]));
     const migrationApplied = await selectAsync(db, {
-      selector: isTaskSectionStorageMigrationApplied,
+      selector: areSpaceStorageMigrationsApplied,
       args: {},
     });
     if (!migrationApplied) {
-      await execAsync(db.loadTables(taskSectionStorageMigrationTables));
-      await asyncDispatch(db, migrateLegacyTaskSections({}));
+      await execAsync(db.loadTables(spaceStorageMigrationTables));
+      await asyncDispatch(db, migrateLegacySpaceStorage({}));
     }
     await execAsync(db.loadTables(persistDBTables));
     return db;

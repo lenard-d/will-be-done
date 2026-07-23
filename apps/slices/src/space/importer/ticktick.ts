@@ -197,7 +197,7 @@ export function parseTickTickCSV(csv: string): Backup {
   const taskTemplates: Backup["taskTemplates"] = [];
   // date string (yyyy-MM-dd) → DailyListBackup (id = date, used as local key)
   const dailyListsMap = new Map<string, { id: string; date: string }>();
-  const dailyEntries: NonNullable<Backup["dailyListProjections"]> = [];
+  const dailyEntries: NonNullable<Backup["dailyEntries"]> = [];
   const dailyEntryLastToken = new Map<string, string | null>();
 
   for (const row of sortedRows) {
@@ -299,6 +299,6 @@ export function parseTickTickCSV(csv: string): Backup {
     taskTemplates,
     dailyLists: [...dailyListsMap.values()],
     // Retain the serialized key for backup compatibility.
-    dailyListProjections: dailyEntries,
+    dailyEntries,
   };
 }

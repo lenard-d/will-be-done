@@ -107,8 +107,12 @@ export interface Backup {
   dailyLists: DailyListBackup[];
   taskTemplates: TaskTemplateBackup[];
   taskSections: TaskSectionBackup[];
-  dailyListProjections?: DailyEntryBackup[];
+  dailyEntries?: DailyEntryBackup[];
   checklistItems?: ChecklistItemBackup[];
+}
+
+interface LegacyEntryBackupFields {
+  dailyListProjections?: DailyEntryBackup[];
 }
 
 interface LegacyTaskBackup extends Omit<TaskBackup, "taskSectionId"> {
@@ -122,14 +126,16 @@ interface LegacyTaskTemplateBackup extends Omit<
   projectCategoryId: string;
 }
 
-interface LegacyBackup extends Omit<
-  Backup,
-  "tasks" | "taskTemplates" | "taskSections"
-> {
+interface LegacyBackup
+  extends
+    Omit<Backup, "tasks" | "taskTemplates" | "taskSections">,
+    LegacyEntryBackupFields {
   tasks: LegacyTaskBackup[];
   taskTemplates: LegacyTaskTemplateBackup[];
   projectCategories: TaskSectionBackup[];
 }
+
+type BackupInput = Backup & LegacyEntryBackupFields;
 
 const backupSchema = v.object({
   tasks: v.array(
@@ -188,6 +194,17 @@ const backupSchema = v.object({
       createdAt: v.number(),
       orderToken: v.string(),
     }),
+  ),
+  dailyEntries: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        taskId: v.optional(v.string()),
+        orderToken: v.string(),
+        listId: v.string(),
+        createdAt: v.number(),
+      }),
+    ),
   ),
   dailyListProjections: v.optional(
     v.array(
@@ -285,6 +302,17 @@ const legacyBackupSchema = v.object({
       }),
     ),
   ),
+  dailyEntries: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        taskId: v.optional(v.string()),
+        orderToken: v.string(),
+        listId: v.string(),
+        createdAt: v.number(),
+      }),
+    ),
+  ),
   checklistItems: v.optional(
     v.array(
       v.object({
@@ -303,14 +331,25 @@ const legacyBackupSchema = v.object({
 
 const backupInputSchema = v.union(backupSchema, legacyBackupSchema);
 
-export function normalizeSpaceBackup(backup: Backup | LegacyBackup): Backup {
-  if ("taskSections" in backup) {
-    return backup;
+export function normalizeSpaceBackup(
+  backup: BackupInput | LegacyBackup,
+): Backup {
+  const { dailyListProjections, ...backupWithoutLegacyEntries } = backup;
+  const dailyEntries = backup.dailyEntries ?? dailyListProjections;
+  const entryFields = dailyEntries === undefined ? {} : { dailyEntries };
+
+  if ("taskSections" in backupWithoutLegacyEntries) {
+    return {
+      ...backupWithoutLegacyEntries,
+      ...entryFields,
+    };
   }
 
-  const { projectCategories, tasks, taskTemplates, ...rest } = backup;
+  const { projectCategories, tasks, taskTemplates, ...rest } =
+    backupWithoutLegacyEntries;
   return {
     ...rest,
+    ...entryFields,
     taskSections: projectCategories,
     tasks: tasks.map(({ projectCategoryId, ...task }) => ({
       ...task,
@@ -367,8 +406,8 @@ const getNewModels = action({
 
     // Build entry map for migration from old backups (where entries have taskId)
     const legacyDailyEntryMap = new Map<string, DailyEntryBackup[]>();
-    if (backup.dailyListProjections) {
-      for (const entry of backup.dailyListProjections) {
+    if (backup.dailyEntries) {
+      for (const entry of backup.dailyEntries) {
         // If taskId exists, it's a legacy format
         if (entry.taskId) {
           const existing = legacyDailyEntryMap.get(entry.taskId) || [];
@@ -457,8 +496,8 @@ const getNewModels = action({
     }
 
     // Create entries - handle both new format (id = taskId) and legacy format (separate taskId field)
-    if (backup.dailyListProjections) {
-      for (const entryBackup of backup.dailyListProjections) {
+    if (backup.dailyEntries) {
+      for (const entryBackup of backup.dailyEntries) {
         // In new format, id = taskId, so taskId field is optional
         const taskId = entryBackup.taskId || entryBackup.id;
 
@@ -514,7 +553,7 @@ const getNewModels = action({
     // Handle legacy backup format where dailyListId was on tasks directly
     for (const taskBackup of backup.tasks) {
       // Skip if we already have an entry for this task.
-      const hasEntry = backup.dailyListProjections?.some(
+      const hasEntry = backup.dailyEntries?.some(
         (p) => (p.taskId || p.id) === taskBackup.id,
       );
       if (hasEntry) continue;
@@ -631,7 +670,7 @@ export const getSpaceBackup = selector({
         id: dailyList.id,
         date: dailyList.date,
       })),
-      dailyListProjections: entries.map((entry) => ({
+      dailyEntries: entries.map((entry) => ({
         id: entry.id, // id = taskId in new format
         orderToken: entry.orderToken,
         listId: entry.dailyListId,

@@ -209,16 +209,16 @@ describe("buildBackup", () => {
 
     it("tasks with the same due date share a daily list", () => {
       // Multiple tasks have due date 2026-03-04
-      const projections = backup.dailyListProjections!.filter(
-        (p) => p.listId === "2026-03-04",
+      const entries = backup.dailyEntries!.filter(
+        (entry) => entry.listId === "2026-03-04",
       );
-      expect(projections.length).toBeGreaterThan(1);
+      expect(entries.length).toBeGreaterThan(1);
     });
 
-    it("each projection references a valid daily list", () => {
+    it("each daily entry references a valid daily list", () => {
       const listIds = new Set(backup.dailyLists.map((dl) => dl.id));
-      for (const proj of backup.dailyListProjections!) {
-        expect(listIds.has(proj.listId)).toBe(true);
+      for (const entry of backup.dailyEntries!) {
+        expect(listIds.has(entry.listId)).toBe(true);
       }
     });
   });
