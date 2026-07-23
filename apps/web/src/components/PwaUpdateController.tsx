@@ -205,6 +205,7 @@ export function PwaUpdateController() {
   useEffect(() => {
     if (
       !needRefresh ||
+      syncUpdateRequired ||
       updateToastDismissed ||
       manualReloadActivationStartedRef.current
     ) {
@@ -222,7 +223,12 @@ export function PwaUpdateController() {
         setUpdateToastDismissed(true);
       },
     });
-  }, [activateUpdateServiceWorker, needRefresh, updateToastDismissed]);
+  }, [
+    activateUpdateServiceWorker,
+    needRefresh,
+    syncUpdateRequired,
+    updateToastDismissed,
+  ]);
 
   useEffect(() => {
     if (!syncUpdateRequired) {

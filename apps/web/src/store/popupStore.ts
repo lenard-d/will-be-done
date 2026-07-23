@@ -1,4 +1,9 @@
-import { asyncDispatch, DB, execAsync } from "@will-be-done/hyperdb";
+import {
+  asyncDispatch,
+  DB,
+  execAsync,
+  selectAsync,
+} from "@will-be-done/hyperdb";
 import {
   insertChangeFromInsert,
   changesTable,
@@ -12,7 +17,9 @@ import {
   firstTaskSectionChild,
   registeredSpaceSyncableTables,
   tasksTable,
+  isTaskSectionStorageMigrationApplied,
   migrateLegacyTaskSections,
+  spaceMigrationsTable,
   taskSectionStorageMigrationTables,
 } from "@will-be-done/slices/space";
 import { BroadcastChannel } from "broadcast-channel";
@@ -23,6 +30,7 @@ import {
 } from "./persistentDriver";
 import { getClientId, initClock } from "./syncClock";
 import { syncChannelName } from "./syncCompatibility";
+import { withStoreStartupLock } from "./storeDbs";
 
 export async function initPopupStore(spaceId: string) {
   const dbName = "space-" + spaceId;
@@ -36,14 +44,24 @@ export async function initPopupStore(spaceId: string) {
     syncStateTable,
   ];
 
-  const persistentDriver = await openPersistentDriver(dbName);
-  const asyncDB = new DB(persistentDriver, {
-    traits: [dbIdTrait("space", spaceId)],
-  });
+  const asyncDB = await withStoreStartupLock(dbName, async () => {
+    const persistentDriver = await openPersistentDriver(dbName);
+    const db = new DB(persistentDriver, {
+      traits: [dbIdTrait("space", spaceId)],
+    });
 
-  await execAsync(asyncDB.loadTables(taskSectionStorageMigrationTables));
-  await asyncDispatch(asyncDB, migrateLegacyTaskSections({}));
-  await execAsync(asyncDB.loadTables(persistDBTables));
+    await execAsync(db.loadTables([spaceMigrationsTable]));
+    const migrationApplied = await selectAsync(db, {
+      selector: isTaskSectionStorageMigrationApplied,
+      args: {},
+    });
+    if (!migrationApplied) {
+      await execAsync(db.loadTables(taskSectionStorageMigrationTables));
+      await asyncDispatch(db, migrateLegacyTaskSections({}));
+    }
+    await execAsync(db.loadTables(persistDBTables));
+    return db;
+  });
 
   // Ensure inbox exists
   await asyncDispatch(asyncDB, createInboxIfNotExists({}));

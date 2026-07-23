@@ -64,7 +64,6 @@ export const spaceDBConfig = (dbId: string) => {
           { table: stashProjectionsTable, scanIndex: "byIds" },
           { table: taskSectionTaskStatsTable, scanIndex: "byIds" },
           { table: scheduledTodoTasksTable, scanIndex: "byIds" },
-          { table: stashProjectionsTable, scanIndex: "byIds" },
           { table: checklistItemsTable, scanIndex: "byIds" },
         ]),
       );

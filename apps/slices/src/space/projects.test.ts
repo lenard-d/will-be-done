@@ -591,6 +591,11 @@ describe("moving stashed tasks through app drops", () => {
         title: "Target project",
       },
     );
+    const targetTask = createTask(
+      db,
+      targetSection.id,
+      "target-project-existing-task",
+    );
     const stashedTask = createTask(db, section.id, "stashed-drop-on-project");
 
     syncDispatch(
@@ -640,8 +645,18 @@ describe("moving stashed tasks through app drops", () => {
       },
       [],
     );
+    const targetTaskIds = runSelector<string[]>(
+      db,
+      function* () {
+        return yield* taskSectionCardIds({
+          taskSectionId: targetSection.id,
+        });
+      },
+      [],
+    );
 
     expect(movedTask?.taskSectionId).toBe(targetSection.id);
+    expect(targetTaskIds).toEqual([targetTask.id, stashedTask.id]);
     expect(stashProjection).toBeUndefined();
   });
 });

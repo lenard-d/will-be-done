@@ -35,6 +35,7 @@ import { dailyProjectionByTaskId } from "./dailyListsProjections";
 import { stashProjectionAllTaskIds } from "./stashProjections";
 import { taskById, updateTask } from "./cardsTasks";
 import { updateTemplate } from "./cardsTaskTemplates";
+import { firstTaskSectionCard, lastTaskSectionCard } from "./taskSectionCards";
 import { registerModelSlice } from "./maps";
 import { genUUIDV5 } from "../traits";
 import { startOfDay } from "date-fns";
@@ -492,12 +493,23 @@ export const projectHandleDrop = action({
       });
       if (!section) throw new Error("No sections found in project");
 
+      const orderToken = yield* generateOrderTokenPositioned(
+        section.id,
+        {
+          firstChild: (taskSectionId) =>
+            firstTaskSectionCard({ taskSectionId }),
+          lastChild: (taskSectionId) => lastTaskSectionCard({ taskSectionId }),
+        },
+        edge === "top" ? "prepend" : "append",
+      );
+
       // Move task/template to this project
       if (isTask(dropItem)) {
         yield* updateTask({
           id: dropItem.id,
           task: {
             taskSectionId: section.id,
+            orderToken,
           },
         });
       } else if (isTaskTemplate(dropItem)) {
@@ -505,6 +517,7 @@ export const projectHandleDrop = action({
           id: dropItem.id,
           template: {
             taskSectionId: section.id,
+            orderToken,
           },
         });
       } else if (isTaskProjection(dropItem)) {
@@ -515,6 +528,7 @@ export const projectHandleDrop = action({
             id: task.id,
             task: {
               taskSectionId: section.id,
+              orderToken,
             },
           });
           // Keep the projection in the daily list

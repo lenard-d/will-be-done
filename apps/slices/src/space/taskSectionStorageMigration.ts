@@ -6,15 +6,18 @@ import {
   upsert,
   v,
 } from "@will-be-done/hyperdb";
-import { action } from "../builders";
+import { action, selector } from "../builders";
 import { changesTable, type Change } from "../common/tables";
-import { taskSectionType, taskSectionsTable, taskType } from "./tables";
+import {
+  spaceMigrationsTable,
+  taskSectionType,
+  taskSectionsTable,
+  taskType,
+} from "./tables";
 
 export const legacyTaskSectionsTableName = "project_categories";
 export const taskSectionsTableName = "task_sections";
-
-export const legacyTaskSectionStatsTableName = "project_category_task_stats";
-export const taskSectionStatsTableName = "task_section_task_stats";
+export const taskSectionStorageMigrationId = "task-section-storage-v1";
 
 export type PersistedSpaceRow = Record<string, unknown> & { id: string };
 
@@ -156,12 +159,30 @@ export const taskSectionStorageMigrationTables = [
   taskTemplatesMigrationTable,
   scheduledTodoTasksMigrationTable,
   changesTable,
+  spaceMigrationsTable,
 ];
+
+export const isTaskSectionStorageMigrationApplied = selector({
+  name: "isTaskSectionStorageMigrationApplied",
+  args: {},
+  handler: function* isTaskSectionStorageMigrationApplied() {
+    return Boolean(
+      yield* selectFrom(spaceMigrationsTable, "byId")
+        .where((q) => q.eq("id", taskSectionStorageMigrationId))
+        .firstOr(null),
+    );
+  },
+});
 
 export const migrateLegacyTaskSections = action({
   name: "migrateLegacyTaskSections",
   args: {},
   handler: function* migrateLegacyTaskSections() {
+    const existingMigration = yield* selectFrom(spaceMigrationsTable, "byId")
+      .where((q) => q.eq("id", taskSectionStorageMigrationId))
+      .firstOr(null);
+    if (existingMigration) return;
+
     const legacySections = yield* selectFrom(
       legacyTaskSectionsMigrationTable,
       "byIds",
@@ -250,5 +271,12 @@ export const migrateLegacyTaskSections = action({
     if (changeIdsToDelete.length > 0) {
       yield* deleteRows(changesTable, changeIdsToDelete);
     }
+
+    yield* upsert(spaceMigrationsTable, [
+      {
+        id: taskSectionStorageMigrationId,
+        appliedAt: Date.now(),
+      },
+    ]);
   },
 });

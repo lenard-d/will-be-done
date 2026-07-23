@@ -21,6 +21,7 @@ import {
 } from "./taskSectionStorageMigration";
 import {
   scheduledTodoTasksTable,
+  spaceMigrationsTable,
   taskSectionsTable,
   taskTemplatesTable,
   tasksTable,
@@ -56,6 +57,19 @@ const seedLegacyRows = action({
         templateId: null,
         templateDate: null,
       },
+      {
+        type: "task",
+        id: "task-partially-migrated",
+        title: "Partially migrated task",
+        state: "todo",
+        projectCategoryId: "legacy-section",
+        taskSectionId: "section-1",
+        orderToken: "b",
+        lastToggledAt: 1,
+        createdAt: 1,
+        templateId: null,
+        templateDate: null,
+      },
     ]);
     yield* insert(taskTemplatesMigrationTable, [
       {
@@ -75,6 +89,12 @@ const seedLegacyRows = action({
         id: "task-1",
         scheduledAt: 2,
         projectCategoryId: "section-1",
+      },
+      {
+        id: "task-partially-migrated",
+        scheduledAt: 3,
+        projectCategoryId: "legacy-section",
+        taskSectionId: "section-1",
       },
     ]);
     yield* insert(changesTable, [
@@ -116,7 +136,30 @@ const migratedRows = selector({
       templates: yield* selectFrom(taskTemplatesTable, "byIds"),
       scheduledTasks: yield* selectFrom(scheduledTodoTasksTable, "byIds"),
       changes: yield* selectFrom(changesTable, "byUpdatedAt"),
+      migrations: yield* selectFrom(spaceMigrationsTable, "byIds"),
     };
+  },
+});
+
+const seedLargeLegacyStore = action({
+  name: "seedLargeLegacyTaskSectionStore",
+  args: {},
+  handler: function* seedLargeLegacyStore() {
+    yield* insert(
+      tasksMigrationTable,
+      Array.from({ length: 1_500 }, (_, index) => ({
+        type: "task" as const,
+        id: `large-task-${index}`,
+        title: `Task ${index}`,
+        state: "todo" as const,
+        projectCategoryId: "section-1",
+        orderToken: String(index).padStart(4, "0"),
+        lastToggledAt: 1,
+        createdAt: 1,
+        templateId: null,
+        templateDate: null,
+      })),
+    );
   },
 });
 
@@ -138,19 +181,41 @@ describe("TaskSection storage migration", () => {
         type: "taskSection",
       }),
     ]);
-    expect(firstResult.tasks).toEqual([
+    expect(firstResult.tasks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "task-1",
+          taskSectionId: "section-1",
+        }),
+        expect.objectContaining({
+          id: "task-partially-migrated",
+          taskSectionId: "section-1",
+        }),
+      ]),
+    );
+    for (const task of firstResult.tasks) {
+      expect(task).not.toHaveProperty("projectCategoryId");
+    }
+    expect(firstResult.templates[0]).toEqual(
       expect.objectContaining({
-        id: "task-1",
         taskSectionId: "section-1",
       }),
-    ]);
-    expect(firstResult.tasks[0]).not.toHaveProperty("projectCategoryId");
-    expect(firstResult.templates[0]).toEqual(
-      expect.objectContaining({ taskSectionId: "section-1" }),
     );
-    expect(firstResult.scheduledTasks[0]).toEqual(
-      expect.objectContaining({ taskSectionId: "section-1" }),
+    expect(firstResult.scheduledTasks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "task-1",
+          taskSectionId: "section-1",
+        }),
+        expect.objectContaining({
+          id: "task-partially-migrated",
+          taskSectionId: "section-1",
+        }),
+      ]),
     );
+    for (const scheduledTask of firstResult.scheduledTasks) {
+      expect(scheduledTask).not.toHaveProperty("projectCategoryId");
+    }
 
     const sectionChange = firstResult.changes.find(
       (change) => change.entityId === "section-1",
@@ -169,6 +234,9 @@ describe("TaskSection storage migration", () => {
       title: "1-client",
       taskSectionId: "4-client",
     });
+    expect(firstResult.migrations).toEqual([
+      expect.objectContaining({ id: "task-section-storage-v1" }),
+    ]);
 
     syncDispatch(db, migrateLegacyTaskSections({}));
     const secondResult = selectSync(db, {
@@ -176,5 +244,29 @@ describe("TaskSection storage migration", () => {
       args: {},
     });
     expect(secondResult).toEqual(firstResult);
+  });
+
+  it("migrates a large store in one guarded startup pass", () => {
+    const db = new DB(new BptreeInmemDriver());
+    execSync(db.loadTables(taskSectionStorageMigrationTables));
+    syncDispatch(db, seedLargeLegacyStore({}));
+
+    syncDispatch(db, migrateLegacyTaskSections({}));
+    const result = selectSync(db, {
+      selector: migratedRows,
+      args: {},
+    });
+
+    expect(result.tasks).toHaveLength(1_500);
+    expect(result.tasks.find((task) => task.id === "large-task-1499")).toEqual(
+      expect.objectContaining({
+        id: "large-task-1499",
+        taskSectionId: "section-1",
+      }),
+    );
+    expect(result.tasks.every((task) => !("projectCategoryId" in task))).toBe(
+      true,
+    );
+    expect(result.migrations).toHaveLength(1);
   });
 });

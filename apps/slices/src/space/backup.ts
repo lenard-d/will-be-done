@@ -388,7 +388,7 @@ const getNewModels = action({
       );
       if (!section) {
         console.warn(
-          `Project ${taskBackup.taskSectionId} not found for task ${taskBackup.id}`,
+          `Task section ${taskBackup.taskSectionId} not found for task ${taskBackup.id}`,
         );
         continue;
       }
@@ -437,7 +437,7 @@ const getNewModels = action({
       );
       if (!section) {
         console.warn(
-          `Project ${templateBackup.taskSectionId} not found for template ${templateBackup.id}`,
+          `Task section ${templateBackup.taskSectionId} not found for template ${templateBackup.id}`,
         );
         continue;
       }

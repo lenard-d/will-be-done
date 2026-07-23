@@ -34,7 +34,7 @@ type VerticalEdge = Extract<Edge, "top" | "bottom">;
  *              scoped to columns within the same region, preventing bleed-over
  *              into other boards on the same page.
  *
- *   "column" – columns are stacked top-to-bottom (e.g. project section sections
+ *   "column" – columns are stacked top-to-bottom (e.g. project sections
  *              in mobile view). When j/k reaches the boundary of a column,
  *              navigation overflows into the adjacent stacked column.
  */
