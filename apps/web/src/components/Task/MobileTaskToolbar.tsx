@@ -3,12 +3,12 @@ import { Trash2, Info } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useFocusStore, parseColumnKey } from "@/store/focusSlice.ts";
 import { getDOMSiblings } from "@/components/Focus/domNavigation.ts";
-import { appDeleteModel } from "@will-be-done/slices/space";
+import { appDeleteModel, dailyEntryType } from "@will-be-done/slices/space";
 import { useIsMobile } from "@/hooks/use-mobile.ts";
 import { cn } from "@/lib/utils";
 import { Route as SpaceRoute } from "@/routes/spaces.$spaceId.tsx";
 
-const CARD_TYPES = new Set(["task", "template", "projection"]);
+const ITEM_TYPES = new Set(["task", "template", dailyEntryType]);
 
 export const MobileTaskToolbar = () => {
   const isMobile = useIsMobile();
@@ -18,8 +18,8 @@ export const MobileTaskToolbar = () => {
   const focusKey = useFocusStore((s) => s.focusItemKey);
 
   const parsed = focusKey ? parseColumnKey(focusKey) : null;
-  const isCardFocused = parsed != null && CARD_TYPES.has(parsed.type);
-  const visible = isMobile && isCardFocused;
+  const isItemFocused = parsed != null && ITEM_TYPES.has(parsed.type);
+  const visible = isMobile && isItemFocused;
 
   const handleDelete = () => {
     if (!focusKey || !parsed) return;
@@ -39,8 +39,8 @@ export const MobileTaskToolbar = () => {
     if (!parsed) return;
 
     void navigate({
-      to: "/spaces/$spaceId/card-details/$cardId",
-      params: { spaceId, cardId: parsed.id },
+      to: "/spaces/$spaceId/item-details/$itemId",
+      params: { spaceId, itemId: parsed.id },
     });
   };
 

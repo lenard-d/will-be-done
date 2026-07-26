@@ -3,23 +3,23 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import { CardDetailsPage } from "@/components/CardDetails/CardDetails.tsx";
+import { ItemDetailsPage } from "@/components/ItemDetails/ItemDetails.tsx";
 import { GlobalLayout } from "@/components/Layout/GlobalLayout.tsx";
 import { preloadSelectorAsync } from "@will-be-done/hyperdb";
 import {
-  cardExists,
+  itemExists,
   checklistItemChildren,
-  dailyProjectionDateOfTask,
+  dailyEntryDateOfTask,
   isTask,
   isTaskTemplate,
-  taskSectionsByProjectId,
-  taskSectionCardById,
-  projectOfTaskSectionOrDefault,
+  projectSectionsByProjectId,
+  projectSectionItemById,
+  projectOfProjectSectionOrDefault,
   taskTemplateById,
   taskTemplateRuleText,
 } from "@will-be-done/slices/space";
 
-export const Route = createFileRoute("/spaces/$spaceId/card-details/$cardId")({
+export const Route = createFileRoute("/spaces/$spaceId/item-details/$itemId")({
   component: RouteComponent,
   loader: async ({ context, params }) => {
     const db = await context.spaceDbPromise;
@@ -30,17 +30,17 @@ export const Route = createFileRoute("/spaces/$spaceId/card-details/$cardId")({
 
     appendPromise(
       preloadSelectorAsync(db, {
-        selector: cardExists,
-        args: { id: params.cardId },
+        selector: itemExists,
+        args: { id: params.itemId },
       }),
     );
 
-    const card = await preloadSelectorAsync(db, {
-      selector: taskSectionCardById,
-      args: { id: params.cardId },
+    const item = await preloadSelectorAsync(db, {
+      selector: projectSectionItemById,
+      args: { id: params.itemId },
     });
 
-    if (!card) {
+    if (!item) {
       await Promise.all(promises);
       return;
     }
@@ -48,51 +48,51 @@ export const Route = createFileRoute("/spaces/$spaceId/card-details/$cardId")({
     appendPromise(
       preloadSelectorAsync(db, {
         selector: checklistItemChildren,
-        args: { parentId: card.id, parentType: card.type },
+        args: { parentId: item.id, parentType: item.type },
       }),
     );
 
     const project = await preloadSelectorAsync(db, {
-      selector: projectOfTaskSectionOrDefault,
-      args: { taskSectionId: card.taskSectionId },
+      selector: projectOfProjectSectionOrDefault,
+      args: { projectSectionId: item.projectSectionId },
     });
 
     appendPromise(
       preloadSelectorAsync(db, {
-        selector: taskSectionsByProjectId,
+        selector: projectSectionsByProjectId,
         args: { projectId: project.id },
       }),
     );
 
-    if (isTask(card)) {
+    if (isTask(item)) {
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: dailyProjectionDateOfTask,
-          args: { taskId: card.id },
+          selector: dailyEntryDateOfTask,
+          args: { taskId: item.id },
         }),
       );
 
-      if (card.templateId) {
+      if (item.templateId) {
         appendPromise(
           preloadSelectorAsync(db, {
             selector: taskTemplateById,
-            args: { id: card.templateId },
+            args: { id: item.templateId },
           }),
         );
         appendPromise(
           preloadSelectorAsync(db, {
             selector: taskTemplateRuleText,
-            args: { id: card.templateId },
+            args: { id: item.templateId },
           }),
         );
       }
     }
 
-    if (isTaskTemplate(card)) {
+    if (isTaskTemplate(item)) {
       appendPromise(
         preloadSelectorAsync(db, {
           selector: taskTemplateRuleText,
-          args: { id: card.id },
+          args: { id: item.id },
         }),
       );
     }
@@ -102,7 +102,7 @@ export const Route = createFileRoute("/spaces/$spaceId/card-details/$cardId")({
 });
 
 function RouteComponent() {
-  const { cardId, spaceId } = Route.useParams();
+  const { itemId, spaceId } = Route.useParams();
   const navigate = useNavigate();
   const router = useRouter();
 
@@ -118,10 +118,10 @@ function RouteComponent() {
     });
   };
 
-  const handleCardIdChange = (nextCardId: string) => {
+  const handleItemIdChange = (nextItemId: string) => {
     void navigate({
-      to: "/spaces/$spaceId/card-details/$cardId",
-      params: { spaceId, cardId: nextCardId },
+      to: "/spaces/$spaceId/item-details/$itemId",
+      params: { spaceId, itemId: nextItemId },
       replace: true,
     });
   };
@@ -129,10 +129,10 @@ function RouteComponent() {
   return (
     <GlobalLayout>
       <main className="flex min-h-0 w-full justify-center">
-        <CardDetailsPage
-          cardId={cardId}
+        <ItemDetailsPage
+          itemId={itemId}
           onBack={handleBack}
-          onCardIdChange={handleCardIdChange}
+          onItemIdChange={handleItemIdChange}
         />
       </main>
     </GlobalLayout>

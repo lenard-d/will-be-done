@@ -12,17 +12,17 @@ import {
 import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
 import { changesTable } from "../common";
 import {
-  legacyTaskSectionsMigrationTable,
-  migrateLegacyTaskSections,
+  legacyProjectSectionsMigrationTable,
+  migrateLegacyProjectSections,
   scheduledTodoTasksMigrationTable,
-  taskSectionStorageMigrationTables,
+  projectSectionStorageMigrationTables,
   taskTemplatesMigrationTable,
   tasksMigrationTable,
-} from "./taskSectionStorageMigration";
+} from "./projectSectionStorageMigration";
 import {
   scheduledTodoTasksTable,
   spaceMigrationsTable,
-  taskSectionsTable,
+  projectSectionsTable,
   taskTemplatesTable,
   tasksTable,
 } from "./tables";
@@ -31,10 +31,10 @@ const action = createAction();
 const selector = createSelector();
 
 const seedLegacyRows = action({
-  name: "seedLegacyTaskSectionRows",
+  name: "seedLegacyProjectSectionRows",
   args: {},
   handler: function* seedLegacyRows() {
-    yield* insert(legacyTaskSectionsMigrationTable, [
+    yield* insert(legacyProjectSectionsMigrationTable, [
       {
         type: "projectCategory",
         id: "section-1",
@@ -63,7 +63,7 @@ const seedLegacyRows = action({
         title: "Partially migrated task",
         state: "todo",
         projectCategoryId: "legacy-section",
-        taskSectionId: "section-1",
+        projectSectionId: "section-1",
         orderToken: "b",
         lastToggledAt: 1,
         createdAt: 1,
@@ -94,7 +94,7 @@ const seedLegacyRows = action({
         id: "task-partially-migrated",
         scheduledAt: 3,
         projectCategoryId: "legacy-section",
-        taskSectionId: "section-1",
+        projectSectionId: "section-1",
       },
     ]);
     yield* insert(changesTable, [
@@ -119,7 +119,7 @@ const seedLegacyRows = action({
         changes: {
           title: "1-client",
           projectCategoryId: "3-client",
-          taskSectionId: "4-client",
+          projectSectionId: "4-client",
         },
       },
     ]);
@@ -127,11 +127,11 @@ const seedLegacyRows = action({
 });
 
 const migratedRows = selector({
-  name: "migratedTaskSectionRows",
+  name: "migratedProjectSectionRows",
   args: {},
   handler: function* migratedRows() {
     return {
-      sections: yield* selectFrom(taskSectionsTable, "byIds"),
+      sections: yield* selectFrom(projectSectionsTable, "byIds"),
       tasks: yield* selectFrom(tasksTable, "byIds"),
       templates: yield* selectFrom(taskTemplatesTable, "byIds"),
       scheduledTasks: yield* selectFrom(scheduledTodoTasksTable, "byIds"),
@@ -142,7 +142,7 @@ const migratedRows = selector({
 });
 
 const seedLargeLegacyStore = action({
-  name: "seedLargeLegacyTaskSectionStore",
+  name: "seedLargeLegacyProjectSectionStore",
   args: {},
   handler: function* seedLargeLegacyStore() {
     yield* insert(
@@ -163,13 +163,13 @@ const seedLargeLegacyStore = action({
   },
 });
 
-describe("TaskSection storage migration", () => {
+describe("ProjectSection storage migration", () => {
   it("copies legacy sections and rewrites dependent rows and sync metadata", () => {
     const db = new DB(new BptreeInmemDriver());
-    execSync(db.loadTables(taskSectionStorageMigrationTables));
+    execSync(db.loadTables(projectSectionStorageMigrationTables));
     syncDispatch(db, seedLegacyRows({}));
 
-    syncDispatch(db, migrateLegacyTaskSections({}));
+    syncDispatch(db, migrateLegacyProjectSections({}));
     const firstResult = selectSync(db, {
       selector: migratedRows,
       args: {},
@@ -178,18 +178,18 @@ describe("TaskSection storage migration", () => {
     expect(firstResult.sections).toEqual([
       expect.objectContaining({
         id: "section-1",
-        type: "taskSection",
+        type: "projectSection",
       }),
     ]);
     expect(firstResult.tasks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "task-1",
-          taskSectionId: "section-1",
+          projectSectionId: "section-1",
         }),
         expect.objectContaining({
           id: "task-partially-migrated",
-          taskSectionId: "section-1",
+          projectSectionId: "section-1",
         }),
       ]),
     );
@@ -198,18 +198,18 @@ describe("TaskSection storage migration", () => {
     }
     expect(firstResult.templates[0]).toEqual(
       expect.objectContaining({
-        taskSectionId: "section-1",
+        projectSectionId: "section-1",
       }),
     );
     expect(firstResult.scheduledTasks).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "task-1",
-          taskSectionId: "section-1",
+          projectSectionId: "section-1",
         }),
         expect.objectContaining({
           id: "task-partially-migrated",
-          taskSectionId: "section-1",
+          projectSectionId: "section-1",
         }),
       ]),
     );
@@ -222,8 +222,8 @@ describe("TaskSection storage migration", () => {
     );
     expect(sectionChange).toEqual(
       expect.objectContaining({
-        id: "task_sections:section-1",
-        tableName: "task_sections",
+        id: "project_sections:section-1",
+        tableName: "project_sections",
         deletedAt: "2-client",
       }),
     );
@@ -232,13 +232,13 @@ describe("TaskSection storage migration", () => {
     );
     expect(taskChange?.changes).toEqual({
       title: "1-client",
-      taskSectionId: "4-client",
+      projectSectionId: "4-client",
     });
     expect(firstResult.migrations).toEqual([
-      expect.objectContaining({ id: "task-section-storage-v1" }),
+      expect.objectContaining({ id: "project-section-storage-v1" }),
     ]);
 
-    syncDispatch(db, migrateLegacyTaskSections({}));
+    syncDispatch(db, migrateLegacyProjectSections({}));
     const secondResult = selectSync(db, {
       selector: migratedRows,
       args: {},
@@ -248,10 +248,10 @@ describe("TaskSection storage migration", () => {
 
   it("migrates a large store in one guarded startup pass", () => {
     const db = new DB(new BptreeInmemDriver());
-    execSync(db.loadTables(taskSectionStorageMigrationTables));
+    execSync(db.loadTables(projectSectionStorageMigrationTables));
     syncDispatch(db, seedLargeLegacyStore({}));
 
-    syncDispatch(db, migrateLegacyTaskSections({}));
+    syncDispatch(db, migrateLegacyProjectSections({}));
     const result = selectSync(db, {
       selector: migratedRows,
       args: {},
@@ -261,7 +261,7 @@ describe("TaskSection storage migration", () => {
     expect(result.tasks.find((task) => task.id === "large-task-1499")).toEqual(
       expect.objectContaining({
         id: "large-task-1499",
-        taskSectionId: "section-1",
+        projectSectionId: "section-1",
       }),
     );
     expect(result.tasks.every((task) => !("projectCategoryId" in task))).toBe(

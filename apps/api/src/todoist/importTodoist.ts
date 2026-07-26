@@ -225,9 +225,9 @@ export function buildBackup(
     });
   }
 
-  const taskSectionIdMap = new Map<string, string>(); // todoist section id → wbd section id
+  const projectSectionIdMap = new Map<string, string>(); // todoist section id → wbd section id
   const defaultSectionMap = new Map<string, string>(); // todoist project id → default wbd section id
-  const taskSections: Backup["taskSections"] = [];
+  const projectSections: Backup["projectSections"] = [];
 
   // Group sections by project for ordering
   const sectionsByProject = new Map<string, TodoistSection[]>();
@@ -251,7 +251,7 @@ export function buildBackup(
     previousSectionToken = defaultSectionToken;
 
     defaultSectionMap.set(tp.id, defaultSectionId);
-    taskSections.push({
+    projectSections.push({
       id: defaultSectionId,
       title: "Tasks",
       projectId: wbdProjectId,
@@ -266,7 +266,7 @@ export function buildBackup(
 
     for (const sec of sections) {
       const sectionId = uuidv7();
-      taskSectionIdMap.set(sec.id, sectionId);
+      projectSectionIdMap.set(sec.id, sectionId);
 
       const sectionToken = generateJitteredKeyBetween(
         previousSectionToken,
@@ -274,7 +274,7 @@ export function buildBackup(
       );
       previousSectionToken = sectionToken;
 
-      taskSections.push({
+      projectSections.push({
         id: sectionId,
         title: sec.name,
         projectId: wbdProjectId,
@@ -287,8 +287,8 @@ export function buildBackup(
   const tasks: Backup["tasks"] = [];
   const taskTemplates: Backup["taskTemplates"] = [];
   const dailyListsMap = new Map<string, { id: string; date: string }>();
-  const dailyListProjections: NonNullable<Backup["dailyListProjections"]> = [];
-  const projectionLastToken = new Map<string, string | null>();
+  const dailyEntries: NonNullable<Backup["dailyEntries"]> = [];
+  const dailyEntryLastToken = new Map<string, string | null>();
 
   const tasksBySection = new Map<string, TodoistTask[]>();
 
@@ -296,7 +296,7 @@ export function buildBackup(
     let sectionId: string;
     if (t.sectionId) {
       sectionId =
-        taskSectionIdMap.get(t.sectionId) ||
+        projectSectionIdMap.get(t.sectionId) ||
         defaultSectionMap.get(t.projectId) ||
         "";
     } else {
@@ -338,7 +338,7 @@ export function buildBackup(
             repeatRuleDtStart: dtStart,
             createdAt,
             lastGeneratedAt: createdAt,
-            taskSectionId: sectionId,
+            projectSectionId: sectionId,
           });
           continue; // don't create a regular task
         }
@@ -351,7 +351,7 @@ export function buildBackup(
         title: t.content,
         content: t.description || "",
         state: t.checked ? "done" : "todo",
-        taskSectionId: sectionId,
+        projectSectionId: sectionId,
         orderToken,
         lastToggledAt: t.completedAt ? parseEpoch(t.completedAt) : createdAt,
         createdAt,
@@ -359,18 +359,18 @@ export function buildBackup(
         templateDate: null,
       });
 
-      // Daily list projection from due date
+      // Daily entry from due date
       if (t.due?.date) {
         const dateKey = toDateKey(t.due.date);
         if (!dailyListsMap.has(dateKey)) {
           dailyListsMap.set(dateKey, { id: dateKey, date: dateKey });
         }
-        const projPrev = projectionLastToken.get(dateKey) ?? null;
-        const projToken = generateJitteredKeyBetween(projPrev, null);
-        projectionLastToken.set(dateKey, projToken);
-        dailyListProjections.push({
+        const entryPreviousToken = dailyEntryLastToken.get(dateKey) ?? null;
+        const entryToken = generateJitteredKeyBetween(entryPreviousToken, null);
+        dailyEntryLastToken.set(dateKey, entryToken);
+        dailyEntries.push({
           id: taskId,
-          orderToken: projToken,
+          orderToken: entryToken,
           listId: dateKey,
           createdAt,
         });
@@ -380,11 +380,11 @@ export function buildBackup(
 
   return {
     projects,
-    taskSections,
+    projectSections,
     tasks,
     taskTemplates,
     dailyLists: [...dailyListsMap.values()],
-    dailyListProjections,
+    dailyEntries,
   };
 }
 

@@ -13,11 +13,11 @@ import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   createTaskTemplateFromTask,
-  dailyProjectionDateOfTask,
+  dailyEntryDateOfTask,
   deleteTemplates,
   moveTaskToProject,
-  taskSectionsByProjectId,
-  projectOfTaskSectionOrDefault,
+  projectSectionsByProjectId,
+  projectOfProjectSectionOrDefault,
   type Task,
   taskTemplateById,
   taskTemplateRuleText,
@@ -45,31 +45,31 @@ export function TaskBody({
   setIsEditingTitle,
   isEditingDescription,
   setIsEditingDescription,
-  onCardIdChange,
+  onItemIdChange,
 }: {
   task: Task;
   isEditingTitle: boolean;
   setIsEditingTitle: (v: boolean) => void;
   isEditingDescription: boolean;
   setIsEditingDescription: (v: boolean) => void;
-  onCardIdChange?: (cardId: string) => void;
+  onItemIdChange?: (itemId: string) => void;
 }) {
   const dispatch = useAsyncDispatch();
   const taskId = task.id;
   const openProject = useOpenProject();
 
   const { data: project } = useAsyncSelector({
-    selector: projectOfTaskSectionOrDefault,
-    args: { taskSectionId: task.taskSectionId },
+    selector: projectOfProjectSectionOrDefault,
+    args: { projectSectionId: task.projectSectionId },
   });
-  const { data: taskSections = [] } = useAsyncSelector({
-    selector: taskSectionsByProjectId,
+  const { data: projectSections = [] } = useAsyncSelector({
+    selector: projectSectionsByProjectId,
     args: { projectId: project?.id ?? "" },
     enabled: !!project,
     defaultValue: [],
   });
   const { data: scheduleDate } = useAsyncSelector({
-    selector: dailyProjectionDateOfTask,
+    selector: dailyEntryDateOfTask,
     args: { taskId: taskId },
   });
 
@@ -161,11 +161,11 @@ export function TaskBody({
           useFocusStore
             .getState()
             .focusByKey(buildFocusKey(template.id, template.type));
-          onCardIdChange?.(template.id);
+          onItemIdChange?.(template.id);
         })();
       }
     },
-    [task, dispatch, onCardIdChange],
+    [task, dispatch, onItemIdChange],
   );
 
   if (!project) return null;
@@ -201,14 +201,14 @@ export function TaskBody({
         />
 
         <SectionDetailRow
-          taskSectionId={task.taskSectionId}
-          taskSections={taskSections}
-          onChange={(taskSectionId) =>
+          projectSectionId={task.projectSectionId}
+          projectSections={projectSections}
+          onChange={(projectSectionId) =>
             void dispatch(
               updateTask({
                 id: taskId,
                 task: {
-                  taskSectionId: taskSectionId,
+                  projectSectionId: projectSectionId,
                 },
               }),
             )

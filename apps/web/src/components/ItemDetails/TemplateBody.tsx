@@ -7,8 +7,8 @@ import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   createTaskFromTemplate,
   moveTemplateToProject,
-  taskSectionsByProjectId,
-  projectOfTaskSectionOrDefault,
+  projectSectionsByProjectId,
+  projectOfProjectSectionOrDefault,
   type TaskTemplate,
   taskTemplateRuleText,
   updateTemplate,
@@ -33,25 +33,25 @@ export function TemplateBody({
   setIsEditingTitle,
   isEditingDescription,
   setIsEditingDescription,
-  onCardIdChange,
+  onItemIdChange,
 }: {
   template: TaskTemplate;
   isEditingTitle: boolean;
   setIsEditingTitle: (v: boolean) => void;
   isEditingDescription: boolean;
   setIsEditingDescription: (v: boolean) => void;
-  onCardIdChange?: (cardId: string) => void;
+  onItemIdChange?: (itemId: string) => void;
 }) {
   const dispatch = useAsyncDispatch();
   const templateId = template.id;
   const openProject = useOpenProject();
 
   const { data: project } = useAsyncSelector({
-    selector: projectOfTaskSectionOrDefault,
-    args: { taskSectionId: template.taskSectionId },
+    selector: projectOfProjectSectionOrDefault,
+    args: { projectSectionId: template.projectSectionId },
   });
-  const { data: taskSections = [] } = useAsyncSelector({
-    selector: taskSectionsByProjectId,
+  const { data: projectSections = [] } = useAsyncSelector({
+    selector: projectSectionsByProjectId,
     args: { projectId: project?.id ?? "" },
     enabled: !!project,
     defaultValue: [],
@@ -112,9 +112,9 @@ export function TemplateBody({
         createTaskFromTemplate({ taskTemplate: template }),
       );
       useFocusStore.getState().focusByKey(buildFocusKey(task.id, task.type));
-      onCardIdChange?.(task.id);
+      onItemIdChange?.(task.id);
     })();
-  }, [template, dispatch, onCardIdChange]);
+  }, [template, dispatch, onItemIdChange]);
 
   const handleRepeatConfirm = useCallback(
     (ruleString: string) => {
@@ -159,14 +159,14 @@ export function TemplateBody({
         />
 
         <SectionDetailRow
-          taskSectionId={template.taskSectionId}
-          taskSections={taskSections}
-          onChange={(taskSectionId) =>
+          projectSectionId={template.projectSectionId}
+          projectSections={projectSections}
+          onChange={(projectSectionId) =>
             void dispatch(
               updateTemplate({
                 id: templateId,
                 template: {
-                  taskSectionId: taskSectionId,
+                  projectSectionId: projectSectionId,
                 },
               }),
             )

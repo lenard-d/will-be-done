@@ -5,10 +5,10 @@ import { getDevtoolsEnabled } from "@/lib/devtools";
 import { openPersistentDriver } from "./persistentDriver";
 import type { SyncConfig } from "./syncTypes";
 import {
-  isTaskSectionStorageMigrationApplied,
-  migrateLegacyTaskSections,
+  areSpaceStorageMigrationsApplied,
+  migrateLegacySpaceStorage,
   spaceMigrationsTable,
-  taskSectionStorageMigrationTables,
+  spaceStorageMigrationTables,
 } from "@will-be-done/slices/space";
 import { asyncDispatch, selectAsync } from "@will-be-done/hyperdb";
 
@@ -65,15 +65,13 @@ export const createStoreDbs = async (
       const migrationDB = createPersistentDB("migration");
       await execAsync(migrationDB.loadTables([spaceMigrationsTable]));
       const migrationApplied = await selectAsync(migrationDB, {
-        selector: isTaskSectionStorageMigrationApplied,
+        selector: areSpaceStorageMigrationsApplied,
         args: {},
       });
 
       if (!migrationApplied) {
-        await execAsync(
-          migrationDB.loadTables(taskSectionStorageMigrationTables),
-        );
-        await asyncDispatch(migrationDB, migrateLegacyTaskSections({}));
+        await execAsync(migrationDB.loadTables(spaceStorageMigrationTables));
+        await asyncDispatch(migrationDB, migrateLegacySpaceStorage({}));
       }
     }
 
@@ -94,8 +92,8 @@ export const createStoreDbs = async (
   await execAsync(syncSubDb.loadTables(syncConfig.persistDBTables));
 
   // const canPreloadChanges = syncConfig.persistDBTables.includes(changesTable);
-  // const canPreloadTaskProjections =
-  //   syncConfig.persistDBTables.includes(taskProjectionsTable);
+  // const canPreloadDailyEntries =
+  //   syncConfig.persistDBTables.includes(dailyEntriesTable);
 
   // syncSubDb.afterScan(
   //   function* (_db, table, _indexName, _clauses, _selectOptions, results) {
@@ -110,8 +108,8 @@ export const createStoreDbs = async (
   //     yield* preloadEntities({
   //       ids: results.map((row) => row.id),
   //       tableName: table.tableName,
-  //       preloadTaskProjections:
-  //         table === tasksTable && canPreloadTaskProjections,
+  //       preloadDailyEntries:
+  //         table === tasksTable && canPreloadDailyEntries,
   //     });
   //   },
   // );

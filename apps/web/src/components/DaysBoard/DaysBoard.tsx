@@ -8,8 +8,9 @@ import {
   createTaskInList,
   type DailyList,
   dailyListsByDates,
-  dailyProjectionChildrenForDisplay,
-  doneDailyProjectionChildrenForDisplay,
+  dailyEntryChildrenForDisplay,
+  doneDailyEntryChildrenForDisplay,
+  dailyEntryType,
   inboxProjectId,
 } from "@will-be-done/slices/space";
 import { cn } from "@/lib/utils.ts";
@@ -28,11 +29,11 @@ import { create } from "zustand";
 import { Link } from "@tanstack/react-router";
 import { Route } from "@/routes/spaces.$spaceId.tsx";
 import { getStashOpenWidth, useStashOpen, useStashSize } from "./StashStore.ts";
-import { CardDetails } from "@/components/CardDetails/CardDetails.tsx";
+import { ItemDetails } from "@/components/ItemDetails/ItemDetails.tsx";
 import { Stash } from "@/components/Stash/Stash.tsx";
 import { useGlobalListener } from "@/components/GlobalListener/hooks.tsx";
 import { isInputElement } from "@/utils/isInputElement.ts";
-import { useCardDetailsOpen } from "@/components/CardDetails/CardDetailsStore.ts";
+import { useItemDetailsOpen } from "@/components/ItemDetails/ItemDetailsStore.ts";
 
 const ColumnView = ({
   dailyList,
@@ -44,13 +45,13 @@ const ColumnView = ({
   const currentDate = useCurrentDMY();
   const isToday = currentDate === dailyList.date;
 
-  const { data: cardsForDisplay = [] } = useAsyncSelector({
-    selector: dailyProjectionChildrenForDisplay,
+  const { data: itemsForDisplay = [] } = useAsyncSelector({
+    selector: dailyEntryChildrenForDisplay,
     args: { dailyListId: dailyList.id },
   });
 
-  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
-    selector: doneDailyProjectionChildrenForDisplay,
+  const { data: doneItemsForDisplay = [] } = useAsyncSelector({
+    selector: doneDailyEntryChildrenForDisplay,
     args: { dailyListId: dailyList.id },
   });
 
@@ -63,7 +64,7 @@ const ColumnView = ({
   const toggleIsHidden = useHiddenDays((state) => state.toggleIsHidden);
   const isHidden =
     isManuallyHidden ||
-    (cardsForDisplay.length == 0 && doneCardsForDisplay.length == 0);
+    (itemsForDisplay.length == 0 && doneItemsForDisplay.length == 0);
   const handleHideClick = () => toggleIsHidden(dailyList.id);
 
   const handleAddClick = () => {
@@ -98,7 +99,7 @@ const ColumnView = ({
               transform: "rotate(180deg)",
             }}
           >
-            {cardsForDisplay.length > 0 ? cardsForDisplay.length : ""}
+            {itemsForDisplay.length > 0 ? itemsForDisplay.length : ""}
           </span>
         </>
       }
@@ -107,13 +108,13 @@ const ColumnView = ({
       onAddClick={handleAddClick}
     >
       <div className={cn("flex flex-col gap-4 w-full py-4")}>
-        {cardsForDisplay.map((displayData) => {
+        {itemsForDisplay.map((displayData) => {
           return (
             <PreloadedTaskComp
-              key={displayData.cardWrapper.id}
-              card={displayData.card}
+              key={displayData.listItem.id}
+              item={displayData.item}
               section={displayData.section}
-              cardWrapper={displayData.cardWrapper}
+              listItem={displayData.listItem}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               hasCheclistItems={displayData.hasChecklist}
@@ -122,13 +123,13 @@ const ColumnView = ({
           );
         })}
 
-        {doneCardsForDisplay.map((displayData) => {
+        {doneItemsForDisplay.map((displayData) => {
           return (
             <PreloadedTaskComp
-              key={displayData.cardWrapper.id}
-              card={displayData.card}
+              key={displayData.listItem.id}
+              item={displayData.item}
               section={displayData.section}
-              cardWrapper={displayData.cardWrapper}
+              listItem={displayData.listItem}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               hasCheclistItems={displayData.hasChecklist}
@@ -190,7 +191,7 @@ const BoardView = ({
   const isStashOpen = useStashOpen((s) => s.isOpen);
   const setStashOpen = useStashOpen((s) => s.setOpen);
   const stashWidth = useStashSize((s) => s.width);
-  const setCardDetailsOpen = useCardDetailsOpen((s) => s.setOpen);
+  const setItemDetailsOpen = useItemDetailsOpen((s) => s.setOpen);
   const [isProjectsResizing, setIsProjectsResizing] = useState(false);
 
   const handleAddTask = useCallback(
@@ -207,7 +208,7 @@ const BoardView = ({
 
         useFocusStore
           .getState()
-          .editByKey(buildFocusKey(task.id, "projection"));
+          .editByKey(buildFocusKey(task.id, dailyEntryType));
       })();
     },
     [dispatch, inboxId],
@@ -265,7 +266,7 @@ const BoardView = ({
     } else if (e.code === "KeyZ") {
       e.preventDefault();
       setStashOpen(false);
-      setCardDetailsOpen(false);
+      setItemDetailsOpen(false);
       setProjectsViewHidden(true);
     }
   });
@@ -381,7 +382,7 @@ const BoardView = ({
         </div>
       </div>
 
-      <CardDetails />
+      <ItemDetails />
     </div>
   );
 };

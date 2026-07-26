@@ -25,7 +25,7 @@ export function generateTestBackup(
   const K = generateNKeysBetween(null, null, maxKeys);
 
   const backupProjects: Backup["projects"] = [];
-  const backupSections: Backup["taskSections"] = [];
+  const backupSections: Backup["projectSections"] = [];
   const backupTasks: Backup["tasks"] = [];
 
   // Inbox project
@@ -90,7 +90,7 @@ export function generateTestBackup(
         id: `tk-test-${prefix}-done-${d}`,
         title: `Done task ${d + 1}`,
         state: "done",
-        taskSectionId: sectionId,
+        projectSectionId: sectionId,
         orderToken: taskKeys[idx],
         lastToggledAt: now - 50_000 + d,
         createdAt: now - 600_000 + idx,
@@ -104,7 +104,7 @@ export function generateTestBackup(
         id: `tk-test-${prefix}-todo-${t}`,
         title: `Todo task ${t + 1}`,
         state: "todo",
-        taskSectionId: sectionId,
+        projectSectionId: sectionId,
         orderToken: taskKeys[idx],
         lastToggledAt: 0,
         createdAt: now - 600_000 + idx,
@@ -117,10 +117,10 @@ export function generateTestBackup(
 
   return {
     projects: backupProjects,
-    taskSections: backupSections,
+    projectSections: backupSections,
     tasks: backupTasks,
     taskTemplates: [],
     dailyLists: [],
-    dailyListProjections: [],
+    dailyEntries: [],
   };
 }

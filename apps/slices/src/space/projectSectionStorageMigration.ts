@@ -10,14 +10,14 @@ import { action, selector } from "../builders";
 import { changesTable, type Change } from "../common/tables";
 import {
   spaceMigrationsTable,
-  taskSectionType,
-  taskSectionsTable,
+  projectSectionType,
+  projectSectionsTable,
   taskType,
 } from "./tables";
 
-export const legacyTaskSectionsTableName = "project_categories";
-export const taskSectionsTableName = "task_sections";
-export const taskSectionStorageMigrationId = "task-section-storage-v1";
+export const legacyProjectSectionsTableName = "project_categories";
+export const projectSectionsTableName = "project_sections";
+export const projectSectionStorageMigrationId = "project-section-storage-v1";
 
 export type PersistedSpaceRow = Record<string, unknown> & { id: string };
 
@@ -46,19 +46,19 @@ export function migratePersistedSpaceRow(
   tableName: string,
   row: PersistedSpaceRow,
 ): MigratedSpaceRow {
-  if (tableName === legacyTaskSectionsTableName) {
+  if (tableName === legacyProjectSectionsTableName) {
     return {
-      tableName: taskSectionsTableName,
+      tableName: projectSectionsTableName,
       row: {
         ...row,
-        type: row.type === "projectCategory" ? "taskSection" : row.type,
+        type: row.type === "projectCategory" ? "projectSection" : row.type,
       },
       changed: true,
     };
   }
 
   if (tableName === "tasks" || tableName === "task_templates") {
-    const nextRow = moveProperty(row, "projectCategoryId", "taskSectionId");
+    const nextRow = moveProperty(row, "projectCategoryId", "projectSectionId");
     return { tableName, row: nextRow, changed: nextRow !== row };
   }
 
@@ -72,20 +72,20 @@ export function migratePersistedSpaceRow(
     ) {
       const nextChanges: Record<string, unknown> = {
         ...(changes as Record<string, unknown>),
-        taskSectionId:
-          "taskSectionId" in changes
-            ? (changes as Record<string, unknown>).taskSectionId
+        projectSectionId:
+          "projectSectionId" in changes
+            ? (changes as Record<string, unknown>).projectSectionId
             : (changes as Record<string, unknown>).projectCategoryId,
       };
       delete nextChanges.projectCategoryId;
       nextRow = { ...nextRow, changes: nextChanges };
     }
 
-    if (row.tableName === legacyTaskSectionsTableName) {
+    if (row.tableName === legacyProjectSectionsTableName) {
       nextRow = {
         ...nextRow,
-        id: `${taskSectionsTableName}:${String(row.entityId)}`,
-        tableName: taskSectionsTableName,
+        id: `${projectSectionsTableName}:${String(row.entityId)}`,
+        tableName: projectSectionsTableName,
       };
     }
 
@@ -95,8 +95,8 @@ export function migratePersistedSpaceRow(
   return { tableName, row, changed: false };
 }
 
-export const legacyTaskSectionsMigrationTable = defineTable(
-  legacyTaskSectionsTableName,
+export const legacyProjectSectionsMigrationTable = defineTable(
+  legacyProjectSectionsTableName,
   {
     type: v.literal("projectCategory"),
     id: v.string(),
@@ -114,7 +114,7 @@ export const tasksMigrationTable = defineTable("tasks", {
   content: v.optional(v.string()),
   state: v.union(v.literal("todo"), v.literal("done")),
   projectCategoryId: v.optional(v.string()),
-  taskSectionId: v.optional(v.string()),
+  projectSectionId: v.optional(v.string()),
   orderToken: v.string(),
   lastToggledAt: v.number(),
   nature: v.optional(
@@ -136,7 +136,7 @@ export const taskTemplatesMigrationTable = defineTable("task_templates", {
   createdAt: v.number(),
   lastGeneratedAt: v.number(),
   projectCategoryId: v.optional(v.string()),
-  taskSectionId: v.optional(v.string()),
+  projectSectionId: v.optional(v.string()),
   nature: v.optional(
     v.union(v.literal("red"), v.literal("green"), v.literal("unknown")),
   ),
@@ -148,13 +148,13 @@ export const scheduledTodoTasksMigrationTable = defineTable(
     id: v.string(),
     scheduledAt: v.number(),
     projectCategoryId: v.optional(v.string()),
-    taskSectionId: v.optional(v.string()),
+    projectSectionId: v.optional(v.string()),
   },
 ).index("byIds", ["id"]);
 
-export const taskSectionStorageMigrationTables = [
-  legacyTaskSectionsMigrationTable,
-  taskSectionsTable,
+export const projectSectionStorageMigrationTables = [
+  legacyProjectSectionsMigrationTable,
+  projectSectionsTable,
   tasksMigrationTable,
   taskTemplatesMigrationTable,
   scheduledTodoTasksMigrationTable,
@@ -162,51 +162,51 @@ export const taskSectionStorageMigrationTables = [
   spaceMigrationsTable,
 ];
 
-export const isTaskSectionStorageMigrationApplied = selector({
-  name: "isTaskSectionStorageMigrationApplied",
+export const isProjectSectionStorageMigrationApplied = selector({
+  name: "isProjectSectionStorageMigrationApplied",
   args: {},
-  handler: function* isTaskSectionStorageMigrationApplied() {
+  handler: function* isProjectSectionStorageMigrationApplied() {
     return Boolean(
       yield* selectFrom(spaceMigrationsTable, "byId")
-        .where((q) => q.eq("id", taskSectionStorageMigrationId))
+        .where((q) => q.eq("id", projectSectionStorageMigrationId))
         .firstOr(null),
     );
   },
 });
 
-export const migrateLegacyTaskSections = action({
-  name: "migrateLegacyTaskSections",
+export const migrateLegacyProjectSections = action({
+  name: "migrateLegacyProjectSections",
   args: {},
-  handler: function* migrateLegacyTaskSections() {
+  handler: function* migrateLegacyProjectSections() {
     const existingMigration = yield* selectFrom(spaceMigrationsTable, "byId")
-      .where((q) => q.eq("id", taskSectionStorageMigrationId))
+      .where((q) => q.eq("id", projectSectionStorageMigrationId))
       .firstOr(null);
     if (existingMigration) return;
 
     const legacySections = yield* selectFrom(
-      legacyTaskSectionsMigrationTable,
+      legacyProjectSectionsMigrationTable,
       "byIds",
     );
     const currentSectionIds = new Set(
-      (yield* selectFrom(taskSectionsTable, "byIds")).map((row) => row.id),
+      (yield* selectFrom(projectSectionsTable, "byIds")).map((row) => row.id),
     );
     const sectionsToInsert = legacySections
       .filter((row) => !currentSectionIds.has(row.id))
       .map((row) => ({
         ...row,
-        type: taskSectionType as "taskSection",
+        type: projectSectionType as "projectSection",
       }));
     if (sectionsToInsert.length > 0) {
-      yield* insert(taskSectionsTable, sectionsToInsert);
+      yield* insert(projectSectionsTable, sectionsToInsert);
     }
 
     const tasks = yield* selectFrom(tasksMigrationTable, "byIds");
     const tasksToMigrate = tasks.flatMap(
-      ({ projectCategoryId, taskSectionId, ...task }) => {
-        const nextTaskSectionId = taskSectionId ?? projectCategoryId;
+      ({ projectCategoryId, projectSectionId, ...task }) => {
+        const nextProjectSectionId = projectSectionId ?? projectCategoryId;
         return projectCategoryId !== undefined &&
-          nextTaskSectionId !== undefined
-          ? [{ ...task, taskSectionId: nextTaskSectionId }]
+          nextProjectSectionId !== undefined
+          ? [{ ...task, projectSectionId: nextProjectSectionId }]
           : [];
       },
     );
@@ -216,11 +216,11 @@ export const migrateLegacyTaskSections = action({
 
     const templates = yield* selectFrom(taskTemplatesMigrationTable, "byIds");
     const templatesToMigrate = templates.flatMap(
-      ({ projectCategoryId, taskSectionId, ...template }) => {
-        const nextTaskSectionId = taskSectionId ?? projectCategoryId;
+      ({ projectCategoryId, projectSectionId, ...template }) => {
+        const nextProjectSectionId = projectSectionId ?? projectCategoryId;
         return projectCategoryId !== undefined &&
-          nextTaskSectionId !== undefined
-          ? [{ ...template, taskSectionId: nextTaskSectionId }]
+          nextProjectSectionId !== undefined
+          ? [{ ...template, projectSectionId: nextProjectSectionId }]
           : [];
       },
     );
@@ -233,11 +233,11 @@ export const migrateLegacyTaskSections = action({
       "byIds",
     );
     const scheduledTasksToMigrate = scheduledTasks.flatMap(
-      ({ projectCategoryId, taskSectionId, ...scheduledTask }) => {
-        const nextTaskSectionId = taskSectionId ?? projectCategoryId;
+      ({ projectCategoryId, projectSectionId, ...scheduledTask }) => {
+        const nextProjectSectionId = projectSectionId ?? projectCategoryId;
         return projectCategoryId !== undefined &&
-          nextTaskSectionId !== undefined
-          ? [{ ...scheduledTask, taskSectionId: nextTaskSectionId }]
+          nextProjectSectionId !== undefined
+          ? [{ ...scheduledTask, projectSectionId: nextProjectSectionId }]
           : [];
       },
     );
@@ -274,7 +274,7 @@ export const migrateLegacyTaskSections = action({
 
     yield* upsert(spaceMigrationsTable, [
       {
-        id: taskSectionStorageMigrationId,
+        id: projectSectionStorageMigrationId,
         appliedAt: Date.now(),
       },
     ]);

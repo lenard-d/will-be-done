@@ -1,18 +1,18 @@
 import { deleteRows, v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
-import { defaultTask } from "./cardsTasks";
+import { defaultTask } from "./tasks";
 import { appTypeSlicesMap } from "./maps";
 import {
   AnyModel,
   possibleModelType,
-  stashProjectionsTable,
-  stashProjectionType,
+  stashEntriesTable,
+  stashEntryType,
   taskType,
 } from "./tables";
 
 const shouldMoveOutOfStash = (targetModelType: string, dropModelType: string) =>
-  dropModelType === stashProjectionType &&
-  targetModelType !== stashProjectionType &&
+  dropModelType === stashEntryType &&
+  targetModelType !== stashEntryType &&
   targetModelType !== "stash";
 
 export const appById = selector({
@@ -108,19 +108,19 @@ export const appHandleDrop = action({
       modelType,
     });
     const targetModelType = model?.type ?? modelType;
-    const shouldDeleteStashProjection = shouldMoveOutOfStash(
+    const shouldDeleteStashEntry = shouldMoveOutOfStash(
       targetModelType,
       dropModelType,
     );
-    const effectiveDropModelType = shouldDeleteStashProjection
+    const effectiveDropModelType = shouldDeleteStashEntry
       ? taskType
       : dropModelType;
 
     if (!model) {
       // For virtual models (e.g. stash) that have no DB row, use modelType directly
       yield* slice.handleDrop(id, dropId, effectiveDropModelType, edge);
-      if (shouldDeleteStashProjection) {
-        yield* deleteRows(stashProjectionsTable, [dropId]);
+      if (shouldDeleteStashEntry) {
+        yield* deleteRows(stashEntriesTable, [dropId]);
       }
       return;
     }
@@ -129,8 +129,8 @@ export const appHandleDrop = action({
     if (!modelSlice) throw new Error(`Unknown model type: ${model.type}`);
 
     yield* modelSlice.handleDrop(id, dropId, effectiveDropModelType, edge);
-    if (shouldDeleteStashProjection) {
-      yield* deleteRows(stashProjectionsTable, [dropId]);
+    if (shouldDeleteStashEntry) {
+      yield* deleteRows(stashEntriesTable, [dropId]);
     }
   },
 });

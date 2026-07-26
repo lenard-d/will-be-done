@@ -39,16 +39,16 @@ import {
   appById,
   appDeleteModel,
   appHandleDrop,
-  Card,
-  CardWrapper,
-  cardWrapperIdOrDefault,
-  type CardWrapperType,
+  Item,
+  ListItem,
+  listItemByIdOrDefault,
+  type ListItemType,
   createDailyListIfNotPresent,
   createItem,
-  createSiblingCard,
+  createTaskNextToListItem,
   createTaskTemplateFromTask,
   dailyListType,
-  dailyProjectionDateOfTask,
+  dailyEntryDateOfTask,
   deleteTasks,
   getDMY,
   isTask,
@@ -56,15 +56,15 @@ import {
   moveTaskToProject,
   moveTemplateToProject,
   Project,
-  TaskSection,
-  taskSectionByIdOrDefault,
-  taskSectionCardByIdOrDefault,
-  taskSectionType,
-  projectionType,
-  projectOfTaskSectionOrDefault,
+  ProjectSection,
+  projectSectionByIdOrDefault,
+  projectSectionItemByIdOrDefault,
+  projectSectionType,
+  dailyEntryType,
+  projectOfProjectSectionOrDefault,
   removeFromDailyList,
   STASH_ID,
-  stashProjectionType,
+  stashEntryType,
   stashType,
   type Task,
   taskById,
@@ -89,9 +89,9 @@ import { format, startOfDay } from "date-fns";
 import { TaskDatePicker } from "./TaskDatePicker";
 import { RepeatModal } from "@/components/RepeatModal/RepeatModal";
 import {
-  useCardDetailsEditRequest,
-  useCardDetailsOpen,
-} from "@/components/CardDetails/CardDetailsStore.ts";
+  useItemDetailsEditRequest,
+  useItemDetailsOpen,
+} from "@/components/ItemDetails/ItemDetailsStore.ts";
 import { useOpenProject } from "@/hooks/useOpenProject.ts";
 
 export const DropTaskIndicator = ({
@@ -112,22 +112,21 @@ export const DropTaskIndicator = ({
 
 const getFocusKeyForColumnMoveTarget = (
   taskId: string,
-  sourceModelType: CardWrapperType,
+  sourceModelType: ListItemType,
   targetColumnModelType: string,
   fallbackKey: ReturnType<typeof buildFocusKey>,
 ) => {
   if (targetColumnModelType === stashType) {
-    return buildFocusKey(taskId, stashProjectionType);
+    return buildFocusKey(taskId, stashEntryType);
   }
 
   if (targetColumnModelType === dailyListType) {
-    return buildFocusKey(taskId, projectionType);
+    return buildFocusKey(taskId, dailyEntryType);
   }
 
   if (
-    targetColumnModelType === taskSectionType &&
-    (sourceModelType === projectionType ||
-      sourceModelType === stashProjectionType)
+    targetColumnModelType === projectSectionType &&
+    (sourceModelType === dailyEntryType || sourceModelType === stashEntryType)
   ) {
     return buildFocusKey(taskId, taskType);
   }
@@ -136,9 +135,9 @@ const getFocusKeyForColumnMoveTarget = (
 };
 
 export const PreloadedTaskComp = ({
-  card,
+  item,
   section,
-  cardWrapper,
+  listItem,
   project,
   lastScheduleTime,
   hasCheclistItems,
@@ -150,9 +149,9 @@ export const PreloadedTaskComp = ({
   centerScheduleDate,
   isOnTimeline,
 }: {
-  card: Card;
-  section: TaskSection;
-  cardWrapper: CardWrapper;
+  item: Item;
+  section: ProjectSection;
+  listItem: ListItem;
   project: Project;
   lastScheduleTime: Date | undefined;
   hasCheclistItems: boolean | undefined;
@@ -166,14 +165,14 @@ export const PreloadedTaskComp = ({
 }) => {
   const dispatch = useAsyncDispatch();
 
-  const taskId = card.id;
+  const taskId = item.id;
   const date = useCurrentDate();
   const shouldHighlightTime =
     lastScheduleTime &&
     startOfDay(date) > lastScheduleTime &&
-    isTask(card) &&
-    card.state === "todo";
-  const taskTitle = card.title;
+    isTask(item) &&
+    item.state === "todo";
+  const taskTitle = item.title;
 
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null);
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
@@ -184,7 +183,7 @@ export const PreloadedTaskComp = ({
   const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const shouldPlaceTitleCaretAtEndRef = useRef(false);
   const shouldOpenDatePickerAfterActionsCloseRef = useRef(false);
-  const focusableItemKey = buildFocusKey(cardWrapper.id, cardWrapper.type);
+  const focusableItemKey = buildFocusKey(listItem.id, listItem.type);
 
   const isFocused = useFocusStore(
     (s) => !s.isFocusDisabled && s.focusItemKey === focusableItemKey,
@@ -198,7 +197,7 @@ export const PreloadedTaskComp = ({
   const persistTaskTitle = useCallback(
     (title: string) => {
       void (async () => {
-        if (isTask(card)) {
+        if (isTask(item)) {
           if (
             !(await select({
               selector: taskById,
@@ -219,7 +218,7 @@ export const PreloadedTaskComp = ({
           return;
         }
 
-        if (isTaskTemplate(card)) {
+        if (isTaskTemplate(item)) {
           if (
             !(await select({
               selector: taskTemplateById,
@@ -240,7 +239,7 @@ export const PreloadedTaskComp = ({
         }
       })();
     },
-    [card, dispatch, select, taskId],
+    [item, dispatch, select, taskId],
   );
 
   const {
@@ -253,12 +252,12 @@ export const PreloadedTaskComp = ({
   });
 
   const handleTick = useCallback(() => {
-    if (!isTask(card)) return;
+    if (!isTask(item)) return;
 
     void (async () => {
       const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
-      const taskState = card.state;
+      const taskState = item.state;
       await dispatch(toggleTaskState({ taskId: taskId }));
 
       if (!isFocused) return;
@@ -283,11 +282,11 @@ export const PreloadedTaskComp = ({
         : undefined;
 
       const upTask =
-        upModel?.type !== taskSectionType && upModel
+        upModel?.type !== projectSectionType && upModel
           ? await select({ selector: taskOfModel, args: { model: upModel } })
           : undefined;
       const downTask =
-        downModel?.type !== taskSectionType && downModel
+        downModel?.type !== projectSectionType && downModel
           ? await select({ selector: taskOfModel, args: { model: downModel } })
           : undefined;
 
@@ -297,14 +296,14 @@ export const PreloadedTaskComp = ({
         useFocusStore.getState().focusByKey(upKey!);
       }
     })();
-  }, [dispatch, focusableItemKey, isFocused, card, select, taskId]);
+  }, [dispatch, focusableItemKey, isFocused, item, select, taskId]);
 
   const handleDelete = useCallback(() => {
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
     flushEditedTitle();
     void dispatch(
-      appDeleteModel({ id: cardWrapper.id, modelType: cardWrapper.type }),
+      appDeleteModel({ id: listItem.id, modelType: listItem.type }),
     );
 
     if (downKey) {
@@ -315,8 +314,8 @@ export const PreloadedTaskComp = ({
       useFocusStore.getState().resetFocus();
     }
   }, [
-    cardWrapper.id,
-    cardWrapper.type,
+    listItem.id,
+    listItem.type,
     dispatch,
     flushEditedTitle,
     focusableItemKey,
@@ -332,8 +331,8 @@ export const PreloadedTaskComp = ({
       if (!dropTarget) return;
 
       const targetFocusKey = getFocusKeyForColumnMoveTarget(
-        cardWrapper.id,
-        cardWrapper.type,
+        listItem.id,
+        listItem.type,
         dropTarget.targetColumnModel.type,
         focusableItemKey,
       );
@@ -343,8 +342,8 @@ export const PreloadedTaskComp = ({
         appHandleDrop({
           id: id,
           modelType: type as AnyModelType,
-          dropId: cardWrapper.id,
-          dropModelType: cardWrapper.type,
+          dropId: listItem.id,
+          dropModelType: listItem.type,
           edge: dropTarget.edge,
         }),
       );
@@ -368,7 +367,7 @@ export const PreloadedTaskComp = ({
         }
       }, 0);
     },
-    [cardWrapper.id, cardWrapper.type, dispatch, focusableItemKey],
+    [listItem.id, listItem.type, dispatch, focusableItemKey],
   );
 
   const handleMoveStacked = useCallback(
@@ -411,8 +410,8 @@ export const PreloadedTaskComp = ({
         appHandleDrop({
           id: id,
           modelType: type,
-          dropId: cardWrapper.id,
-          dropModelType: cardWrapper.type,
+          dropId: listItem.id,
+          dropModelType: listItem.type,
           edge: edge,
         }),
       );
@@ -431,37 +430,37 @@ export const PreloadedTaskComp = ({
         }
       }, 0);
     },
-    [cardWrapper.id, cardWrapper.type, dispatch, focusableItemKey],
+    [listItem.id, listItem.type, dispatch, focusableItemKey],
   );
 
   const handleAddChecklistItem = useCallback(() => {
-    if (!isTask(card) && !isTaskTemplate(card)) return;
+    if (!isTask(item) && !isTaskTemplate(item)) return;
 
     useFocusStore.getState().focusByKey(focusableItemKey, true);
     useFocusStore.getState().resetEdit();
 
     void (async () => {
-      const item = await dispatch(
+      const checklistItem = await dispatch(
         createItem({
           item: {
-            parentId: card.id,
-            parentType: card.type,
+            parentId: item.id,
+            parentType: item.type,
           },
         }),
       );
 
-      focusChecklistItem(item.id, { root: ref.current });
+      focusChecklistItem(checklistItem.id, { root: ref.current });
     })();
-  }, [card, dispatch, focusableItemKey]);
+  }, [item, dispatch, focusableItemKey]);
 
   const handleAddSiblingTask = useCallback(
     (position: "after" | "before") => {
-      if (isTask(card) && card.state === "done") return;
+      if (isTask(item) && item.state === "done") return;
 
       void (async () => {
         const newBox = await dispatch(
-          createSiblingCard({
-            taskBox: cardWrapper,
+          createTaskNextToListItem({
+            listItem: listItem,
             position: position,
             taskParams: newTaskParams,
           }),
@@ -473,7 +472,7 @@ export const PreloadedTaskComp = ({
         });
       })();
     },
-    [card, cardWrapper, dispatch, newTaskParams],
+    [item, listItem, dispatch, newTaskParams],
   );
 
   const handleOpenMoveModal = useCallback(() => {
@@ -501,7 +500,7 @@ export const PreloadedTaskComp = ({
   }, []);
 
   const handleScheduleToday = useCallback(() => {
-    if (!isTask(card)) return;
+    if (!isTask(item)) return;
 
     void (async () => {
       const dailyList = await dispatch(
@@ -516,19 +515,19 @@ export const PreloadedTaskComp = ({
         }),
       );
     })();
-  }, [card, date, dispatch, taskId]);
+  }, [item, date, dispatch, taskId]);
 
   const handleResetSchedule = useCallback(() => {
-    if (!isTask(card)) return;
+    if (!isTask(item)) return;
 
     void dispatch(removeFromDailyList({ taskId: taskId }));
-  }, [card, dispatch, taskId]);
+  }, [item, dispatch, taskId]);
 
   const handleStashTask = useCallback(() => {
     if (
-      !isTask(card) ||
-      card.state !== "todo" ||
-      cardWrapper.type === stashProjectionType
+      !isTask(item) ||
+      item.state !== "todo" ||
+      listItem.type === stashEntryType
     ) {
       return;
     }
@@ -539,8 +538,8 @@ export const PreloadedTaskComp = ({
       appHandleDrop({
         id: STASH_ID,
         modelType: stashType,
-        dropId: cardWrapper.id,
-        dropModelType: cardWrapper.type,
+        dropId: listItem.id,
+        dropModelType: listItem.type,
         edge: "top",
       }),
     );
@@ -552,25 +551,25 @@ export const PreloadedTaskComp = ({
     } else {
       useFocusStore.getState().resetFocus();
     }
-  }, [card, cardWrapper.id, cardWrapper.type, dispatch, focusableItemKey]);
+  }, [item, listItem.id, listItem.type, dispatch, focusableItemKey]);
 
   const handleConvertToTemplate = useCallback(() => {
-    if (!isTask(card) || card.templateId) return;
+    if (!isTask(item) || item.templateId) return;
 
     ref.current?.focus();
     setIsRepeatModalOpen(true);
-  }, [card]);
+  }, [item]);
 
   const handleConvertToTemplateConfirm = useCallback(
     (ruleString: string) => {
-      if (!isTask(card) || card.templateId) return;
+      if (!isTask(item) || item.templateId) return;
 
       setIsRepeatModalOpen(false);
       flushEditedTitle();
 
       void (async () => {
         const task =
-          (await select({ selector: taskById, args: { id: taskId } })) ?? card;
+          (await select({ selector: taskById, args: { id: taskId } })) ?? item;
         const template = await dispatch(
           createTaskTemplateFromTask({
             task: task,
@@ -586,7 +585,7 @@ export const PreloadedTaskComp = ({
           .focusByKey(buildFocusKey(template.id, template.type));
       })();
     },
-    [card, dispatch, flushEditedTitle, select, taskId],
+    [item, dispatch, flushEditedTitle, select, taskId],
   );
 
   const handleConvertToTemplateCancel = useCallback(() => {
@@ -650,11 +649,11 @@ export const PreloadedTaskComp = ({
       const isAddAfter = noModifiers && e.code === "KeyO";
       const isAddBefore = e.shiftKey && e.code === "KeyO";
 
-      const isDeleteProjectionTask =
+      const isDeleteDailyEntryTask =
         (e.metaKey || e.ctrlKey) &&
         !e.shiftKey &&
         e.code === "Backspace" &&
-        cardWrapper.type === projectionType;
+        listItem.type === dailyEntryType;
 
       const isMoveUp = e.ctrlKey && (e.code === "ArrowUp" || e.code == "KeyK");
       const isMoveDown =
@@ -681,9 +680,9 @@ export const PreloadedTaskComp = ({
 
       if (e.code === "Digit1" && noModifiers) {
         return runShortcutAction(() => {
-          if (isTask(card)) {
+          if (isTask(item)) {
             void dispatch(updateTask({ id: taskId, task: { nature: "red" } }));
-          } else if (isTaskTemplate(card)) {
+          } else if (isTaskTemplate(item)) {
             void dispatch(
               updateTemplate({
                 id: taskId,
@@ -696,11 +695,11 @@ export const PreloadedTaskComp = ({
         });
       } else if (e.code === "Digit2" && noModifiers) {
         return runShortcutAction(() => {
-          if (isTask(card)) {
+          if (isTask(item)) {
             void dispatch(
               updateTask({ id: taskId, task: { nature: "green" } }),
             );
-          } else if (isTaskTemplate(card)) {
+          } else if (isTaskTemplate(item)) {
             void dispatch(
               updateTemplate({
                 id: taskId,
@@ -713,11 +712,11 @@ export const PreloadedTaskComp = ({
         });
       } else if (e.code === "Digit3" && noModifiers) {
         return runShortcutAction(() => {
-          if (isTask(card)) {
+          if (isTask(item)) {
             void dispatch(
               updateTask({ id: taskId, task: { nature: "unknown" } }),
             );
-          } else if (isTaskTemplate(card)) {
+          } else if (isTaskTemplate(item)) {
             void dispatch(
               updateTemplate({
                 id: taskId,
@@ -728,7 +727,7 @@ export const PreloadedTaskComp = ({
             );
           }
         });
-      } else if (isDeleteProjectionTask) {
+      } else if (isDeleteDailyEntryTask) {
         return runShortcutAction(() => {
           const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
@@ -750,7 +749,7 @@ export const PreloadedTaskComp = ({
         return runShortcutAction(handleOpenMoveModal, {
           skipActionsCloseAutoFocus: true,
         });
-      } else if (isScheduleDate && isTask(card)) {
+      } else if (isScheduleDate && isTask(item)) {
         if (isActionsMenuSource) {
           e.preventDefault();
           e.stopPropagation();
@@ -761,13 +760,13 @@ export const PreloadedTaskComp = ({
         return runShortcutAction(handleOpenDatePicker, {
           skipActionsCloseAutoFocus: true,
         });
-      } else if (isScheduleToday && isTask(card)) {
+      } else if (isScheduleToday && isTask(item)) {
         return runShortcutAction(handleScheduleToday);
-      } else if (isResetSchedule && isTask(card)) {
+      } else if (isResetSchedule && isTask(item)) {
         return runShortcutAction(handleResetSchedule);
-      } else if (isStashTask && isTask(card)) {
+      } else if (isStashTask && isTask(item)) {
         return runShortcutAction(handleStashTask);
-      } else if (isConvertToTemplate && isTask(card) && !card.templateId) {
+      } else if (isConvertToTemplate && isTask(item) && !item.templateId) {
         return runShortcutAction(handleConvertToTemplate, {
           skipActionsCloseAutoFocus: true,
         });
@@ -800,15 +799,13 @@ export const PreloadedTaskComp = ({
       } else if (e.code === "KeyE" && noModifiers) {
         return runShortcutAction(
           () => {
-            useCardDetailsOpen.getState().setOpen(true);
-            useCardDetailsEditRequest
-              .getState()
-              .editDescription(cardWrapper.id);
+            useItemDetailsOpen.getState().setOpen(true);
+            useItemDetailsEditRequest.getState().editDescription(listItem.id);
           },
           { skipActionsCloseAutoFocus: true },
         );
       } else if (isAddAfter || isAddBefore) {
-        if (isTask(card) && card.state === "done") return false;
+        if (isTask(item) && item.state === "done") return false;
 
         return runShortcutAction(
           () => handleAddSiblingTask(isAddAfter ? "after" : "before"),
@@ -819,9 +816,9 @@ export const PreloadedTaskComp = ({
       return false;
     },
     [
-      card,
-      cardWrapper.id,
-      cardWrapper.type,
+      item,
+      listItem.id,
+      listItem.type,
       dispatch,
       focusableItemKey,
       handleAddChecklistItem,
@@ -893,18 +890,18 @@ export const PreloadedTaskComp = ({
   const handleMove = (projectId: string) => {
     setIsMoveModalOpen(false);
 
-    if (isTask(card)) {
+    if (isTask(item)) {
       void dispatch(
         moveTaskToProject({ taskId: taskId, projectId: projectId }),
       );
-    } else if (isTaskTemplate(card)) {
+    } else if (isTaskTemplate(item)) {
       void dispatch(
         moveTemplateToProject({ templateId: taskId, projectId: projectId }),
       );
     }
   };
 
-  const suspendCardDragForInput = useCallback(
+  const suspendItemDragForInput = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       const target =
         event.target instanceof Element ? event.target : document.activeElement;
@@ -916,7 +913,7 @@ export const PreloadedTaskComp = ({
     [],
   );
 
-  const restoreCardDrag = useCallback(() => {
+  const restoreItemDrag = useCallback(() => {
     ref.current?.setAttribute("draggable", "true");
   }, []);
 
@@ -928,8 +925,8 @@ export const PreloadedTaskComp = ({
       draggable({
         element: element,
         getInitialData: (): DndModelData => ({
-          modelId: cardWrapper.id,
-          modelType: cardWrapper.type,
+          modelId: listItem.id,
+          modelType: listItem.type,
         }),
         onGenerateDragPreview: ({ location, source, nativeSetDragImage }) => {
           const rect = source.element.getBoundingClientRect();
@@ -970,8 +967,8 @@ export const PreloadedTaskComp = ({
         getIsSticky: () => true,
         getData: ({ input, element }) => {
           const data: DndModelData = {
-            modelId: cardWrapper.id,
-            modelType: cardWrapper.type,
+            modelId: listItem.id,
+            modelType: listItem.type,
           };
 
           return attachClosestEdge(data, {
@@ -1001,7 +998,7 @@ export const PreloadedTaskComp = ({
         },
       }),
     );
-  }, [dispatch, select, cardWrapper.id, cardWrapper.type]);
+  }, [dispatch, select, listItem.id, listItem.type]);
 
   const focusTitleTextarea = useCallback(() => {
     const textarea = titleTextareaRef.current;
@@ -1040,11 +1037,11 @@ export const PreloadedTaskComp = ({
 
       // if (e.key === "Enter") {
       //   task.setTitle(editingTitle);
-      //   const siblings = taskBox.siblings;
-      //   const list = taskBox.listRef.current;
-      //   const newItem = list.createChild([taskBox, siblings[1]], listItem);
+      //   const siblings = listItem.siblings;
+      //   const list = listItem.listRef.current;
+      //   const newItem = list.createChild([listItem, siblings[1]], listItem);
       //
-      //   currentProjectionState.setFocusedItemId(newItem.id);
+      //   currentDailyEntryState.setFocusedItemId(newItem.id);
       // }
     }
   };
@@ -1075,7 +1072,7 @@ export const PreloadedTaskComp = ({
   }, [focusTitleTextarea, isEditing]);
 
   // const [isHidden, setIsHidden] = useState(false);
-  // const isSelfDragging = dragId === taskBox.id;
+  // const isSelfDragging = dragId === listItem.id;
   // useEffect(() => {
   //   const id = setTimeout(() => {
   //     setIsHidden(
@@ -1105,22 +1102,22 @@ export const PreloadedTaskComp = ({
       <div
         data-focusable-key={focusableItemKey}
         data-ignore-drop={
-          isTask(card) && card.state === "done" ? true : undefined
+          isTask(item) && item.state === "done" ? true : undefined
         }
-        data-order-token={card.orderToken}
+        data-order-token={item.orderToken}
         tabIndex={0}
         className={clsx(
           `group/task relative rounded-lg whitespace-break-spaces [overflow-wrap:anywhere] text-sm ring-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent`,
           "[&[data-suppress-focus-visible=true]]:focus-visible:outline-none",
           isFocused
-            ? isTask(card) && card.state === "done"
+            ? isTask(item) && item.state === "done"
               ? isOnTimeline
                 ? "ring-ring outline-2 outline-dashed outline-done-panel-selected focus-visible:outline-dashed text-done-content"
                 : "ring-2 ring-done-panel-selected text-done-content"
               : isOnTimeline
                 ? "ring-ring outline-2 outline-dashed outline-accent focus-visible:outline-dashed text-content"
                 : "ring-2 ring-accent text-content"
-            : isTask(card) && card.state === "done"
+            : isTask(item) && item.state === "done"
               ? isOnTimeline
                 ? "ring-done-ring outline-2 outline-dashed outline-done-panel-selected text-done-content hover:ring-ring-hover"
                 : "ring-done-ring text-done-content hover:ring-ring-hover"
@@ -1142,9 +1139,9 @@ export const PreloadedTaskComp = ({
 
           event.currentTarget.removeAttribute("data-suppress-focus-visible");
         }}
-        onPointerDownCapture={suspendCardDragForInput}
-        onPointerUpCapture={restoreCardDrag}
-        onPointerCancelCapture={restoreCardDrag}
+        onPointerDownCapture={suspendItemDragForInput}
+        onPointerUpCapture={restoreItemDrag}
+        onPointerCancelCapture={restoreItemDrag}
         onDoubleClick={() => {
           useFocusStore.getState().editByKey(focusableItemKey);
         }}
@@ -1157,24 +1154,24 @@ export const PreloadedTaskComp = ({
               "pb-2 rounded-t-lg",
 
               isFocused
-                ? isTask(card) && card.state === "done"
+                ? isTask(item) && item.state === "done"
                   ? "bg-done-panel"
                   : "bg-panel-hover"
-                : isTask(card) && card.state === "done"
+                : isTask(item) && item.state === "done"
                   ? "bg-done-panel"
                   : "bg-panel hover:bg-panel-hover",
             )}
           >
             <div className="absolute right-1.5 top-1.5 z-10 h-5">
-              {(isTaskTemplate(card) || (isTask(card) && card.templateId)) && (
+              {(isTaskTemplate(item) || (isTask(item) && item.templateId)) && (
                 <div
                   className={taskFloatingIconGroupClassName({
                     isShifted: isFocused || isActionsOpen,
-                    isDone: isTask(card) && card.state === "done",
+                    isDone: isTask(item) && item.state === "done",
                   })}
                 >
-                  {isTaskTemplate(card) && <CircleDashed className="size-3" />}
-                  {isTask(card) && card.templateId && (
+                  {isTaskTemplate(item) && <CircleDashed className="size-3" />}
+                  {isTask(item) && item.templateId && (
                     <RotateCw className="size-3" />
                   )}
                 </div>
@@ -1183,17 +1180,17 @@ export const PreloadedTaskComp = ({
                 <TaskDropdownMenu
                   isFocused={isFocused}
                   isOpen={isActionsOpen}
-                  isDone={isTask(card) && card.state === "done"}
-                  canMarkDone={isTask(card)}
-                  canScheduleTask={isTask(card)}
-                  canResetSchedule={isTask(card) && !!lastScheduleTime}
+                  isDone={isTask(item) && item.state === "done"}
+                  canMarkDone={isTask(item)}
+                  canScheduleTask={isTask(item)}
+                  canResetSchedule={isTask(item) && !!lastScheduleTime}
                   canStashTask={
-                    isTask(card) &&
-                    card.state === "todo" &&
-                    cardWrapper.type !== stashProjectionType
+                    isTask(item) &&
+                    item.state === "todo" &&
+                    listItem.type !== stashEntryType
                   }
-                  canConvertToTemplate={isTask(card) && !card.templateId}
-                  canAddChecklistItem={isTask(card) || isTaskTemplate(card)}
+                  canConvertToTemplate={isTask(item) && !item.templateId}
+                  canAddChecklistItem={isTask(item) || isTaskTemplate(item)}
                   onOpenChange={setIsActionsOpen}
                   onMarkDone={handleTick}
                   onMoveToProject={handleOpenMoveModal}
@@ -1213,7 +1210,7 @@ export const PreloadedTaskComp = ({
                   onShortcutKeyDown={handleActionsShortcutKeyDown}
                   onCloseAutoFocus={focusTaskOnOverlayCloseAutoFocus}
                 />
-                {isTask(card) && !displayLastScheduleTime && (
+                {isTask(item) && !displayLastScheduleTime && (
                   <TaskDatePicker
                     taskId={taskId}
                     currentDate={lastScheduleTime}
@@ -1241,10 +1238,10 @@ export const PreloadedTaskComp = ({
                 "flex items-start gap-1.5 rounded-t-lg px-2 pt-2 font-medium pr-6",
               )}
             >
-              {isTask(card) && (
+              {isTask(item) && (
                 <div className="flex justify-end">
                   <CheckboxComp
-                    checked={card.state === "done"}
+                    checked={item.state === "done"}
                     onChange={handleTick}
                   />
                 </div>
@@ -1269,25 +1266,25 @@ export const PreloadedTaskComp = ({
                   data-task-title-input
                   className={cn(
                     "min-h-5 w-full resize-none bg-transparent focus:outline-none",
-                    isTask(card) && card.state === "done" && "line-through",
+                    isTask(item) && item.state === "done" && "line-through",
                   )}
                   aria-label="Edit task title"
                 />
               ) : (
                 <div
                   className={cn("min-h-5 cursor-default", {
-                    "line-through": isTask(card) && card.state === "done",
+                    "line-through": isTask(item) && item.state === "done",
                   })}
                 >
-                  {card.title}
+                  {item.title}
                 </div>
               )}
             </div>
-            {(isTask(card) || isTaskTemplate(card)) && (
+            {(isTask(item) || isTaskTemplate(item)) && (
               <ChecklistItems
                 hasChecklistItems={hasCheclistItems}
-                parentId={card.id}
-                parentType={card.type}
+                parentId={item.id}
+                parentType={item.type}
                 visible={isFocused || isEditing}
                 focusableItemKey={focusableItemKey}
                 editTrigger="doubleClick"
@@ -1301,20 +1298,20 @@ export const PreloadedTaskComp = ({
               centerScheduleDate && displayLastScheduleTime
                 ? "grid grid-cols-[1fr_auto_1fr] items-center gap-1"
                 : "flex items-center justify-between",
-              isTask(card) && card.state === "done"
+              isTask(item) && item.state === "done"
                 ? "bg-done-panel-tinted text-done-content"
-                : (isTask(card) || isTaskTemplate(card)) &&
-                    card.nature === "red"
+                : (isTask(item) || isTaskTemplate(item)) &&
+                    item.nature === "red"
                   ? "bg-nature-red text-nature-red-content"
-                  : (isTask(card) || isTaskTemplate(card)) &&
-                      card.nature === "green"
+                  : (isTask(item) || isTaskTemplate(item)) &&
+                      item.nature === "green"
                     ? "bg-nature-green text-nature-green-content"
                     : "bg-panel-tinted text-content-tinted",
             )}
           >
             <div>{section.title}</div>
 
-            {displayLastScheduleTime && isTask(card) && (
+            {displayLastScheduleTime && isTask(item) && (
               <div
                 className={cn(
                   centerScheduleDate ? "flex justify-center" : undefined,
@@ -1413,11 +1410,11 @@ export const PreloadedTaskComp = ({
 };
 
 // TODO: rename to project item
-// TODO: think about to remove taskBox
+// TODO: think about to remove listItem
 export const TaskComp = ({
   taskId,
-  cardWrapperId,
-  cardWrapperType,
+  listItemId,
+  listItemType,
   displayedUnderProjectId,
   alwaysShowProject,
   newTaskParams,
@@ -1425,44 +1422,44 @@ export const TaskComp = ({
   centerScheduleDate,
 }: {
   taskId: string;
-  cardWrapperId: string;
-  cardWrapperType: CardWrapperType;
+  listItemId: string;
+  listItemType: ListItemType;
   displayedUnderProjectId?: string;
   alwaysShowProject?: boolean;
   newTaskParams?: Partial<Task>;
   displayLastScheduleTime?: boolean;
   centerScheduleDate?: boolean;
 }) => {
-  const { data: card } = useAsyncSelector({
-    selector: taskSectionCardByIdOrDefault,
+  const { data: item } = useAsyncSelector({
+    selector: projectSectionItemByIdOrDefault,
     args: { id: taskId },
   });
   const { data: section } = useAsyncSelector({
-    selector: taskSectionByIdOrDefault,
-    args: { id: card?.taskSectionId ?? "" },
-    enabled: !!card,
+    selector: projectSectionByIdOrDefault,
+    args: { id: item?.projectSectionId ?? "" },
+    enabled: !!item,
   });
-  const { data: cardWrapper } = useAsyncSelector({
-    selector: cardWrapperIdOrDefault,
-    args: { id: cardWrapperId, modelType: cardWrapperType },
+  const { data: listItem } = useAsyncSelector({
+    selector: listItemByIdOrDefault,
+    args: { id: listItemId, modelType: listItemType },
   });
   const { data: project } = useAsyncSelector({
-    selector: projectOfTaskSectionOrDefault,
-    args: { taskSectionId: card?.taskSectionId ?? "" },
-    enabled: !!card,
+    selector: projectOfProjectSectionOrDefault,
+    args: { projectSectionId: item?.projectSectionId ?? "" },
+    enabled: !!item,
   });
   const { data: lastScheduleTime } = useAsyncSelector({
-    selector: dailyProjectionDateOfTask,
+    selector: dailyEntryDateOfTask,
     args: { taskId: taskId },
   });
 
-  if (!card || !section || !cardWrapper || !project) return null;
+  if (!item || !section || !listItem || !project) return null;
 
   return (
     <PreloadedTaskComp
-      card={card}
+      item={item}
       section={section}
-      cardWrapper={cardWrapper}
+      listItem={listItem}
       project={project}
       lastScheduleTime={lastScheduleTime}
       displayedUnderProjectId={displayedUnderProjectId}

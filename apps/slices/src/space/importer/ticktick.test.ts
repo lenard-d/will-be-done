@@ -110,14 +110,16 @@ describe("parseTickTickCSV", () => {
     expect(backup.projects[0]!.isInbox).toBe(false);
 
     // One default section per project
-    expect(backup.taskSections).toHaveLength(1);
-    expect(backup.taskSections[0]!.title).toBe("Tasks");
-    expect(backup.taskSections[0]!.projectId).toBe(backup.projects[0]!.id);
+    expect(backup.projectSections).toHaveLength(1);
+    expect(backup.projectSections[0]!.title).toBe("Tasks");
+    expect(backup.projectSections[0]!.projectId).toBe(backup.projects[0]!.id);
 
     expect(backup.tasks).toHaveLength(1);
     expect(backup.tasks[0]!.title).toBe("Buy milk");
     expect(backup.tasks[0]!.state).toBe("todo");
-    expect(backup.tasks[0]!.taskSectionId).toBe(backup.taskSections[0]!.id);
+    expect(backup.tasks[0]!.projectSectionId).toBe(
+      backup.projectSections[0]!.id,
+    );
 
     expect(backup.taskTemplates).toHaveLength(0);
     expect(backup.dailyLists).toHaveLength(0);
@@ -134,7 +136,7 @@ describe("parseTickTickCSV", () => {
 
     // 4 (folder, list) pairs → 4 projects, 4 sections (one per project)
     expect(backup.projects).toHaveLength(4);
-    expect(backup.taskSections).toHaveLength(4);
+    expect(backup.projectSections).toHaveLength(4);
 
     const titles = backup.projects.map((p) => p.title).sort();
     expect(titles).toEqual([
@@ -146,7 +148,7 @@ describe("parseTickTickCSV", () => {
 
     // Each project has exactly one section
     for (const project of backup.projects) {
-      const sections = backup.taskSections.filter(
+      const sections = backup.projectSections.filter(
         (c) => c.projectId === project.id,
       );
       expect(sections).toHaveLength(1);
@@ -250,7 +252,7 @@ describe("parseTickTickCSV", () => {
     expect(tasksByToken[2]!.title).toBe("First");
   });
 
-  it("creates a daily list and projection for tasks with a due date", () => {
+  it("creates a daily list and entry for tasks with a due date", () => {
     const rows = [
       makeRow({
         title: "Scheduled task",
@@ -263,18 +265,18 @@ describe("parseTickTickCSV", () => {
 
     expect(backup.tasks).toHaveLength(2);
     expect(backup.dailyLists).toHaveLength(1);
-    expect(backup.dailyListProjections).toHaveLength(1);
+    expect(backup.dailyEntries).toHaveLength(1);
 
     const scheduledTask = backup.tasks.find(
       (t) => t.title === "Scheduled task",
     )!;
-    const projection = backup.dailyListProjections![0]!;
+    const entry = backup.dailyEntries![0]!;
     const dailyList = backup.dailyLists[0]!;
 
-    // projection.id = taskId in new format
-    expect(projection.id).toBe(scheduledTask.id);
-    expect(projection.listId).toBe(dailyList.id);
-    expect(projection.orderToken).toBeTruthy();
+    // entry.id = taskId in new format
+    expect(entry.id).toBe(scheduledTask.id);
+    expect(entry.listId).toBe(dailyList.id);
+    expect(entry.orderToken).toBeTruthy();
   });
 
   it("falls back to start date if due date is absent", () => {
@@ -286,7 +288,7 @@ describe("parseTickTickCSV", () => {
     const backup = parseTickTickCSV(METADATA + row);
 
     expect(backup.dailyLists).toHaveLength(1);
-    expect(backup.dailyListProjections).toHaveLength(1);
+    expect(backup.dailyEntries).toHaveLength(1);
   });
 
   it("deduplicates daily lists when multiple tasks share the same due date", () => {
@@ -298,10 +300,10 @@ describe("parseTickTickCSV", () => {
     const backup = parseTickTickCSV(METADATA + rows);
 
     expect(backup.dailyLists).toHaveLength(2);
-    expect(backup.dailyListProjections).toHaveLength(3);
+    expect(backup.dailyEntries).toHaveLength(3);
   });
 
-  it("does not create a projection for recurring active tasks", () => {
+  it("does not create a entry for recurring active tasks", () => {
     const row = makeRow({
       title: "Recurring",
       repeat: "FREQ=DAILY;INTERVAL=1",
@@ -312,7 +314,7 @@ describe("parseTickTickCSV", () => {
 
     expect(backup.taskTemplates).toHaveLength(1);
     expect(backup.dailyLists).toHaveLength(0);
-    expect(backup.dailyListProjections).toHaveLength(0);
+    expect(backup.dailyEntries).toHaveLength(0);
   });
 
   it("handles quoted fields with commas and newlines in task title/content", () => {

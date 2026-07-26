@@ -5,9 +5,9 @@ import {
   createSpace,
   openSpace,
   openTaskActions,
-  projectTaskCard,
+  projectTaskItem,
   signupUser,
-  templateCard,
+  templateItem,
   uniqueE2EName,
 } from "./helpers";
 
@@ -25,8 +25,8 @@ test("converts a task into a recurring template and persists it", async ({
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/projects\/[^/]+$/);
 
   await createProjectTask(page, taskTitle);
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
-  await expect(templateCard(page, taskTitle)).toHaveCount(0);
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
+  await expect(templateItem(page, taskTitle)).toHaveCount(0);
 
   await openTaskActions(page, taskTitle);
   await page.getByRole("menuitem", { name: /convert to template/i }).click();
@@ -35,8 +35,8 @@ test("converts a task into a recurring template and persists it", async ({
   await expect(page.getByRole("button", { name: "Daily" })).toBeVisible();
   await page.getByRole("button", { name: "Ok" }).click();
 
-  await expect(templateCard(page, taskTitle)).toBeVisible();
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(templateItem(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
 
   const detailsPanel = await openTemplateDetails(page, taskTitle);
   await expect(
@@ -48,8 +48,8 @@ test("converts a task into a recurring template and persists it", async ({
 
   await page.reload();
 
-  await expect(templateCard(page, taskTitle)).toBeVisible();
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(templateItem(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
 
   const reloadedDetailsPanel = await openTemplateDetails(page, taskTitle);
   await expect(
@@ -58,9 +58,9 @@ test("converts a task into a recurring template and persists it", async ({
 });
 
 async function openTemplateDetails(page: Page, title: string) {
-  const detailsPanel = page.getByTestId("card-details-panel");
+  const detailsPanel = page.getByTestId("item-details-panel");
 
-  await templateCard(page, title).click();
+  await templateItem(page, title).click();
 
   if ((await detailsPanel.getAttribute("aria-hidden")) !== "false") {
     await page.keyboard.press("KeyV");

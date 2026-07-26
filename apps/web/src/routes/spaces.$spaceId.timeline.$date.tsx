@@ -10,12 +10,12 @@ import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
   createManyDailyListsIfNotPresent,
   dailyListsByDates,
-  dailyProjectionChildrenForDisplay,
-  doneDailyProjectionChildrenForDisplay,
-  doneTaskSectionCardsForDisplay,
+  dailyEntryChildrenForDisplay,
+  doneDailyEntryChildrenForDisplay,
+  doneProjectSectionItemsForDisplay,
   inboxProjectId as getInboxProjectId,
-  taskSectionsByProjectId,
-  taskSectionCardsForDisplayChildren,
+  projectSectionsByProjectId,
+  projectSectionItemsForDisplayChildren,
   projectsWithTaskStats,
 } from "@will-be-done/slices/space";
 
@@ -65,22 +65,22 @@ export const Route = createFileRoute("/spaces/$spaceId/timeline/$date")({
       }),
     );
 
-    const taskSections = await preloadSelectorAsync(db, {
-      selector: taskSectionsByProjectId,
+    const projectSections = await preloadSelectorAsync(db, {
+      selector: projectSectionsByProjectId,
       args: { projectId: project.id },
     });
 
-    for (const section of taskSections) {
+    for (const section of projectSections) {
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: taskSectionCardsForDisplayChildren,
-          args: { taskSectionId: section.id },
+          selector: projectSectionItemsForDisplayChildren,
+          args: { projectSectionId: section.id },
         }),
       );
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: doneTaskSectionCardsForDisplay,
-          args: { taskSectionId: section.id, limited: true },
+          selector: doneProjectSectionItemsForDisplay,
+          args: { projectSectionId: section.id, limited: true },
         }),
       );
     }
@@ -88,13 +88,13 @@ export const Route = createFileRoute("/spaces/$spaceId/timeline/$date")({
     for (const dailyList of dailyLists) {
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: dailyProjectionChildrenForDisplay,
+          selector: dailyEntryChildrenForDisplay,
           args: { dailyListId: dailyList.id },
         }),
       );
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: doneDailyProjectionChildrenForDisplay,
+          selector: doneDailyEntryChildrenForDisplay,
           args: { dailyListId: dailyList.id },
         }),
       );

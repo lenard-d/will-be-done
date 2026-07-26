@@ -4,10 +4,11 @@ import { cn } from "@/lib/utils";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { useFocusStore, parseColumnKey } from "@/store/focusSlice.ts";
 import {
-  cardExists,
+  itemExists,
+  dailyEntryType,
   isTask,
   isTaskTemplate,
-  taskSectionCardById,
+  projectSectionItemById,
 } from "@will-be-done/slices/space";
 import { useGlobalListener } from "@/components/GlobalListener/hooks.tsx";
 import { TaskBody } from "./TaskBody.tsx";
@@ -15,40 +16,40 @@ import { TemplateBody } from "./TemplateBody.tsx";
 import { ResizableDivider } from "@/components/DaysBoard/ResizableDivider.tsx";
 import { isInputElement } from "@/utils/isInputElement.ts";
 import {
-  useCardDetailsSize,
-  useCardDetailsOpen,
-  useCardDetailsEditRequest,
-} from "@/components/CardDetails/CardDetailsStore.ts";
+  useItemDetailsSize,
+  useItemDetailsOpen,
+  useItemDetailsEditRequest,
+} from "@/components/ItemDetails/ItemDetailsStore.ts";
 
 // ─── Main sidebar panel ──────────────────────────────────────────────────────
 
-export function CardDetails() {
+export function ItemDetails() {
   const rootRef = useRef<HTMLDivElement>(null);
   const [isResizing, setIsResizing] = useState(false);
   const focusKey = useFocusStore((s) => s.focusItemKey);
   const parsed = focusKey ? parseColumnKey(focusKey) : null;
-  const isCardFocused =
+  const isItemFocused =
     parsed?.type === "task" ||
-    parsed?.type === "projection" ||
+    parsed?.type === dailyEntryType ||
     parsed?.type === "template";
-  const cardId = isCardFocused ? parsed.id : null;
+  const itemId = isItemFocused ? parsed.id : null;
   const { data: isVisible = false } = useAsyncSelector({
-    selector: cardExists,
-    args: { id: cardId ?? "" },
-    enabled: !!cardId,
+    selector: itemExists,
+    args: { id: itemId ?? "" },
+    enabled: !!itemId,
     defaultValue: false,
   });
 
-  const width = useCardDetailsSize((s) => s.width);
-  const setWidth = useCardDetailsSize((s) => s.setWidth);
-  const { isOpen: isPanelOpen, toggle } = useCardDetailsOpen();
+  const width = useItemDetailsSize((s) => s.width);
+  const setWidth = useItemDetailsSize((s) => s.setWidth);
+  const { isOpen: isPanelOpen, toggle } = useItemDetailsOpen();
   const {
     isEditingTitle,
     setIsEditingTitle,
     isEditingDescription,
     setIsEditingDescription,
     isEditingAnyField,
-  } = useCardDetailsEditing(cardId);
+  } = useItemDetailsEditing(itemId);
 
   // Escape closes panel (not while editing title)
   useGlobalListener("keydown", (e: KeyboardEvent) => {
@@ -83,7 +84,7 @@ export function CardDetails() {
     [setWidth],
   );
 
-  const hasCard = isVisible && !!cardId;
+  const hasItem = isVisible && !!itemId;
   const panelWidth = isPanelOpen ? width : 0;
   const widthTransitionClass = isResizing
     ? "transition-none"
@@ -160,7 +161,7 @@ export function CardDetails() {
         )}
         <div
           aria-hidden={!isPanelOpen}
-          data-testid="card-details-panel"
+          data-testid="item-details-panel"
           className={cn(
             "h-full overflow-y-auto transition-[transform,opacity] duration-300 ease-out",
             isPanelOpen
@@ -172,13 +173,13 @@ export function CardDetails() {
           {/* Header */}
           <div className="flex items-center gap-2 px-3 py-2 border-b border-task-panel-divider">
             <span className="text-content-tinted text-xs font-medium flex-1">
-              Card Details
+              Item Details
             </span>
           </div>
 
-          {hasCard && cardId ? (
-            <CardDetailsBody
-              cardId={cardId}
+          {hasItem && itemId ? (
+            <ItemDetailsBody
+              itemId={itemId}
               isEditingTitle={isEditingTitle}
               setIsEditingTitle={setIsEditingTitle}
               isEditingDescription={isEditingDescription}
@@ -195,25 +196,25 @@ export function CardDetails() {
   );
 }
 
-export function CardDetailsPage({
-  cardId,
+export function ItemDetailsPage({
+  itemId,
   onBack,
-  onCardIdChange,
+  onItemIdChange,
 }: {
-  cardId: string;
+  itemId: string;
   onBack: () => void;
-  onCardIdChange?: (cardId: string) => void;
+  onItemIdChange?: (itemId: string) => void;
 }) {
   const { data: isVisible = false } = useAsyncSelector({
-    selector: cardExists,
-    args: { id: cardId },
+    selector: itemExists,
+    args: { id: itemId },
   });
   const {
     isEditingTitle,
     setIsEditingTitle,
     isEditingDescription,
     setIsEditingDescription,
-  } = useCardDetailsEditing(cardId);
+  } = useItemDetailsEditing(itemId);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-task-panel/95 text-content shadow-2xl backdrop-blur-sm safari:bg-task-panel safari:backdrop-blur-none">
@@ -242,13 +243,13 @@ export function CardDetailsPage({
         style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
       >
         {isVisible ? (
-          <CardDetailsBody
-            cardId={cardId}
+          <ItemDetailsBody
+            itemId={itemId}
             isEditingTitle={isEditingTitle}
             setIsEditingTitle={setIsEditingTitle}
             isEditingDescription={isEditingDescription}
             setIsEditingDescription={setIsEditingDescription}
-            onCardIdChange={onCardIdChange}
+            onItemIdChange={onItemIdChange}
           />
         ) : (
           <div className="flex h-40 items-center justify-center px-4 text-center text-sm text-content-tinted/60">
@@ -260,36 +261,36 @@ export function CardDetailsPage({
   );
 }
 
-function useCardDetailsEditing(cardId: string | null) {
+function useItemDetailsEditing(itemId: string | null) {
   const [editingFieldKey, setEditingFieldKey] = useState<string | null>(null);
-  const titleFieldKey = cardId ? `${cardId}:title` : null;
-  const descriptionFieldKey = cardId ? `${cardId}:description` : null;
-  const editRequest = useCardDetailsEditRequest((s) => s.request);
+  const titleFieldKey = itemId ? `${itemId}:title` : null;
+  const descriptionFieldKey = itemId ? `${itemId}:description` : null;
+  const editRequest = useItemDetailsEditRequest((s) => s.request);
   const isDescriptionEditRequested =
-    !!cardId &&
-    editRequest?.cardId === cardId &&
+    !!itemId &&
+    editRequest?.itemId === itemId &&
     editRequest.field === "description";
   const isEditingTitle = editingFieldKey === titleFieldKey;
   const isEditingDescription =
     editingFieldKey === descriptionFieldKey || isDescriptionEditRequested;
   const isEditingAnyField =
-    !!cardId &&
-    (editingFieldKey?.startsWith(`${cardId}:`) === true ||
+    !!itemId &&
+    (editingFieldKey?.startsWith(`${itemId}:`) === true ||
       isDescriptionEditRequested);
 
   const setIsEditingTitle = useCallback(
-    (v: boolean) => setEditingFieldKey(v && cardId ? `${cardId}:title` : null),
-    [cardId],
+    (v: boolean) => setEditingFieldKey(v && itemId ? `${itemId}:title` : null),
+    [itemId],
   );
   const setIsEditingDescription = useCallback(
     (v: boolean) => {
       if (!v) {
-        useCardDetailsEditRequest.getState().clearRequest();
+        useItemDetailsEditRequest.getState().clearRequest();
       }
 
-      setEditingFieldKey(v && cardId ? `${cardId}:description` : null);
+      setEditingFieldKey(v && itemId ? `${itemId}:description` : null);
     },
-    [cardId],
+    [itemId],
   );
 
   return {
@@ -303,48 +304,48 @@ function useCardDetailsEditing(cardId: string | null) {
 
 // ─── Body dispatcher ──────────────────────────────────────────────────────────
 
-function CardDetailsBody({
-  cardId,
+function ItemDetailsBody({
+  itemId,
   isEditingTitle,
   setIsEditingTitle,
   isEditingDescription,
   setIsEditingDescription,
-  onCardIdChange,
+  onItemIdChange,
 }: {
-  cardId: string;
+  itemId: string;
   isEditingTitle: boolean;
   setIsEditingTitle: (v: boolean) => void;
   isEditingDescription: boolean;
   setIsEditingDescription: (v: boolean) => void;
-  onCardIdChange?: (cardId: string) => void;
+  onItemIdChange?: (itemId: string) => void;
 }) {
-  const { data: card } = useAsyncSelector({
-    selector: taskSectionCardById,
-    args: { id: cardId },
+  const { data: item } = useAsyncSelector({
+    selector: projectSectionItemById,
+    args: { id: itemId },
   });
 
-  if (isTask(card)) {
+  if (isTask(item)) {
     return (
       <TaskBody
-        task={card}
+        task={item}
         isEditingTitle={isEditingTitle}
         setIsEditingTitle={setIsEditingTitle}
         isEditingDescription={isEditingDescription}
         setIsEditingDescription={setIsEditingDescription}
-        onCardIdChange={onCardIdChange}
+        onItemIdChange={onItemIdChange}
       />
     );
   }
 
-  if (isTaskTemplate(card)) {
+  if (isTaskTemplate(item)) {
     return (
       <TemplateBody
-        template={card}
+        template={item}
         isEditingTitle={isEditingTitle}
         setIsEditingTitle={setIsEditingTitle}
         isEditingDescription={isEditingDescription}
         setIsEditingDescription={setIsEditingDescription}
-        onCardIdChange={onCardIdChange}
+        onItemIdChange={onItemIdChange}
       />
     );
   }

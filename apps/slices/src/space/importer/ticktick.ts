@@ -107,7 +107,7 @@ function toDateString(isoStr: string): string {
  *
  * Mapping:
  *   Folder/List → Project (title = "Folder/List", one project per unique pair)
- *   Each Project gets one default TaskSection (titled after the List)
+ *   Each Project gets one default ProjectSection (titled after the List)
  *   Repeat + Status=0 → TaskTemplate (recurring active)
  *   Otherwise   → Task (state based on Status: 0=todo, 1/2=done)
  */
@@ -137,7 +137,7 @@ export function parseTickTickCSV(csv: string): Backup {
   }
 
   // Each (folder, list) pair → one Project titled "Folder/List"
-  // and one default TaskSection within it.
+  // and one default ProjectSection within it.
   const projectsMap = new Map<
     string,
     { id: string; title: string; createdAt: number; orderToken: string }
@@ -197,8 +197,8 @@ export function parseTickTickCSV(csv: string): Backup {
   const taskTemplates: Backup["taskTemplates"] = [];
   // date string (yyyy-MM-dd) → DailyListBackup (id = date, used as local key)
   const dailyListsMap = new Map<string, { id: string; date: string }>();
-  const dailyListProjections: NonNullable<Backup["dailyListProjections"]> = [];
-  const projectionLastToken = new Map<string, string | null>();
+  const dailyEntries: NonNullable<Backup["dailyEntries"]> = [];
+  const dailyEntryLastToken = new Map<string, string | null>();
 
   for (const row of sortedRows) {
     const folder = row[COL_FOLDER] ?? "";
@@ -240,7 +240,7 @@ export function parseTickTickCSV(csv: string): Backup {
         repeatRuleDtStart: startDateStr ? parseEpoch(startDateStr) : createdAt,
         createdAt,
         lastGeneratedAt: createdAt,
-        taskSectionId: section.id,
+        projectSectionId: section.id,
       });
     } else {
       // Regular task or completed recurring instance → Task
@@ -250,7 +250,7 @@ export function parseTickTickCSV(csv: string): Backup {
         title,
         content: content || "",
         state: isActive ? "todo" : "done",
-        taskSectionId: section.id,
+        projectSectionId: section.id,
         orderToken,
         lastToggledAt,
         createdAt,
@@ -258,19 +258,19 @@ export function parseTickTickCSV(csv: string): Backup {
         templateDate: null,
       });
 
-      // If the task has a due date, create a daily list projection for it
+      // If the task has a due date, create a daily list entry for it
       const plannedDateStr = dueDateStr || startDateStr;
       if (plannedDateStr) {
         const dateKey = toDateString(plannedDateStr);
         if (!dailyListsMap.has(dateKey)) {
           dailyListsMap.set(dateKey, { id: dateKey, date: dateKey });
         }
-        const projPrev = projectionLastToken.get(dateKey) ?? null;
-        const projToken = generateJitteredKeyBetween(projPrev, null);
-        projectionLastToken.set(dateKey, projToken);
-        dailyListProjections.push({
+        const previousEntryToken = dailyEntryLastToken.get(dateKey) ?? null;
+        const entryToken = generateJitteredKeyBetween(previousEntryToken, null);
+        dailyEntryLastToken.set(dateKey, entryToken);
+        dailyEntries.push({
           id: taskId,
-          orderToken: projToken,
+          orderToken: entryToken,
           listId: dateKey,
           createdAt,
         });
@@ -288,7 +288,7 @@ export function parseTickTickCSV(csv: string): Backup {
       createdAt: p.createdAt,
     })),
 
-    taskSections: [...sectionsMap.values()].map((c) => ({
+    projectSections: [...sectionsMap.values()].map((c) => ({
       id: c.id,
       title: c.title,
       projectId: c.projectId,
@@ -298,6 +298,7 @@ export function parseTickTickCSV(csv: string): Backup {
     tasks,
     taskTemplates,
     dailyLists: [...dailyListsMap.values()],
-    dailyListProjections,
+    // Retain the serialized key for backup compatibility.
+    dailyEntries,
   };
 }

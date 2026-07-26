@@ -2,15 +2,12 @@ import { v, deleteRows, insert, selectFrom } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { getDMY } from "./utils";
 import { allChecklistItems } from "./checklistItems";
-import { allTaskSections } from "./taskSections";
+import { allProjectSections } from "./projectSections";
 import { allProjects } from "./projectsAll";
-import { allTasks } from "./cardsTasks";
-import { allTaskTemplates } from "./cardsTaskTemplates";
+import { allTasks } from "./tasks";
+import { allTaskTemplates } from "./taskTemplates";
 import { dailyListAllIds, dailyListById, dailyListGetId } from "./dailyLists";
-import {
-  dailyProjectionAllIds,
-  dailyProjectionById,
-} from "./dailyListsProjections";
+import { dailyEntryAllIds, dailyEntryById } from "./dailyEntries";
 import { inboxProjectId as getInboxProjectId } from "./projects";
 import { appTypeTablesMap } from "./maps";
 import { registeredSpaceSyncableTables } from "./syncMap";
@@ -22,19 +19,19 @@ import {
   DailyList,
   dailyListType,
   Project,
-  TaskSection,
-  taskSectionType,
-  projectionType,
+  ProjectSection,
+  projectSectionType,
+  dailyEntryType,
   projectType,
   Task,
-  TaskProjection,
+  DailyEntry,
   TaskTemplate,
   taskTemplateType,
   taskType,
 } from "./tables";
 
 // TODO: use type from  vackupValidator
-interface TaskSectionBackup {
+interface ProjectSectionBackup {
   id: string;
   title: string;
   projectId: string;
@@ -47,7 +44,7 @@ interface TaskBackup {
   title: string;
   content?: string;
   state: "todo" | "done";
-  taskSectionId: string;
+  projectSectionId: string;
   orderToken: string;
   lastToggledAt: number;
   createdAt: number;
@@ -73,7 +70,7 @@ interface DailyListBackup {
   date: string;
 }
 
-interface DailyListProjectionBackup {
+interface DailyEntryBackup {
   id: string;
   taskId?: string; // Legacy field - in new format id === taskId
   orderToken: string;
@@ -90,7 +87,7 @@ interface TaskTemplateBackup {
   repeatRuleDtStart?: number;
   createdAt: number;
   lastGeneratedAt: number;
-  taskSectionId: string;
+  projectSectionId: string;
 }
 
 interface ChecklistItemBackup {
@@ -109,30 +106,36 @@ export interface Backup {
   projects: ProjectBackup[];
   dailyLists: DailyListBackup[];
   taskTemplates: TaskTemplateBackup[];
-  taskSections: TaskSectionBackup[];
-  dailyListProjections?: DailyListProjectionBackup[];
+  projectSections: ProjectSectionBackup[];
+  dailyEntries?: DailyEntryBackup[];
   checklistItems?: ChecklistItemBackup[];
 }
 
-interface LegacyTaskBackup extends Omit<TaskBackup, "taskSectionId"> {
+interface LegacyEntryBackupFields {
+  dailyListProjections?: DailyEntryBackup[];
+}
+
+interface LegacyTaskBackup extends Omit<TaskBackup, "projectSectionId"> {
   projectCategoryId: string;
 }
 
 interface LegacyTaskTemplateBackup extends Omit<
   TaskTemplateBackup,
-  "taskSectionId"
+  "projectSectionId"
 > {
   projectCategoryId: string;
 }
 
-interface LegacyBackup extends Omit<
-  Backup,
-  "tasks" | "taskTemplates" | "taskSections"
-> {
+interface LegacyBackup
+  extends
+    Omit<Backup, "tasks" | "taskTemplates" | "projectSections">,
+    LegacyEntryBackupFields {
   tasks: LegacyTaskBackup[];
   taskTemplates: LegacyTaskTemplateBackup[];
-  projectCategories: TaskSectionBackup[];
+  projectCategories: ProjectSectionBackup[];
 }
+
+type BackupInput = Backup & LegacyEntryBackupFields;
 
 const backupSchema = v.object({
   tasks: v.array(
@@ -141,7 +144,7 @@ const backupSchema = v.object({
       title: v.string(),
       content: v.optional(v.string()),
       state: v.union(v.literal("todo"), v.literal("done")),
-      taskSectionId: v.string(),
+      projectSectionId: v.string(),
       orderToken: v.string(),
       lastToggledAt: v.number(),
       createdAt: v.number(),
@@ -180,10 +183,10 @@ const backupSchema = v.object({
       repeatRuleDtStart: v.optional(v.number()),
       createdAt: v.number(),
       lastGeneratedAt: v.number(),
-      taskSectionId: v.string(),
+      projectSectionId: v.string(),
     }),
   ),
-  taskSections: v.array(
+  projectSections: v.array(
     v.object({
       id: v.string(),
       title: v.string(),
@@ -191,6 +194,17 @@ const backupSchema = v.object({
       createdAt: v.number(),
       orderToken: v.string(),
     }),
+  ),
+  dailyEntries: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        taskId: v.optional(v.string()),
+        orderToken: v.string(),
+        listId: v.string(),
+        createdAt: v.number(),
+      }),
+    ),
   ),
   dailyListProjections: v.optional(
     v.array(
@@ -288,6 +302,17 @@ const legacyBackupSchema = v.object({
       }),
     ),
   ),
+  dailyEntries: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        taskId: v.optional(v.string()),
+        orderToken: v.string(),
+        listId: v.string(),
+        createdAt: v.number(),
+      }),
+    ),
+  ),
   checklistItems: v.optional(
     v.array(
       v.object({
@@ -306,22 +331,33 @@ const legacyBackupSchema = v.object({
 
 const backupInputSchema = v.union(backupSchema, legacyBackupSchema);
 
-export function normalizeSpaceBackup(backup: Backup | LegacyBackup): Backup {
-  if ("taskSections" in backup) {
-    return backup;
+export function normalizeSpaceBackup(
+  backup: BackupInput | LegacyBackup,
+): Backup {
+  const { dailyListProjections, ...backupWithoutLegacyEntries } = backup;
+  const dailyEntries = backup.dailyEntries ?? dailyListProjections;
+  const entryFields = dailyEntries === undefined ? {} : { dailyEntries };
+
+  if ("projectSections" in backupWithoutLegacyEntries) {
+    return {
+      ...backupWithoutLegacyEntries,
+      ...entryFields,
+    };
   }
 
-  const { projectCategories, tasks, taskTemplates, ...rest } = backup;
+  const { projectCategories, tasks, taskTemplates, ...rest } =
+    backupWithoutLegacyEntries;
   return {
     ...rest,
-    taskSections: projectCategories,
+    ...entryFields,
+    projectSections: projectCategories,
     tasks: tasks.map(({ projectCategoryId, ...task }) => ({
       ...task,
-      taskSectionId: projectCategoryId,
+      projectSectionId: projectCategoryId,
     })),
     taskTemplates: taskTemplates.map(({ projectCategoryId, ...template }) => ({
       ...template,
-      taskSectionId: projectCategoryId,
+      projectSectionId: projectCategoryId,
     })),
   };
 }
@@ -352,9 +388,9 @@ const getNewModels = action({
       models.push(project);
     }
 
-    for (const sectionBackup of backup.taskSections) {
-      const section: TaskSection = {
-        type: taskSectionType,
+    for (const sectionBackup of backup.projectSections) {
+      const section: ProjectSection = {
+        type: projectSectionType,
         id: sectionBackup.id,
         title: sectionBackup.title,
         projectId:
@@ -368,27 +404,37 @@ const getNewModels = action({
       models.push(section);
     }
 
-    // Build projection map for migration from old backups (where projections have taskId)
-    const legacyProjectionMap = new Map<string, DailyListProjectionBackup[]>();
-    if (backup.dailyListProjections) {
-      for (const projection of backup.dailyListProjections) {
+    // Build entry map for migration from old backups (where entries have taskId)
+    const legacyDailyEntryMap = new Map<string, DailyEntryBackup[]>();
+    if (backup.dailyEntries) {
+      for (const entry of backup.dailyEntries) {
         // If taskId exists, it's a legacy format
-        if (projection.taskId) {
-          const existing = legacyProjectionMap.get(projection.taskId) || [];
-          existing.push(projection);
-          legacyProjectionMap.set(projection.taskId, existing);
+        if (entry.taskId) {
+          const existing = legacyDailyEntryMap.get(entry.taskId) || [];
+          existing.push(entry);
+          legacyDailyEntryMap.set(entry.taskId, existing);
         }
       }
     }
+    const selectedLegacyDailyEntries = new Set(
+      [...legacyDailyEntryMap.values()].map((entries) =>
+        entries.reduce((latest, entry) =>
+          entry.createdAt > latest.createdAt ||
+          (entry.createdAt === latest.createdAt && entry.id > latest.id)
+            ? entry
+            : latest,
+        ),
+      ),
+    );
 
     // Then create all tasks
     for (const taskBackup of backup.tasks) {
-      const section = backup.taskSections.find(
-        (p) => p.id === taskBackup.taskSectionId,
+      const section = backup.projectSections.find(
+        (p) => p.id === taskBackup.projectSectionId,
       );
       if (!section) {
         console.warn(
-          `Task section ${taskBackup.taskSectionId} not found for task ${taskBackup.id}`,
+          `Project section ${taskBackup.projectSectionId} not found for task ${taskBackup.id}`,
         );
         continue;
       }
@@ -399,7 +445,7 @@ const getNewModels = action({
         title: taskBackup.title,
         content: taskBackup.content,
         state: taskBackup.state,
-        taskSectionId: taskBackup.taskSectionId,
+        projectSectionId: taskBackup.projectSectionId,
         orderToken: taskBackup.orderToken,
         lastToggledAt: taskBackup.lastToggledAt,
         createdAt: taskBackup.createdAt,
@@ -432,12 +478,12 @@ const getNewModels = action({
 
     // Create task templates
     for (const templateBackup of backup.taskTemplates || []) {
-      const section = backup.taskSections.find(
-        (p) => p.id === templateBackup.taskSectionId,
+      const section = backup.projectSections.find(
+        (p) => p.id === templateBackup.projectSectionId,
       );
       if (!section) {
         console.warn(
-          `Task section ${templateBackup.taskSectionId} not found for template ${templateBackup.id}`,
+          `Project section ${templateBackup.projectSectionId} not found for template ${templateBackup.id}`,
         );
         continue;
       }
@@ -453,34 +499,41 @@ const getNewModels = action({
           templateBackup.repeatRuleDtStart ?? templateBackup.createdAt,
         createdAt: templateBackup.createdAt,
         lastGeneratedAt: templateBackup.lastGeneratedAt,
-        taskSectionId: section.id,
+        projectSectionId: section.id,
       };
 
       models.push(template);
     }
 
-    // Create projections - handle both new format (id = taskId) and legacy format (separate taskId field)
-    if (backup.dailyListProjections) {
-      for (const projectionBackup of backup.dailyListProjections) {
+    // Create entries - handle both new format (id = taskId) and legacy format (separate taskId field)
+    if (backup.dailyEntries) {
+      for (const entryBackup of backup.dailyEntries) {
+        if (
+          entryBackup.taskId &&
+          !selectedLegacyDailyEntries.has(entryBackup)
+        ) {
+          continue;
+        }
+
         // In new format, id = taskId, so taskId field is optional
-        const taskId = projectionBackup.taskId || projectionBackup.id;
+        const taskId = entryBackup.taskId || entryBackup.id;
 
         // Verify the task exists
         const taskExists = backup.tasks.some((t) => t.id === taskId);
         if (!taskExists) {
-          console.warn(`Task ${taskId} not found for projection`);
+          console.warn(`Task ${taskId} not found for entry`);
           continue;
         }
 
-        const projection: TaskProjection = {
-          type: projectionType,
-          id: taskId, // projection.id = task.id
-          orderToken: projectionBackup.orderToken,
-          dailyListId: dailyListIdMap.get(projectionBackup.listId)!,
-          createdAt: projectionBackup.createdAt,
+        const entry: DailyEntry = {
+          type: dailyEntryType,
+          id: taskId, // entry.id = task.id
+          orderToken: entryBackup.orderToken,
+          dailyListId: dailyListIdMap.get(entryBackup.listId)!,
+          createdAt: entryBackup.createdAt,
         };
 
-        models.push(projection);
+        models.push(entry);
       }
     }
 
@@ -516,23 +569,23 @@ const getNewModels = action({
 
     // Handle legacy backup format where dailyListId was on tasks directly
     for (const taskBackup of backup.tasks) {
-      // Skip if we already have a projection for this task (from dailyListProjections array)
-      const hasProjection = backup.dailyListProjections?.some(
+      // Skip if we already have an entry for this task.
+      const hasEntry = backup.dailyEntries?.some(
         (p) => (p.taskId || p.id) === taskBackup.id,
       );
-      if (hasProjection) continue;
+      if (hasEntry) continue;
 
       // Check if task has legacy dailyListId field
       if (taskBackup.dailyListId && taskBackup.dailyListOrderToken) {
-        const projection: TaskProjection = {
-          type: projectionType,
+        const entry: DailyEntry = {
+          type: dailyEntryType,
           id: taskBackup.id,
           orderToken: taskBackup.dailyListOrderToken,
           dailyListId: taskBackup.dailyListId,
           createdAt: taskBackup.createdAt,
         };
 
-        models.push(projection);
+        models.push(entry);
       }
     }
 
@@ -590,20 +643,20 @@ export const getSpaceBackup = selector({
       }
     }
 
-    // Get all projections
-    const projections: TaskProjection[] = [];
-    const allProjectionIds = yield* dailyProjectionAllIds({});
-    for (const id of allProjectionIds) {
-      const projection = yield* dailyProjectionById({ id });
-      if (projection) {
-        projections.push(projection);
+    // Get all entries
+    const entries: DailyEntry[] = [];
+    const allEntryIds = yield* dailyEntryAllIds({});
+    for (const id of allEntryIds) {
+      const entry = yield* dailyEntryById({ id });
+      if (entry) {
+        entries.push(entry);
       }
     }
 
-    const allSections = yield* allTaskSections({});
+    const allSections = yield* allProjectSections({});
 
     return {
-      taskSections: allSections.map((group) => ({
+      projectSections: allSections.map((group) => ({
         id: group.id,
         title: group.title,
         projectId: group.projectId,
@@ -619,7 +672,7 @@ export const getSpaceBackup = selector({
         createdAt: task.createdAt,
         templateId: task.templateId,
         templateDate: task.templateDate,
-        taskSectionId: task.taskSectionId,
+        projectSectionId: task.projectSectionId,
         content: task.content || "",
       })),
       projects: projects.map((project) => ({
@@ -634,11 +687,11 @@ export const getSpaceBackup = selector({
         id: dailyList.id,
         date: dailyList.date,
       })),
-      dailyListProjections: projections.map((projection) => ({
-        id: projection.id, // id = taskId in new format
-        orderToken: projection.orderToken,
-        listId: projection.dailyListId,
-        createdAt: projection.createdAt,
+      dailyEntries: entries.map((entry) => ({
+        id: entry.id, // id = taskId in new format
+        orderToken: entry.orderToken,
+        listId: entry.dailyListId,
+        createdAt: entry.createdAt,
       })),
       taskTemplates: taskTemplates.map((template) => ({
         id: template.id,
@@ -649,7 +702,7 @@ export const getSpaceBackup = selector({
         repeatRuleDtStart: template.repeatRuleDtStart,
         createdAt: template.createdAt,
         lastGeneratedAt: template.lastGeneratedAt,
-        taskSectionId: template.taskSectionId,
+        projectSectionId: template.projectSectionId,
       })),
       checklistItems: checklistItems.map((item) => ({
         id: item.id,

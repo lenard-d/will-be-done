@@ -4,12 +4,13 @@ import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
-  CardForDisplay,
+  ItemForDisplay,
   createTaskInStash,
-  doneStashProjectionChildrenForDisplay,
+  doneStashEntryChildrenForDisplay,
   inboxProjectId,
   STASH_ID,
-  stashProjectionChildrenForDisplay,
+  stashEntryChildrenForDisplay,
+  stashEntryType,
   stashType,
 } from "@will-be-done/slices/space";
 import { PreloadedTaskComp } from "@/components/Task/Task.tsx";
@@ -33,13 +34,13 @@ import {
 
 const StashColumnView = ({
   onTaskAdd,
-  cardsForDisplay,
+  itemsForDisplay,
 }: {
   onTaskAdd: () => void;
-  cardsForDisplay: CardForDisplay[];
+  itemsForDisplay: ItemForDisplay[];
 }) => {
-  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
-    selector: doneStashProjectionChildrenForDisplay,
+  const { data: doneItemsForDisplay = [] } = useAsyncSelector({
+    selector: doneStashEntryChildrenForDisplay,
     args: {},
   });
 
@@ -76,24 +77,24 @@ const StashColumnView = ({
           </span>
           <span>Add task</span>
         </button>
-        {cardsForDisplay.map((displayData) => (
+        {itemsForDisplay.map((displayData) => (
           <PreloadedTaskComp
-            key={displayData.cardWrapper.id}
-            card={displayData.card}
+            key={displayData.listItem.id}
+            item={displayData.item}
             section={displayData.section}
-            cardWrapper={displayData.cardWrapper}
+            listItem={displayData.listItem}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
             hasCheclistItems={displayData.hasChecklist}
             alwaysShowProject
           />
         ))}
-        {doneCardsForDisplay.map((displayData) => (
+        {doneItemsForDisplay.map((displayData) => (
           <PreloadedTaskComp
-            key={displayData.cardWrapper.id}
-            card={displayData.card}
+            key={displayData.listItem.id}
+            item={displayData.item}
             section={displayData.section}
-            cardWrapper={displayData.cardWrapper}
+            listItem={displayData.listItem}
             project={displayData.project}
             lastScheduleTime={displayData.lastScheduleTime}
             hasCheclistItems={displayData.hasChecklist}
@@ -113,11 +114,11 @@ export const Stash = () => {
     selector: inboxProjectId,
     args: {},
   });
-  const { data: cardsForDisplay = [] } = useAsyncSelector({
-    selector: stashProjectionChildrenForDisplay,
+  const { data: itemsForDisplay = [] } = useAsyncSelector({
+    selector: stashEntryChildrenForDisplay,
     args: {},
   });
-  const stashTaskCount = cardsForDisplay.length;
+  const stashTaskCount = itemsForDisplay.length;
   const { isOpen, toggle } = useStashOpen();
   const width = useStashSize((s) => s.width);
   const setWidth = useStashSize((s) => s.setWidth);
@@ -184,7 +185,7 @@ export const Stash = () => {
         }),
       );
 
-      const focusKey = buildFocusKey(task.id, "stashProjection");
+      const focusKey = buildFocusKey(task.id, stashEntryType);
       useFocusStore.getState().editByKey(focusKey);
 
       if (focusTaskTitleTextareaByKey(focusKey)) return;
@@ -277,7 +278,7 @@ export const Stash = () => {
         >
           <StashColumnView
             onTaskAdd={handleAddTask}
-            cardsForDisplay={cardsForDisplay}
+            itemsForDisplay={itemsForDisplay}
           />
         </div>
       </div>

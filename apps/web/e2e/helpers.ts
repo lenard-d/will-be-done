@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 
 import { expect, type Locator, type Page } from "playwright/test";
+import {
+  dailyEntryType,
+  stashEntryType,
+} from "../../slices/src/space/tables.ts";
 
 export const E2E_PASSWORD = "Playwright123!";
 
@@ -96,10 +100,10 @@ export async function createTodayTask(page: Page, title: string) {
   await page.getByLabel("Edit task title").fill(title);
   await page.keyboard.press("Enter");
 
-  const card = taskCard(page, title);
-  await expect(card).toBeVisible();
+  const item = taskItem(page, title);
+  await expect(item).toBeVisible();
 
-  return card;
+  return item;
 }
 
 export async function createProjectTask(page: Page, title: string) {
@@ -108,10 +112,10 @@ export async function createProjectTask(page: Page, title: string) {
   await page.getByLabel("Edit task title").fill(title);
   await page.keyboard.press("Enter");
 
-  const card = projectTaskCard(page, title);
-  await expect(card).toBeVisible();
+  const item = projectTaskItem(page, title);
+  await expect(item).toBeVisible();
 
-  return card;
+  return item;
 }
 
 export async function createProject(page: Page, title: string) {
@@ -125,11 +129,11 @@ export async function createProject(page: Page, title: string) {
 }
 
 export async function openTaskActions(page: Page, title: string) {
-  const card = taskCard(page, title);
-  await expect(card).toBeVisible();
-  await card.click();
+  const item = taskItem(page, title);
+  await expect(item).toBeVisible();
+  await item.click();
 
-  const actionsButton = card.getByRole("button", { name: "Task actions" });
+  const actionsButton = item.getByRole("button", { name: "Task actions" });
   await expect(actionsButton).toBeVisible();
   await actionsButton.click();
 
@@ -137,9 +141,9 @@ export async function openTaskActions(page: Page, title: string) {
 }
 
 export async function openTaskDetails(page: Page, title: string) {
-  const card = taskCard(page, title);
-  await expect(card).toBeVisible();
-  await card.click();
+  const item = taskItem(page, title);
+  await expect(item).toBeVisible();
+  await item.click();
 
   const detailsButton = page.getByRole("button", { name: "Task details" });
   const description = page.getByLabel("Edit task description");
@@ -150,10 +154,10 @@ export async function openTaskDetails(page: Page, title: string) {
 
   if (hasDetailsRouteButton) {
     await detailsButton.click();
-    await expect(page).toHaveURL(/\/spaces\/[^/]+\/card-details\/[^/]+$/);
+    await expect(page).toHaveURL(/\/spaces\/[^/]+\/item-details\/[^/]+$/);
     await expect(description).toBeVisible();
 
-    return { card, description };
+    return { item, description };
   }
 
   const isAlreadyOpen = await description
@@ -165,10 +169,10 @@ export async function openTaskDetails(page: Page, title: string) {
     await page.keyboard.press("KeyV");
   }
 
-  await expect(page.getByText("Card Details")).toBeVisible();
+  await expect(page.getByText("Item Details")).toBeVisible();
   await expect(description).toBeVisible();
 
-  return { card, description };
+  return { item, description };
 }
 
 export async function openSpaceSettings(page: Page) {
@@ -180,23 +184,23 @@ export async function openSpaceSettings(page: Page) {
   return dialog;
 }
 
-export function taskCard(page: Page, title: string): Locator {
+export function taskItem(page: Page, title: string): Locator {
   return page.locator("[data-focusable-key]").filter({ hasText: title });
 }
 
-export function dailyTaskCard(page: Page, title: string): Locator {
+export function dailyTaskItem(page: Page, title: string): Locator {
   return page
-    .locator('[data-focusable-key^="projection^^"]')
+    .locator(`[data-focusable-key^="${dailyEntryType}^^"]`)
     .filter({ hasText: title });
 }
 
-export function projectTaskCard(page: Page, title: string): Locator {
+export function projectTaskItem(page: Page, title: string): Locator {
   return page
     .locator('[data-focusable-key^="task^^"]')
     .filter({ hasText: title });
 }
 
-export function templateCard(page: Page, title: string): Locator {
+export function templateItem(page: Page, title: string): Locator {
   return page
     .locator('[data-focusable-key^="template^^"]')
     .filter({ hasText: title });
@@ -218,9 +222,9 @@ export function stashPanel(page: Page): Locator {
   return page.getByTestId("stash-panel");
 }
 
-export function stashTaskCard(page: Page, title: string): Locator {
+export function stashTaskItem(page: Page, title: string): Locator {
   return stashPanel(page)
-    .locator('[data-focusable-key^="stashProjection^^"]')
+    .locator(`[data-focusable-key^="${stashEntryType}^^"]`)
     .filter({ hasText: title });
 }
 
