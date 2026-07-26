@@ -35,6 +35,7 @@ export const projectRoutes: FastifyPluginAsyncZod = async (server) => {
         params: ListProjectsParamsSchema,
         response: {
           200: ListProjectsResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           500: ErrorResponseSchema,
@@ -86,6 +87,7 @@ export const projectRoutes: FastifyPluginAsyncZod = async (server) => {
         body: CreateProjectBodySchema,
         response: {
           201: ProjectResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           409: ErrorResponseSchema,
@@ -124,13 +126,14 @@ export const projectRoutes: FastifyPluginAsyncZod = async (server) => {
     {
       schema: {
         operationId: "updateProject",
-        summary: "Update or reposition a project",
+        summary: "Update a project",
         tags: ["Projects"],
         security: [{ bearerAuth: [] }],
         params: ProjectParamsSchema,
         body: UpdateProjectBodySchema,
         response: {
           200: ProjectResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -177,6 +180,7 @@ export const projectRoutes: FastifyPluginAsyncZod = async (server) => {
         params: ProjectParamsSchema,
         response: {
           204: z.null(),
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -223,6 +227,7 @@ export const projectRoutes: FastifyPluginAsyncZod = async (server) => {
         body: MoveProjectBodySchema,
         response: {
           200: ProjectResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,

@@ -39,7 +39,11 @@ import {
   updateProjectSection,
 } from "./sections";
 import { listSectionItems } from "./items";
-import { InvalidPlacementError, ResourceNotFoundError } from "./errors";
+import {
+  ConflictError,
+  InvalidPlacementError,
+  ResourceNotFoundError,
+} from "./errors";
 import {
   createSectionTask,
   deleteTask,
@@ -80,6 +84,23 @@ const orderB = generateJitteredKeyBetween(orderA, null);
 const orderC = generateJitteredKeyBetween(orderB, null);
 const orderD = generateJitteredKeyBetween(orderC, null);
 const orderE = generateJitteredKeyBetween(orderD, null);
+const seedInboxProject = action({
+  name: "seedApiInboxProject",
+  args: {},
+  handler: function* () {
+    yield* insert(projectsTable, [
+      {
+        type: projectType,
+        id: "inbox-project",
+        title: "Inbox",
+        icon: "",
+        isInbox: true,
+        orderToken: orderB,
+        createdAt: 100,
+      },
+    ]);
+  },
+});
 const seedDomain = action({
   name: "seedApiDomain",
   args: {},
@@ -476,6 +497,30 @@ describe("section and task services", () => {
       projectId: destination.id,
       userId: "user-1",
     });
+  });
+
+  test("rejects creating or moving sections into the inbox project", () => {
+    const { spaceDB } = setUpDatabases();
+    syncDispatch(spaceDB, seedInboxProject({}));
+
+    expect(() =>
+      createProjectSection({
+        spaceId: "space-1",
+        projectId: "inbox-project",
+        userId: "user-1",
+        title: "Invalid",
+      }),
+    ).toThrow(ConflictError);
+
+    expect(() =>
+      moveProjectSection({
+        spaceId: "space-1",
+        sectionId: "section-1",
+        userId: "user-1",
+        projectId: "inbox-project",
+        placement: { kind: "last" },
+      }),
+    ).toThrow(ConflictError);
   });
 
   test("schedules, positions, and reschedules a task", () => {

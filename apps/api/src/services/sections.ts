@@ -7,9 +7,7 @@ import {
   projectSectionsByProjectId,
   updateProjectSection as updateProjectSectionAction,
 } from "@will-be-done/slices/space";
-import { getHyperDB } from "../db/db";
-import { spaceDBConfig } from "../db/configs";
-import { ensureDatabaseAccessOrCreate } from "./databaseAccess";
+import { getSpaceDatabase } from "./databaseAccess";
 import { ConflictError, ResourceNotFoundError } from "./errors";
 import {
   resolveCreatePosition,
@@ -31,11 +29,6 @@ function toPublicProjectSection({
   createdAt,
 }: PublicProjectSection): PublicProjectSection {
   return { id, projectId, title, createdAt };
-}
-
-function getSpaceDatabase(spaceId: string, userId: string) {
-  ensureDatabaseAccessOrCreate({ dbId: spaceId, dbType: "space", userId });
-  return getHyperDB(spaceDBConfig(spaceId)).db;
 }
 
 export function listProjectSections({
@@ -79,6 +72,9 @@ export function createProjectSection({
     args: { id: projectId },
   });
   if (!project) throw new ResourceNotFoundError("Project");
+  if (project.isInbox) {
+    throw new ConflictError("Inbox project cannot contain project sections");
+  }
 
   const sections =
     placement.kind === "before" || placement.kind === "after"
@@ -165,6 +161,9 @@ export function moveProjectSection({
     args: { id: projectId },
   });
   if (!destinationProject) throw new ResourceNotFoundError("Project");
+  if (destinationProject.isInbox) {
+    throw new ConflictError("Inbox project cannot contain project sections");
+  }
 
   const sections = selectSync(db, {
     selector: projectSectionsByProjectId,

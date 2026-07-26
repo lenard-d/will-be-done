@@ -6,9 +6,7 @@ import {
   projectById,
   updateProject as updateProjectAction,
 } from "@will-be-done/slices/space";
-import { getHyperDB } from "../db/db";
-import { spaceDBConfig } from "../db/configs";
-import { ensureDatabaseAccessOrCreate } from "./databaseAccess";
+import { getSpaceDatabase } from "./databaseAccess";
 import { ConflictError, ResourceNotFoundError } from "./errors";
 import {
   resolveCreatePosition,
@@ -21,7 +19,6 @@ export interface PublicProject {
   title: string;
   icon: string;
   isInbox: boolean;
-  orderToken: string;
   createdAt: number;
 }
 
@@ -31,14 +28,8 @@ function toPublicProject({
   icon,
   isInbox,
   createdAt,
-  orderToken,
 }: PublicProject): PublicProject {
-  return { id, title, icon, isInbox, orderToken, createdAt };
-}
-
-function getSpaceDatabase(spaceId: string, userId: string) {
-  ensureDatabaseAccessOrCreate({ dbId: spaceId, dbType: "space", userId });
-  return getHyperDB(spaceDBConfig(spaceId)).db;
+  return { id, title, icon, isInbox, createdAt };
 }
 
 export function listSpaceProjects({

@@ -7,9 +7,7 @@ import {
   scheduleTask as scheduleTaskAction,
   taskById,
 } from "@will-be-done/slices/space";
-import { getHyperDB } from "../db/db";
-import { spaceDBConfig } from "../db/configs";
-import { ensureDatabaseAccessOrCreate } from "./databaseAccess";
+import { getSpaceDatabase } from "./databaseAccess";
 import { ResourceNotFoundError } from "./errors";
 import { resolveCreatePosition, type Placement } from "./placement";
 import { toPublicTask, type PublicTask } from "./tasks";
@@ -32,8 +30,7 @@ export function scheduleTask({
   date: string;
   placement?: Placement;
 }): ScheduledTaskResponse {
-  ensureDatabaseAccessOrCreate({ dbId: spaceId, dbType: "space", userId });
-  const db = getHyperDB(spaceDBConfig(spaceId)).db;
+  const db = getSpaceDatabase(spaceId, userId);
   const task = selectSync(db, { selector: taskById, args: { id: taskId } });
   if (!task) throw new ResourceNotFoundError("Task");
 
@@ -84,8 +81,7 @@ export function clearTaskSchedule({
   taskId: string;
   userId: string;
 }): void {
-  ensureDatabaseAccessOrCreate({ dbId: spaceId, dbType: "space", userId });
-  const db = getHyperDB(spaceDBConfig(spaceId)).db;
+  const db = getSpaceDatabase(spaceId, userId);
   const task = selectSync(db, { selector: taskById, args: { id: taskId } });
   if (!task) throw new ResourceNotFoundError("Task");
 

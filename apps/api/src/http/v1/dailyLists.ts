@@ -24,6 +24,7 @@ export const dailyListRoutes: FastifyPluginAsyncZod = async (server) => {
         querystring: DailyListItemsQuerySchema,
         response: {
           200: DailyListItemsResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           500: ErrorResponseSchema,

@@ -75,7 +75,6 @@ describe("listSpaceProjects", () => {
         title: "First",
         icon: "1",
         isInbox: true,
-        orderToken: "a",
         createdAt: 100,
       },
       {
@@ -83,7 +82,6 @@ describe("listSpaceProjects", () => {
         title: "Second",
         icon: "2",
         isInbox: false,
-        orderToken: "b",
         createdAt: 200,
       },
     ]);

@@ -39,6 +39,7 @@ export const checklistItemRoutes: FastifyPluginAsyncZod = async (server) => {
         params: TaskChecklistParamsSchema,
         response: {
           200: ChecklistItemsResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -80,6 +81,7 @@ export const checklistItemRoutes: FastifyPluginAsyncZod = async (server) => {
         body: CreateChecklistItemBodySchema,
         response: {
           201: ChecklistItemResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -122,6 +124,7 @@ export const checklistItemRoutes: FastifyPluginAsyncZod = async (server) => {
         params: TaskTemplateChecklistParamsSchema,
         response: {
           200: ChecklistItemsResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -163,6 +166,7 @@ export const checklistItemRoutes: FastifyPluginAsyncZod = async (server) => {
         body: CreateChecklistItemBodySchema,
         response: {
           201: ChecklistItemResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -205,6 +209,7 @@ export const checklistItemRoutes: FastifyPluginAsyncZod = async (server) => {
         params: ChecklistItemParamsSchema,
         response: {
           200: ChecklistItemResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -245,6 +250,7 @@ export const checklistItemRoutes: FastifyPluginAsyncZod = async (server) => {
         body: UpdateChecklistItemBodySchema,
         response: {
           200: ChecklistItemResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -285,6 +291,7 @@ export const checklistItemRoutes: FastifyPluginAsyncZod = async (server) => {
         params: ChecklistItemParamsSchema,
         response: {
           204: z.null(),
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -325,6 +332,7 @@ export const checklistItemRoutes: FastifyPluginAsyncZod = async (server) => {
         body: MoveChecklistItemBodySchema,
         response: {
           200: ChecklistItemResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,

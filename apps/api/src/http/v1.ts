@@ -8,6 +8,16 @@ import { taskTemplateRoutes } from "./v1/taskTemplates";
 import { checklistItemRoutes } from "./v1/checklistItems";
 
 export const v1Routes: FastifyPluginAsyncZod = async (server) => {
+  server.setErrorHandler((error, _request, reply) => {
+    if (error instanceof Error && "validation" in error && error.validation) {
+      return reply.code(400).send({
+        code: "BAD_REQUEST",
+        message: error.message,
+      });
+    }
+    throw error;
+  });
+
   server.register(spaceRoutes);
   server.register(projectRoutes);
   server.register(sectionRoutes);

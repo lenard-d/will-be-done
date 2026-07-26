@@ -69,6 +69,7 @@ export const spaceRoutes: FastifyPluginAsyncZod = async (server) => {
         body: CreateSpaceBodySchema,
         response: {
           201: CreateSpaceResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           500: ErrorResponseSchema,
         },
@@ -111,6 +112,7 @@ export const spaceRoutes: FastifyPluginAsyncZod = async (server) => {
         params: DeleteSpaceParamsSchema,
         response: {
           204: z.null(),
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           404: ErrorResponseSchema,
           500: ErrorResponseSchema,
@@ -161,6 +163,7 @@ export const spaceRoutes: FastifyPluginAsyncZod = async (server) => {
         body: UpdateSpaceBodySchema,
         response: {
           200: SpaceResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           404: ErrorResponseSchema,
           500: ErrorResponseSchema,

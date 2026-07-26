@@ -35,6 +35,7 @@ export const sectionRoutes: FastifyPluginAsyncZod = async (server) => {
         params: ProjectSectionsParamsSchema,
         response: {
           200: ListProjectSectionsResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -92,6 +93,7 @@ export const sectionRoutes: FastifyPluginAsyncZod = async (server) => {
         body: CreateProjectSectionBodySchema,
         response: {
           201: ProjectSectionResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -127,13 +129,14 @@ export const sectionRoutes: FastifyPluginAsyncZod = async (server) => {
     {
       schema: {
         operationId: "updateProjectSection",
-        summary: "Update, move, or reposition a project section",
+        summary: "Update a project section",
         tags: ["Project sections"],
         security: [{ bearerAuth: [] }],
         params: SectionParamsSchema,
         body: UpdateProjectSectionBodySchema,
         response: {
           200: ProjectSectionResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -175,6 +178,7 @@ export const sectionRoutes: FastifyPluginAsyncZod = async (server) => {
         params: SectionParamsSchema,
         response: {
           204: z.null(),
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -216,6 +220,7 @@ export const sectionRoutes: FastifyPluginAsyncZod = async (server) => {
         body: MoveProjectSectionBodySchema,
         response: {
           200: ProjectSectionResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,

@@ -17,9 +17,7 @@ import {
   type Item,
   type Task,
 } from "@will-be-done/slices/space";
-import { getHyperDB } from "../db/db";
-import { spaceDBConfig } from "../db/configs";
-import { ensureDatabaseAccessOrCreate } from "./databaseAccess";
+import { getSpaceDatabase } from "./databaseAccess";
 import { InvalidPlacementError, ResourceNotFoundError } from "./errors";
 import {
   resolveCreatePosition,
@@ -45,7 +43,7 @@ export interface PublicTask {
   scheduledDate: string | null;
 }
 
-type SpaceDatabase = ReturnType<typeof getHyperDB>["db"];
+type SpaceDatabase = ReturnType<typeof getSpaceDatabase>;
 
 const action = createAction();
 const replaceTask = action({
@@ -86,11 +84,6 @@ export function toPublicTask(db: SpaceDatabase, task: Task): PublicTask {
     lastToggledAt: task.lastToggledAt,
     scheduledDate: getTaskScheduledDate(db, task.id),
   };
-}
-
-function getSpaceDatabase(spaceId: string, userId: string) {
-  ensureDatabaseAccessOrCreate({ dbId: spaceId, dbType: "space", userId });
-  return getHyperDB(spaceDBConfig(spaceId)).db;
 }
 
 function requireSection(

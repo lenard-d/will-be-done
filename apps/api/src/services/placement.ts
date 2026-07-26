@@ -51,26 +51,16 @@ export function resolveOrderToken<T extends OrderedEntity>({
   entities: T[];
   placement: Placement;
 }): string {
-  if (placement.kind === "first") {
-    return generateJitteredKeyBetween(null, entities[0]?.orderToken ?? null);
-  }
-  if (placement.kind === "last") {
-    return generateJitteredKeyBetween(
-      entities[entities.length - 1]?.orderToken ?? null,
-      null,
-    );
-  }
+  const position = resolveCreatePosition({ entities, placement });
+  const [preceding, following] =
+    position === "prepend"
+      ? [null, entities[0] ?? null]
+      : position === "append"
+        ? [entities[entities.length - 1] ?? null, null]
+        : position;
 
-  const index = anchorIndex(entities, placement);
-  const anchor = entities[index];
-  if (placement.kind === "before") {
-    return generateJitteredKeyBetween(
-      entities[index - 1]?.orderToken ?? null,
-      anchor.orderToken,
-    );
-  }
   return generateJitteredKeyBetween(
-    anchor.orderToken,
-    entities[index + 1]?.orderToken ?? null,
+    preceding?.orderToken ?? null,
+    following?.orderToken ?? null,
   );
 }

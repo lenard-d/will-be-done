@@ -49,7 +49,6 @@ export const ProjectSchema = z.object({
     .int()
     .nonnegative()
     .describe("Creation time as Unix milliseconds"),
-  orderToken: z.string(),
 });
 
 export const ListProjectsParamsSchema = z.object({

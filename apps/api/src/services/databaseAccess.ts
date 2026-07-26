@@ -1,5 +1,6 @@
 import { selectSync, syncDispatch, type DB } from "@will-be-done/hyperdb";
-import { getMainHyperDB } from "../db/db";
+import { spaceDBConfig } from "../db/configs";
+import { getHyperDB, getMainHyperDB } from "../db/db";
 import { getDbById, getDbByIdOrCreate } from "../slices/dbSlice";
 
 export type DatabaseType = "user" | "space";
@@ -43,4 +44,9 @@ export function ensureDatabaseAccessOrCreate(
   }
 
   syncDispatch(mainDB, getDbByIdOrCreate({ id: dbId, type: dbType, userId }));
+}
+
+export function getSpaceDatabase(spaceId: string, userId: string) {
+  ensureDatabaseAccessOrCreate({ dbId: spaceId, dbType: "space", userId });
+  return getHyperDB(spaceDBConfig(spaceId)).db;
 }

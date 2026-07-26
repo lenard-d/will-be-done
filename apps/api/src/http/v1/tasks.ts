@@ -45,6 +45,7 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
         querystring: ListSectionItemsQuerySchema,
         response: {
           200: ListSectionItemsResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -82,6 +83,7 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
         body: CreateTaskBodySchema,
         response: {
           201: TaskResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -119,6 +121,7 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
         params: TaskParamsSchema,
         response: {
           200: TaskResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -148,13 +151,14 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
     {
       schema: {
         operationId: "updateTask",
-        summary: "Update or move a task",
+        summary: "Update a task",
         tags: ["Tasks"],
         security: [{ bearerAuth: [] }],
         params: TaskParamsSchema,
         body: UpdateTaskBodySchema,
         response: {
           200: TaskResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -192,6 +196,7 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
         params: TaskParamsSchema,
         response: {
           204: z.null(),
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -227,6 +232,7 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
         params: TaskParamsSchema,
         response: {
           204: z.null(),
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -270,6 +276,7 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
         body: ScheduleTaskBodySchema,
         response: {
           200: ScheduleTaskResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -314,6 +321,7 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
         body: MoveTaskBodySchema,
         response: {
           200: TaskResponseSchema,
+          400: ErrorResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,

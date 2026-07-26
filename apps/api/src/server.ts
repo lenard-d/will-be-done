@@ -78,7 +78,7 @@ export function createServer({
         disabled: true,
       },
       defaultOpenAllTags: true,
-      showDeveloperTools: "never
+      showDeveloperTools: "never",
     },
   });
 
