@@ -4,8 +4,8 @@ import fastify from "fastify";
 import multipart from "@fastify/multipart";
 import staticPlugin from "@fastify/static";
 import swagger from "@fastify/swagger";
-import swaggerUi from "@fastify/swagger-ui";
 import websocket from "@fastify/websocket";
+import scalarApiReference from "@scalar/fastify-api-reference";
 import {
   fastifyTRPCPlugin,
   type FastifyTRPCPluginOptions,
@@ -65,8 +65,21 @@ export function createServer({
     transformObject: jsonSchemaTransformObject,
   });
 
-  server.register(swaggerUi, {
+  server.register(scalarApiReference, {
     routePrefix: "/api/docs",
+    configuration: {
+      title: "Will Be Done API",
+      url: "/api/openapi.json",
+      persistAuth: true,
+      mcp: {
+        disabled: true,
+      },
+      agent: {
+        disabled: true,
+      },
+      defaultOpenAllTags: true,
+      showDeveloperTools: "never
+    },
   });
 
   server.register(v1Routes, {

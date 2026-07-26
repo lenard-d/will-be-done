@@ -28,3 +28,8 @@
 
 If you are interacting with HyperDB(@will-be-done/hyperdb), read small guide what is it, and how
 to work with it at @.guides/hyperdb.md
+
+# API Support
+
+When adding new functionality to `apps/slices`, also check whether it should be exposed through
+the v1 HTTP API in `apps/api/src/http/v1`, and update the API when appropriate.
