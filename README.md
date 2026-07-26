@@ -33,6 +33,15 @@ Will Be Done is for people who want a fast, private task manager that is built f
 - **Desktop app:** [download the latest release](https://github.com/will-be-done/will-be-done/releases) for Windows, macOS, or Linux.
 - **Mobile:** install the web app as a PWA. Native mobile clients are planned.
 
+## HTTP API
+
+Will Be Done provides a HTTP API for integrating with your tasks,
+projects, schedules, and other data.
+
+- **Will Be Done Cloud:** [read the API documentation](https://app.will-be-done.app/api/docs).
+- **Self-hosted with Docker:** open `/api/docs` on your server, for example
+  [http://localhost:3000/api/docs](http://localhost:3000/api/docs).
+
 ## Self-Host With Docker
 
 Run the server:
@@ -247,7 +256,7 @@ Planned for v1.0:
 - [x] Checklists inside tasks
 - [x] Todoist / TickTick migration
 - [x] Desktop app with global quick add
-- [ ] OpenAPI integration
+- [x] OpenAPI integration
 - [ ] CLI app
 - [ ] Undo / redo
 
@@ -319,7 +328,7 @@ This table captures the feature set I was optimizing for while building Will Be 
 | Drag and drop for tasks and projects    | ✅           | ✅                 | 🟥       | 🟥     | ✅      | ✅        |
 | Real-time refresh without manual reload | ✅           | ✅ with SuperSync  | ✅       | 🟥     | 🟥      | 🟥        |
 | Multi-tab support                       | ✅           | 🟥                 | ✅       | 🟨     | 🟨      | 🟨        |
-| API                                     | 🟨 WIP       | ✅ with SuperSync  | ✅       | ✅     | ✅      | ✅        |
+| API                                     | ✅           | ✅ with SuperSync  | ✅       | ✅     | ✅      | ✅        |
 | Mobile version                          | ✅           | ✅                 | ✅       | ✅     | ✅      | ✅        |
 | Keyboard shortcuts / Vim bindings       | ✅           | ✅                 | ✅       | ✅     | ✅      | 🟨        |
 | Weekly planner                          | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |

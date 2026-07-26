@@ -115,6 +115,32 @@ export const dailyEntriesByDailyListId = selector({
   },
 });
 
+export const dailyListTasksByState = selector({
+  name: "dailyListTasksByState",
+  args: {
+    dailyListId: v.string(),
+    state: v.union(v.literal("todo"), v.literal("done")),
+  },
+  handler: function* dailyListTasksByState({ dailyListId, state }) {
+    const entries = yield* dailyEntriesByDailyListId({ dailyListId });
+    if (entries.length === 0) return [] as Task[];
+
+    const tasks = (yield* selectFrom(tasksTable, "byId").where((q) =>
+      entries.map((entry) => q.eq("id", entry.id)),
+    )) as Task[];
+    const matchingTasks = tasks.filter((task) => task.state === state);
+
+    if (state === "done") {
+      return matchingTasks.sort((a, b) => b.lastToggledAt - a.lastToggledAt);
+    }
+
+    const taskById = new Map(matchingTasks.map((task) => [task.id, task]));
+    return entries
+      .map((entry) => taskById.get(entry.id))
+      .filter((task): task is Task => task !== undefined);
+  },
+});
+
 export const dailyEntryChildrenIds = selector({
   name: "dailyEntryChildrenIds",
   args: { dailyListId: v.string() },
@@ -280,6 +306,12 @@ export const dailyEntrySiblings = selector({
     });
 
     const index = sortedEntries.findIndex((p) => p.id === taskId);
+    if (index === -1) {
+      return [undefined, undefined] as [
+        DailyEntry | undefined,
+        DailyEntry | undefined,
+      ];
+    }
 
     const before = index > 0 ? sortedEntries[index - 1] : undefined;
     const after =
@@ -375,15 +407,7 @@ export const dailyEntryHandleDrop = action({
       between[1] || null,
     );
 
-    if (isTask(dropItem)) {
-      yield* upsertDailyEntry({
-        entry: {
-          id: dropItem.id,
-          dailyListId: entry.dailyListId,
-          orderToken,
-        },
-      });
-    } else if (isDailyEntry(dropItem)) {
+    if (isTask(dropItem) || isDailyEntry(dropItem)) {
       yield* upsertDailyEntry({
         entry: {
           id: dropItem.id,
@@ -566,13 +590,23 @@ export const addToDailyList = action({
     let orderToken: string;
 
     if (position === "append") {
-      const entries = yield* dailyEntriesByDailyListId({ dailyListId });
-      const lastToken =
-        entries.length > 0 ? entries[entries.length - 1].orderToken : null;
+      const entries = yield* selectFrom(
+        dailyEntriesTable,
+        "byDailyListIdTokenOrdered",
+      )
+        .where((q) => q.eq("dailyListId", dailyListId))
+        .order("desc")
+        .limit(1);
+      const lastToken = entries[0]?.orderToken ?? null;
       orderToken = generateJitteredKeyBetween(lastToken, null);
     } else if (position === "prepend") {
-      const entries = yield* dailyEntriesByDailyListId({ dailyListId });
-      const firstToken = entries.length > 0 ? entries[0].orderToken : null;
+      const entries = yield* selectFrom(
+        dailyEntriesTable,
+        "byDailyListIdTokenOrdered",
+      )
+        .where((q) => q.eq("dailyListId", dailyListId))
+        .limit(1);
+      const firstToken = entries[0]?.orderToken ?? null;
       orderToken = generateJitteredKeyBetween(null, firstToken);
     } else {
       const siblings = normalizeOrderPosition(position) as [
@@ -588,6 +622,24 @@ export const addToDailyList = action({
     yield* upsertDailyEntry({
       entry: { id: taskId, dailyListId, orderToken },
     });
+  },
+});
+
+export const scheduleTask = action({
+  name: "scheduleTask",
+  args: {
+    taskId: v.string(),
+    date: v.string(),
+    position: orderPositionArg,
+  },
+  handler: function* scheduleTask({ taskId, date, position }) {
+    const dailyList = yield* createDailyListIfNotPresent({ date });
+    yield* addToDailyList({
+      taskId,
+      dailyListId: dailyList.id,
+      position,
+    });
+    return yield* dailyEntryByTaskId({ taskId });
   },
 });
 

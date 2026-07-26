@@ -1,348 +1,19 @@
-import { z } from "zod";
-import {
-  publicProcedure,
-  protectedProcedure,
-  router,
-  createContext,
-} from "./trpc";
-import { syncDispatch, selectSync } from "@will-be-done/hyperdb";
 import * as dotenv from "dotenv";
-import {
-  ChangesetArray,
-  getChangesetAfter,
-  mergeChanges,
-} from "@will-be-done/slices/common";
-import fastify from "fastify";
-import staticPlugin from "@fastify/static";
-import multipart from "@fastify/multipart";
-import websocket from "@fastify/websocket";
-import path from "path";
-import fs from "fs";
-import {
-  fastifyTRPCPlugin,
-  type FastifyTRPCPluginOptions,
-} from "@trpc/server/adapters/fastify";
-import { getHyperDB, getMainHyperDB } from "./db/db";
-import {
-  revokeToken,
-  register,
-  getUserByEmail,
-  generateToken,
-} from "./slices/authSlice";
-import { TRPCError } from "@trpc/server";
-import { getDbByIdOrCreate } from "./slices/dbSlice";
-import { assertUnreachable } from "./utils";
-import { dbConfigByType } from "./db/configs";
-import { subscriptionManager, NotificationData } from "./subscriptionManager";
-import { State } from "./utils/State";
+import { createAppRouter } from "./appRouter";
 import { getBackupConfig } from "./backup/types";
 import type { WorkerMessage, WorkerResponse } from "./backup/backupWorker";
-import { getEnvConfig } from "./env";
 import { getCaptchaConfig } from "./captcha/types";
-import { verifyCaptchaToken } from "./captcha/verifyCaptchaToken";
-import { importFromTodoist } from "./todoist/importTodoist";
-import { assertSupportedSyncVersion } from "./syncVersion";
+import { getMainHyperDB } from "./db/db";
+import { getEnvConfig } from "./env";
+import { createServer } from "./server";
 
 dotenv.config();
 
-const mainDB = getMainHyperDB();
-const captchaConfig = getCaptchaConfig();
-
-const checkDBAccessOrCreateDB = (
-  dbId: string,
-  dbType: "user" | "space",
-  authedUserId: string,
-) => {
-  if (dbType === "user") {
-    if (authedUserId !== dbId) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "Access denied to user",
-      });
-    }
-  } else if (dbType === "space") {
-    const db = syncDispatch(
-      mainDB,
-      getDbByIdOrCreate({ id: dbId, type: dbType, userId: authedUserId }),
-    );
-
-    if (db.userId !== authedUserId) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "Access denied to space",
-      });
-    }
-  } else {
-    assertUnreachable(dbType);
-  }
-};
-
-const appRouter = router({
-  getChangesAfter: protectedProcedure
-    .input(
-      z.object({
-        lastServerUpdatedAt: z.string(),
-        dbId: z.string(),
-        dbType: z.union([z.literal("user"), z.literal("space")]),
-        clientId: z.string(),
-        syncVersion: z.number().int().optional(),
-      }),
-    )
-    .query(async (opts) => {
-      assertSupportedSyncVersion(opts.input.syncVersion);
-      if (!opts.ctx.user) {
-        throw new TRPCError({ code: "UNAUTHORIZED" });
-      }
-
-      checkDBAccessOrCreateDB(
-        opts.input.dbId,
-        opts.input.dbType,
-        opts.ctx.user.id,
-      );
-
-      const config = dbConfigByType(opts.input.dbType, opts.input.dbId);
-      const { db } = getHyperDB(config);
-
-      return selectSync(db, {
-        selector: getChangesetAfter,
-        args: {
-          after: opts.input.lastServerUpdatedAt,
-          registeredSyncableTableNameMap: config.tableNameMap,
-        },
-      });
-    }),
-  handleChanges: protectedProcedure
-    .input(
-      z.object({
-        dbId: z.string(),
-        dbType: z.union([z.literal("user"), z.literal("space")]),
-        changeset: ChangesetArray,
-        syncVersion: z.number().int().optional(),
-      }),
-    )
-    .mutation(async (opts) => {
-      assertSupportedSyncVersion(opts.input.syncVersion);
-      if (!opts.ctx.user) {
-        throw new TRPCError({ code: "UNAUTHORIZED" });
-      }
-
-      checkDBAccessOrCreateDB(
-        opts.input.dbId,
-        opts.input.dbType,
-        opts.ctx.user.id,
-      );
-
-      const config = dbConfigByType(opts.input.dbType, opts.input.dbId);
-
-      const { db, nextClock, clientId } = getHyperDB(config);
-
-      syncDispatch(
-        db.withTraits({ type: "skip-sync" }),
-        mergeChanges({
-          input: opts.input.changeset,
-          nextClock: nextClock(),
-          clientId: clientId,
-          registeredSyncableTableNameMap: config.tableNameMap,
-        }),
-      );
-
-      // Notify all subscribed clients that changes are available
-      subscriptionManager.notifyChangesAvailable(
-        opts.input.dbId,
-        opts.input.dbType,
-      );
-    }),
-
-  // Subscription for real-time change notifications
-  onChangesAvailable: protectedProcedure
-    .input(
-      z.object({
-        dbId: z.string(),
-        dbType: z.union([z.literal("user"), z.literal("space")]),
-        syncVersion: z.number().int().optional(),
-      }),
-    )
-    .subscription(async function* (opts) {
-      assertSupportedSyncVersion(opts.input.syncVersion);
-      if (!opts.ctx.user) {
-        throw new TRPCError({ code: "UNAUTHORIZED" });
-      }
-
-      // Verify access to the database
-      checkDBAccessOrCreateDB(
-        opts.input.dbId,
-        opts.input.dbType,
-        opts.ctx.user.id,
-      );
-
-      // Each subscription gets its own State to collect notifications
-      const state = new State<NotificationData[]>([]);
-
-      // Subscribe to EventEmitter and push to our local State
-      const unsubscribe = subscriptionManager.subscribe(
-        opts.input.dbId,
-        opts.input.dbType,
-        (data) => {
-          state.modify((notifications) => [...notifications, data]);
-        },
-      );
-
-      try {
-        while (true) {
-          const notifications = state.get();
-          state.set([]);
-
-          for (const notification of notifications) {
-            yield notification;
-          }
-
-          // Wait for new notifications
-          await state.newEmitted();
-        }
-      } finally {
-        unsubscribe();
-      }
-    }),
-
-  revokeToken: protectedProcedure
-    .input(z.object({ tokenId: z.string() }))
-    .mutation(async (opts) => {
-      if (!opts.ctx.user) {
-        throw new TRPCError({ code: "UNAUTHORIZED" });
-      }
-
-      syncDispatch(mainDB, revokeToken({ tokenId: opts.input.tokenId }));
-      return { success: true };
-    }),
-
-  getCaptchaConfig: publicProcedure.query(() => {
-    return {
-      enabled: captchaConfig !== null,
-      siteKey: captchaConfig?.WBD_CF_CAPTCHA_SITE_KEY ?? null,
-    };
-  }),
-  register: publicProcedure
-    .input(
-      z.object({
-        email: z.email(),
-        password: z.string().min(8),
-        captchaToken: z.string().optional(),
-      }),
-    )
-    .mutation(async (opts) => {
-      const { email, password, captchaToken } = opts.input;
-
-      if (captchaConfig) {
-        if (!captchaToken) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Captcha verification required",
-          });
-        }
-
-        const isValid = await verifyCaptchaToken(
-          captchaToken,
-          captchaConfig.WBD_CF_CAPTCHA_SECRET_KEY!,
-        );
-
-        if (!isValid) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Captcha verification failed",
-          });
-        }
-      }
-
-      // Hash password before storing
-      const hashedPassword = await Bun.password.hash(password);
-      const result = syncDispatch(mainDB, register({ email, hashedPassword }));
-      return result;
-    }),
-  importTodoist: protectedProcedure
-    .input(z.object({ apiToken: z.string().min(1) }))
-    .mutation(async (opts) => {
-      return importFromTodoist(opts.input.apiToken);
-    }),
-  login: publicProcedure
-    .input(
-      z.object({
-        email: z.email(),
-        password: z.string().min(8),
-      }),
-    )
-    .mutation(async (opts) => {
-      const { email, password } = opts.input;
-
-      // Get user to verify password
-      const user = syncDispatch(mainDB, getUserByEmail({ email }));
-      if (!user) {
-        throw new Error("Invalid credentials");
-      }
-
-      // Verify password
-      const isValid = await Bun.password.verify(password, user.password);
-      if (!isValid) {
-        throw new Error("Invalid credentials");
-      }
-
-      // Generate token for authenticated user
-      const result = syncDispatch(mainDB, generateToken({ userId: user.id }));
-
-      return result;
-    }),
+const appRouter = createAppRouter({
+  mainDB: getMainHyperDB(),
+  captchaConfig: getCaptchaConfig(),
 });
-
-const server = fastify({
-  logger: true,
-  bodyLimit: 100485760,
-});
-
-// Register WebSocket plugin BEFORE tRPC plugin
-server.register(websocket);
-
-server.register(staticPlugin, {
-  root: path.join(__dirname, "..", "public"),
-});
-
-server.register(multipart);
-
-server.register(fastifyTRPCPlugin, {
-  prefix: "/api/trpc",
-  useWSS: true,
-  trpcOptions: {
-    router: appRouter,
-    createContext,
-  } satisfies FastifyTRPCPluginOptions<AppRouter>["trpcOptions"],
-});
-
-server.get("/api/health", async () => ({ ok: true }));
-
-// Register a not found handler that serves index.html for non-API routes
-server.setNotFoundHandler((request, reply) => {
-  const url = request.url;
-
-  // Skip API routes - return normal 404 for them
-  if (url.startsWith("/api")) {
-    reply.code(404).send({ error: "Not found" });
-    return;
-  }
-
-  // For all other routes, serve the index.html
-  const indexPath = path.join(__dirname, "..", "public", "index.html");
-
-  // Check if index.html exists
-  try {
-    if (fs.existsSync(indexPath)) {
-      const stream = fs.createReadStream(indexPath);
-      reply.type("text/html").send(stream);
-    } else {
-      reply.code(404).send({ error: "index.html not found" });
-    }
-  } catch (err) {
-    console.error("Error serving index.html:", err);
-    reply.code(500).send({ error: "Server error" });
-  }
-});
+const server = createServer({ appRouter });
 
 const start = async () => {
   try {
@@ -351,7 +22,6 @@ const start = async () => {
     await server.listen({ port, host: "0.0.0.0" });
     console.log("Server started");
 
-    // Initialize backup system in a worker
     let backupWorker: Worker | null = null;
     const backupConfig = getBackupConfig();
 
@@ -360,12 +30,10 @@ const start = async () => {
         console.log("[Backup] S3 backup system enabled, spawning worker...");
         const dbsPath = getEnvConfig().WBD_DB_PATH;
 
-        // Spawn backup worker
         backupWorker = new Worker(
           new URL("./backup/backupWorker.ts", import.meta.url).href,
         );
 
-        // Handle messages from worker
         backupWorker.onmessage = (event: MessageEvent<WorkerResponse>) => {
           const response = event.data;
           switch (response.type) {
@@ -385,7 +53,6 @@ const start = async () => {
           console.error("[Backup] Worker error:", error);
         };
 
-        // Send init message to worker
         backupWorker.postMessage({
           type: "init",
           config: backupConfig,
@@ -400,7 +67,6 @@ const start = async () => {
         } else {
           console.error("[Backup] Error value:", String(error));
         }
-        // Non-fatal: server continues without backups
       }
     } else {
       console.log("[Backup] S3 backup system disabled");
@@ -415,9 +81,7 @@ const start = async () => {
           );
 
           try {
-            // Stop backup worker first
             if (backupWorker) {
-              // Send shutdown message and wait for response
               const shutdownPromise = new Promise<void>((resolve, reject) => {
                 const timeout = setTimeout(() => {
                   reject(new Error("Backup worker shutdown timeout"));
@@ -434,7 +98,7 @@ const start = async () => {
                     clearTimeout(timeout);
                     reject(new Error(event.data.message));
                   }
-                  // Also call original handler
+
                   if (originalOnMessage) {
                     originalOnMessage.call(backupWorker, event);
                   }
@@ -448,25 +112,20 @@ const start = async () => {
               backupWorker.terminate();
             }
 
-            // Close the Fastify server
             await server.close();
             server.log.info("Server closed successfully");
-
-            // Then exit the process
             process.exit(0);
-          } catch (err) {
-            server.log.error(`Error during graceful shutdown: ${err}`);
+          } catch (error) {
+            server.log.error(`Error during graceful shutdown: ${error}`);
             process.exit(1);
           }
         })();
       });
     }
-  } catch (err) {
-    server.log.error(err);
+  } catch (error) {
+    server.log.error(error);
     process.exit(1);
   }
 };
 
 void start();
-
-export type AppRouter = typeof appRouter;

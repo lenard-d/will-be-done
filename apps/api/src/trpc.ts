@@ -1,39 +1,16 @@
 import { initTRPC, TRPCError } from "@trpc/server";
-import { FastifyRequest, FastifyReply } from "fastify";
-import { syncDispatch } from "@will-be-done/hyperdb";
-import { getMainHyperDB } from "./db/db";
-import { validateToken } from "./slices/authSlice";
 import { UnsupportedSyncVersionError } from "@will-be-done/slices/common";
+import type { FastifyRequest, FastifyReply } from "fastify";
+import {
+  authenticateBearerToken,
+  type AuthenticatedUser,
+} from "./services/authentication";
 
 /**
  * Context type definition
  */
 export interface Context {
-  user: {
-    id: string;
-    email: string;
-  } | null;
-}
-
-/**
- * Shared context creation from auth token
- */
-function createContextFromToken(authHeader?: string): Context {
-  const mainDB = getMainHyperDB();
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return { user: null };
-  }
-
-  const token = authHeader.slice(7); // Remove "Bearer "
-
-  try {
-    const user = syncDispatch(mainDB, validateToken({ tokenId: token }));
-    return { user };
-  } catch (error) {
-    console.error("Token validation error:", error);
-    return { user: null };
-  }
+  user: AuthenticatedUser | null;
 }
 
 /**
@@ -49,14 +26,14 @@ export async function createContext({
 }): Promise<Context> {
   // First try Authorization header (HTTP requests)
   if (req.headers.authorization) {
-    return createContextFromToken(req.headers.authorization);
+    return { user: authenticateBearerToken(req.headers.authorization) };
   }
 
   // Then try URL query parameter (WebSocket connections)
   const url = new URL(req.url || "", "http://localhost");
   const token = url.searchParams.get("token");
   if (token) {
-    return createContextFromToken(`Bearer ${token}`);
+    return { user: authenticateBearerToken(`Bearer ${token}`) };
   }
 
   return { user: null };
