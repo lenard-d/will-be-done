@@ -8,9 +8,15 @@ import {
   syncDispatch,
 } from "@will-be-done/hyperdb";
 import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
-import { getSpaceBackup, normalizeSpaceBackup, type Backup } from "./backup";
+import {
+  getSpaceBackup,
+  loadSpaceBackup,
+  normalizeSpaceBackup,
+  type Backup,
+} from "./backup";
 import { dailyEntriesTable, dailyListsTable } from "./tables";
 import { registeredSpaceSyncableTables } from "./syncMap";
+import { dbIdTrait } from "../traits";
 
 const baseBackup = {
   projects: [],
@@ -143,6 +149,107 @@ describe("space backup compatibility", () => {
 
     expect(normalized.dailyEntries).toEqual([]);
     expect(normalized).not.toHaveProperty("dailyListProjections");
+  });
+
+  it("keeps only the latest legacy entry per task", () => {
+    const db = new DB(new BptreeInmemDriver(), {
+      traits: [dbIdTrait("space", "a0000000-0000-4000-8000-000000000001")],
+    });
+    execSync(db.loadTables(registeredSpaceSyncableTables));
+
+    syncDispatch(
+      db,
+      loadSpaceBackup({
+        backup: {
+          projects: [
+            {
+              id: "project-1",
+              title: "Project",
+              icon: "",
+              isInbox: false,
+              orderToken: "a",
+              createdAt: 1,
+            },
+          ],
+          projectSections: [
+            {
+              id: "section-1",
+              title: "Section",
+              projectId: "project-1",
+              orderToken: "a",
+              createdAt: 1,
+            },
+          ],
+          tasks: [
+            {
+              id: "task-1",
+              title: "Legacy task",
+              state: "todo",
+              projectSectionId: "section-1",
+              orderToken: "a",
+              lastToggledAt: 1,
+              createdAt: 1,
+              templateId: null,
+              templateDate: null,
+            },
+            {
+              id: "task-2",
+              title: "Canonical task",
+              state: "todo",
+              projectSectionId: "section-1",
+              orderToken: "b",
+              lastToggledAt: 1,
+              createdAt: 1,
+              templateId: null,
+              templateDate: null,
+            },
+          ],
+          dailyLists: [
+            { id: "list-1", date: "2026-07-21" },
+            { id: "list-2", date: "2026-07-22" },
+          ],
+          taskTemplates: [],
+          checklistItems: [],
+          dailyEntries: [
+            {
+              id: "projection-1",
+              taskId: "task-1",
+              listId: "list-1",
+              orderToken: "old",
+              createdAt: 10,
+            },
+            {
+              id: "projection-2",
+              taskId: "task-1",
+              listId: "list-2",
+              orderToken: "latest",
+              createdAt: 20,
+            },
+            {
+              id: "task-2",
+              listId: "list-1",
+              orderToken: "canonical",
+              createdAt: 15,
+            },
+          ],
+        },
+      }),
+    );
+
+    const restored = selectSync(db, { selector: getSpaceBackup, args: {} });
+
+    expect(restored.dailyEntries).toEqual([
+      expect.objectContaining({
+        id: "task-1",
+        orderToken: "latest",
+        createdAt: 20,
+      }),
+      expect.objectContaining({
+        id: "task-2",
+        orderToken: "canonical",
+        createdAt: 15,
+      }),
+    ]);
   });
 
   it("exports only the canonical daily entry key", () => {

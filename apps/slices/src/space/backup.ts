@@ -416,6 +416,16 @@ const getNewModels = action({
         }
       }
     }
+    const selectedLegacyDailyEntries = new Set(
+      [...legacyDailyEntryMap.values()].map((entries) =>
+        entries.reduce((latest, entry) =>
+          entry.createdAt > latest.createdAt ||
+          (entry.createdAt === latest.createdAt && entry.id > latest.id)
+            ? entry
+            : latest,
+        ),
+      ),
+    );
 
     // Then create all tasks
     for (const taskBackup of backup.tasks) {
@@ -498,6 +508,13 @@ const getNewModels = action({
     // Create entries - handle both new format (id = taskId) and legacy format (separate taskId field)
     if (backup.dailyEntries) {
       for (const entryBackup of backup.dailyEntries) {
+        if (
+          entryBackup.taskId &&
+          !selectedLegacyDailyEntries.has(entryBackup)
+        ) {
+          continue;
+        }
+
         // In new format, id = taskId, so taskId field is optional
         const taskId = entryBackup.taskId || entryBackup.id;
 
