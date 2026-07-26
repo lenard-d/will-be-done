@@ -1,12 +1,6 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { authenticateBearerToken } from "../../services/authentication";
-import { DatabaseAccessDeniedError } from "../../services/databaseAccess";
-import {
-  InvalidPlacementError,
-  ResourceNotFoundError,
-} from "../../services/errors";
 import {
   convertTaskTemplateToTask,
   convertTaskToTemplate,
@@ -16,6 +10,7 @@ import {
   moveTaskTemplate,
   updateTaskTemplate,
 } from "../../services/taskTemplates";
+import { sendError as handleError, unauthorized } from "../errors";
 import {
   ConvertTaskToTemplateBodySchema,
   CreateTaskTemplateBodySchema,
@@ -327,35 +322,3 @@ export const taskTemplateRoutes: FastifyPluginAsyncZod = async (server) => {
     },
   );
 };
-
-function unauthorized(reply: FastifyReply) {
-  return reply.code(401).send({
-    code: "UNAUTHORIZED",
-    message: "A valid bearer token is required",
-  });
-}
-
-function handleError(
-  request: FastifyRequest,
-  reply: FastifyReply,
-  error: unknown,
-  fallbackMessage: string,
-) {
-  if (error instanceof DatabaseAccessDeniedError) {
-    return reply.code(403).send({
-      code: "FORBIDDEN",
-      message: "You do not have access to this space",
-    });
-  }
-  if (error instanceof ResourceNotFoundError) {
-    return reply.code(404).send({ code: "NOT_FOUND", message: error.message });
-  }
-  if (error instanceof InvalidPlacementError) {
-    return reply.code(409).send({ code: "CONFLICT", message: error.message });
-  }
-  request.log.error(error, fallbackMessage);
-  return reply.code(500).send({
-    code: "INTERNAL_SERVER_ERROR",
-    message: fallbackMessage,
-  });
-}

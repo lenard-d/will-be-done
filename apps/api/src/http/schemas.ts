@@ -386,7 +386,7 @@ export const ChecklistItemResponseSchema = z.object({
 
 export const CreateChecklistItemBodySchema = z
   .object({
-    content: z.string(),
+    content: z.string().trim().min(1),
     state: TaskStateSchema.optional(),
     placement: PlacementSchema.optional(),
   })
@@ -394,7 +394,7 @@ export const CreateChecklistItemBodySchema = z
 
 export const UpdateChecklistItemBodySchema = z
   .object({
-    content: z.string().optional(),
+    content: z.string().trim().min(1).optional(),
     state: TaskStateSchema.optional(),
   })
   .strict()

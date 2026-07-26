@@ -7,6 +7,7 @@ import {
   listUserSpaces,
   updateUserSpace,
 } from "../../services/spaces";
+import { unauthorized } from "../errors";
 import {
   CreateSpaceBodySchema,
   CreateSpaceResponseSchema,
@@ -172,10 +173,12 @@ export const spaceRoutes: FastifyPluginAsyncZod = async (server) => {
     },
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) {
-        return reply.code(401).send({
-          code: "UNAUTHORIZED",
-          message: "A valid bearer token is required",
+      if (!user) return unauthorized(reply);
+
+      if (request.body.name === undefined) {
+        return reply.code(400).send({
+          code: "BAD_REQUEST",
+          message: "Space name is required",
         });
       }
 
@@ -183,7 +186,7 @@ export const spaceRoutes: FastifyPluginAsyncZod = async (server) => {
         const space = updateUserSpace({
           userId: user.id,
           spaceId: request.params.spaceId,
-          name: request.body.name!,
+          name: request.body.name,
         });
         if (!space) {
           return reply.code(404).send({

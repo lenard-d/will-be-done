@@ -306,6 +306,12 @@ export const dailyEntrySiblings = selector({
     });
 
     const index = sortedEntries.findIndex((p) => p.id === taskId);
+    if (index === -1) {
+      return [undefined, undefined] as [
+        DailyEntry | undefined,
+        DailyEntry | undefined,
+      ];
+    }
 
     const before = index > 0 ? sortedEntries[index - 1] : undefined;
     const after =
@@ -401,15 +407,7 @@ export const dailyEntryHandleDrop = action({
       between[1] || null,
     );
 
-    if (isTask(dropItem)) {
-      yield* upsertDailyEntry({
-        entry: {
-          id: dropItem.id,
-          dailyListId: entry.dailyListId,
-          orderToken,
-        },
-      });
-    } else if (isDailyEntry(dropItem)) {
+    if (isTask(dropItem) || isDailyEntry(dropItem)) {
       yield* upsertDailyEntry({
         entry: {
           id: dropItem.id,

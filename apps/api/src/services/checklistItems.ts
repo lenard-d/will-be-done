@@ -4,9 +4,9 @@ import {
   checklistItemChildren,
   createItem,
   deleteItems,
+  setChecklistItemState,
   taskById,
   taskTemplateById,
-  toggleChecklistItemState,
   updateItem,
   type ChecklistItem,
   type ChecklistParentType,
@@ -178,7 +178,13 @@ export function updateChecklistItem({
     );
   }
   if (updates.state !== undefined && updates.state !== current.state) {
-    syncDispatch(db, toggleChecklistItemState({ id: checklistItemId }));
+    syncDispatch(
+      db,
+      setChecklistItemState({
+        id: checklistItemId,
+        state: updates.state,
+      }),
+    );
   }
 
   return getChecklistItem({ spaceId, userId, checklistItemId });

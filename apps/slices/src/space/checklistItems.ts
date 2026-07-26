@@ -248,14 +248,17 @@ export const updateChecklistItemContent = action({
   },
 });
 
-export const toggleChecklistItemState = action({
-  name: "toggleChecklistItemState",
-  args: { id: v.string() },
-  handler: function* toggleChecklistItemState({ id }) {
+export const setChecklistItemState = action({
+  name: "setChecklistItemState",
+  args: {
+    id: v.string(),
+    state: v.union(v.literal("todo"), v.literal("done")),
+  },
+  handler: function* setChecklistItemState({ id, state }) {
     const item = yield* checklistItemById({ id });
     if (!item) throw new Error("Checklist item not found");
+    if (item.state === state) return;
 
-    const state = item.state === "todo" ? "done" : "todo";
     let orderToken = item.orderToken;
 
     if (state === "done") {
@@ -286,6 +289,20 @@ export const toggleChecklistItemState = action({
         orderToken,
       },
     ]);
+  },
+});
+
+export const toggleChecklistItemState = action({
+  name: "toggleChecklistItemState",
+  args: { id: v.string() },
+  handler: function* toggleChecklistItemState({ id }) {
+    const item = yield* checklistItemById({ id });
+    if (!item) throw new Error("Checklist item not found");
+
+    yield* setChecklistItemState({
+      id,
+      state: item.state === "todo" ? "done" : "todo",
+    });
   },
 });
 

@@ -9,21 +9,17 @@ import {
   createTaskTemplate,
   createTaskTemplateFromTask,
   deleteTemplates,
-  projectSectionById,
-  projectSectionItems,
   taskById,
   taskTemplateById,
   taskTemplatesTable,
   updateTemplate,
-  type Item,
   type TaskTemplate,
 } from "@will-be-done/slices/space";
-import { getHyperDB } from "../db/db";
-import { spaceDBConfig } from "../db/configs";
-import { ensureDatabaseAccessOrCreate } from "./databaseAccess";
+import { getSpaceDatabase } from "./databaseAccess";
 import { ResourceNotFoundError } from "./errors";
 import { resolveOrderToken, type Placement } from "./placement";
 import { toPublicTaskTemplate, type PublicTaskTemplate } from "./items";
+import { itemsInSection, requireSection } from "./sectionQueries";
 import { toPublicTask, type PublicTask } from "./tasks";
 
 export interface TaskTemplateUpdates {
@@ -42,34 +38,6 @@ const replaceTaskTemplate = action({
     yield* upsert(taskTemplatesTable, [template]);
   },
 });
-
-function getSpaceDatabase(spaceId: string, userId: string) {
-  ensureDatabaseAccessOrCreate({ dbId: spaceId, dbType: "space", userId });
-  return getHyperDB(spaceDBConfig(spaceId)).db;
-}
-
-function requireSection(
-  db: ReturnType<typeof getSpaceDatabase>,
-  sectionId: string,
-) {
-  const section = selectSync(db, {
-    selector: projectSectionById,
-    args: { id: sectionId },
-  });
-  if (!section) throw new ResourceNotFoundError("Project section");
-  return section;
-}
-
-function sectionItems(
-  db: ReturnType<typeof getSpaceDatabase>,
-  sectionId: string,
-  excludedId?: string,
-): Item[] {
-  return selectSync(db, {
-    selector: projectSectionItems,
-    args: { projectSectionId: sectionId },
-  }).filter((item) => item.id !== excludedId);
-}
 
 function applyUpdates(
   db: ReturnType<typeof getSpaceDatabase>,
@@ -147,7 +115,7 @@ export function createSectionTaskTemplate({
         title,
         projectSectionId: sectionId,
         orderToken: resolveOrderToken({
-          entities: sectionItems(db, sectionId),
+          entities: itemsInSection(db, sectionId),
           placement,
         }),
         ...(typeof content === "string" ? { content } : {}),
@@ -208,7 +176,7 @@ export function moveTaskTemplate({
       template: {
         projectSectionId,
         orderToken: resolveOrderToken({
-          entities: sectionItems(db, projectSectionId, templateId),
+          entities: itemsInSection(db, projectSectionId, templateId),
           placement,
         }),
       },

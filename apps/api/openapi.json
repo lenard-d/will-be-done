@@ -7241,7 +7241,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "content": { "type": "string" },
+                  "content": { "type": "string", "minLength": 1 },
                   "state": { "type": "string", "enum": ["todo", "done"] },
                   "placement": {
                     "oneOf": [
@@ -7780,7 +7780,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "content": { "type": "string" },
+                  "content": { "type": "string", "minLength": 1 },
                   "state": { "type": "string", "enum": ["todo", "done"] },
                   "placement": {
                     "oneOf": [
@@ -8310,7 +8310,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "content": { "type": "string" },
+                  "content": { "type": "string", "minLength": 1 },
                   "state": { "type": "string", "enum": ["todo", "done"] }
                 },
                 "additionalProperties": false

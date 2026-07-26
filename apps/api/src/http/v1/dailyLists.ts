@@ -8,6 +8,7 @@ import {
   DailyListItemsResponseSchema,
   ErrorResponseSchema,
 } from "../schemas";
+import { unauthorized } from "../errors";
 
 export const dailyListRoutes: FastifyPluginAsyncZod = async (server) => {
   server.get(
@@ -33,12 +34,7 @@ export const dailyListRoutes: FastifyPluginAsyncZod = async (server) => {
     },
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) {
-        return reply.code(401).send({
-          code: "UNAUTHORIZED",
-          message: "A valid bearer token is required",
-        });
-      }
+      if (!user) return unauthorized(reply);
 
       try {
         const items = listDailyListItems({

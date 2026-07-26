@@ -9,12 +9,9 @@ import {
   dailyEntryByTaskId,
   dailyListById,
   deleteTaskById,
-  projectSectionById,
-  projectSectionItems,
   taskById,
   tasksTable,
   updateTask as updateTaskAction,
-  type Item,
   type Task,
 } from "@will-be-done/slices/space";
 import { getSpaceDatabase } from "./databaseAccess";
@@ -24,6 +21,7 @@ import {
   resolveOrderToken,
   type Placement,
 } from "./placement";
+import { itemsInSection, requireSection } from "./sectionQueries";
 
 export type { Placement } from "./placement";
 
@@ -57,7 +55,10 @@ const replaceTask = action({
 export function getTaskScheduledDate(
   db: SpaceDatabase,
   taskId: string,
+  knownScheduledDate?: string | null,
 ): string | null {
+  if (knownScheduledDate !== undefined) return knownScheduledDate;
+
   const entry = selectSync(db, {
     selector: dailyEntryByTaskId,
     args: { taskId },
@@ -71,7 +72,11 @@ export function getTaskScheduledDate(
   return dailyList?.date ?? null;
 }
 
-export function toPublicTask(db: SpaceDatabase, task: Task): PublicTask {
+export function toPublicTask(
+  db: SpaceDatabase,
+  task: Task,
+  knownScheduledDate?: string | null,
+): PublicTask {
   return {
     type: "task",
     id: task.id,
@@ -82,31 +87,8 @@ export function toPublicTask(db: SpaceDatabase, task: Task): PublicTask {
     nature: task.nature ?? "unknown",
     createdAt: task.createdAt,
     lastToggledAt: task.lastToggledAt,
-    scheduledDate: getTaskScheduledDate(db, task.id),
+    scheduledDate: getTaskScheduledDate(db, task.id, knownScheduledDate),
   };
-}
-
-function requireSection(
-  db: ReturnType<typeof getSpaceDatabase>,
-  sectionId: string,
-) {
-  const section = selectSync(db, {
-    selector: projectSectionById,
-    args: { id: sectionId },
-  });
-  if (!section) throw new ResourceNotFoundError("Project section");
-  return section;
-}
-
-function itemsInSection(
-  db: ReturnType<typeof getSpaceDatabase>,
-  sectionId: string,
-  excludedId?: string,
-): Item[] {
-  return selectSync(db, {
-    selector: projectSectionItems,
-    args: { projectSectionId: sectionId },
-  }).filter((item) => item.id !== excludedId);
 }
 
 export function getTask({

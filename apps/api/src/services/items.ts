@@ -5,9 +5,7 @@ import {
   projectSectionTasksByState,
   type TaskTemplate,
 } from "@will-be-done/slices/space";
-import { getHyperDB } from "../db/db";
-import { spaceDBConfig } from "../db/configs";
-import { ensureDatabaseAccessOrCreate } from "./databaseAccess";
+import { getSpaceDatabase } from "./databaseAccess";
 import { ResourceNotFoundError } from "./errors";
 import { toPublicTask, type PublicTask } from "./tasks";
 
@@ -54,8 +52,7 @@ export function listSectionItems({
   userId: string;
   taskState?: "todo" | "done";
 }): PublicItem[] {
-  ensureDatabaseAccessOrCreate({ dbId: spaceId, dbType: "space", userId });
-  const db = getHyperDB(spaceDBConfig(spaceId)).db;
+  const db = getSpaceDatabase(spaceId, userId);
 
   const section = selectSync(db, {
     selector: projectSectionById,

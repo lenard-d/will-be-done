@@ -99,6 +99,16 @@ const seedInboxProject = action({
         createdAt: 100,
       },
     ]);
+    yield* insert(projectSectionsTable, [
+      {
+        type: projectSectionType,
+        id: "inbox-section",
+        projectId: "inbox-project",
+        title: "Inbox",
+        orderToken: orderA,
+        createdAt: 100,
+      },
+    ]);
   },
 });
 const seedDomain = action({
@@ -499,7 +509,7 @@ describe("section and task services", () => {
     });
   });
 
-  test("rejects creating or moving sections into the inbox project", () => {
+  test("rejects creating, moving, or deleting inbox sections", () => {
     const { spaceDB } = setUpDatabases();
     syncDispatch(spaceDB, seedInboxProject({}));
 
@@ -519,6 +529,24 @@ describe("section and task services", () => {
         userId: "user-1",
         projectId: "inbox-project",
         placement: { kind: "last" },
+      }),
+    ).toThrow(ConflictError);
+
+    expect(() =>
+      moveProjectSection({
+        spaceId: "space-1",
+        sectionId: "inbox-section",
+        userId: "user-1",
+        projectId: "project-1",
+        placement: { kind: "last" },
+      }),
+    ).toThrow(ConflictError);
+
+    expect(() =>
+      deleteProjectSection({
+        spaceId: "space-1",
+        sectionId: "inbox-section",
+        userId: "user-1",
       }),
     ).toThrow(ConflictError);
   });
@@ -762,6 +790,14 @@ describe("section and task services", () => {
     });
     expect(updated).toMatchObject({ content: "Finished", state: "done" });
     expect(updated.checkedAt).not.toBeNull();
+
+    const reset = updateChecklistItem({
+      spaceId: "space-1",
+      userId: "user-1",
+      checklistItemId: first.id,
+      updates: { state: "todo" },
+    });
+    expect(reset).toMatchObject({ state: "todo", checkedAt: null });
 
     moveChecklistItem({
       spaceId: "space-1",
