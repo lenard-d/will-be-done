@@ -15,18 +15,18 @@ import {
   checklistItemCanDropOnParent,
   checklistItemHandleDropOnParent,
 } from "./checklistItems";
-import { createProjectionInDailyList } from "./dailyListsProjections";
+import { createEntryInDailyList } from "./dailyEntries";
 import {
-  createTaskCardAfter,
-  projectCategoryCardSiblings,
-} from "./projectsCategoriesCards";
-import { firstProjectCategoryChild } from "./projectsCategories";
+  createTaskAfterSectionItem,
+  projectSectionItemSiblings,
+} from "./projectSectionItems";
+import { firstProjectSectionChild } from "./projectSections";
 import {
   deleteTasks,
   taskById,
   taskIdsOfTemplateId,
   updateTask,
-} from "./cardsTasks";
+} from "./tasks";
 import { registerModelSlice } from "./maps";
 import { genUUIDV5 } from "../traits/";
 import { generateKeyPositionedBetween, getDMY } from "./utils";
@@ -40,7 +40,7 @@ import {
   possibleModelType,
   isTaskTemplate,
   isTask,
-  isTaskProjection,
+  isDailyEntry,
 } from "./tables";
 
 export const defaultTaskTemplate: TaskTemplate = {
@@ -52,7 +52,7 @@ export const defaultTaskTemplate: TaskTemplate = {
   repeatRuleDtStart: 0,
   createdAt: 0,
   lastGeneratedAt: 0,
-  projectCategoryId: "abeee7aa-8bf4-4a5f-9167-ce42ad6187b6",
+  projectSectionId: "abeee7aa-8bf4-4a5f-9167-ce42ad6187b6",
 };
 
 // Template utility functions
@@ -83,7 +83,7 @@ const templateToTask = selector({
       title: tmpl.title,
       content: "",
       state: "todo",
-      projectCategoryId: tmpl.projectCategoryId,
+      projectSectionId: tmpl.projectSectionId,
       orderToken: tmpl.orderToken,
       lastToggledAt: epoch,
       nature: tmpl.nature,
@@ -235,7 +235,7 @@ export const allTaskTemplates = selector({
   handler: function* allTaskTemplates() {
     const templates = yield* selectFrom(
       taskTemplatesTable,
-      "byCategoryIdOrderStates",
+      "byProjectSectionIdOrderStates",
     );
     return templates;
   },
@@ -399,7 +399,7 @@ export const taskTemplateCanDrop = selector({
       return model.state === "todo";
     }
 
-    if (isTaskProjection(model)) {
+    if (isDailyEntry(model)) {
       const droppedTask = yield* taskById({ id: model.id });
       return droppedTask !== undefined && droppedTask.state === "todo";
     }
@@ -426,7 +426,7 @@ export const createTaskTemplate = action({
     now: v.number(),
     template: v.required(v.partial(taskTemplatesTable.v()), [
       "orderToken",
-      "projectCategoryId",
+      "projectSectionId",
     ]),
   },
   handler: function* createTaskTemplate({ now, template }) {
@@ -513,7 +513,7 @@ export const createTaskTemplateFromTask = action({
       repeatRule: defaultRule,
       repeatRuleDtStart: now,
       lastGeneratedAt: now,
-      projectCategoryId: task.projectCategoryId,
+      projectSectionId: task.projectSectionId,
       ...data,
     };
 
@@ -557,7 +557,7 @@ export const taskTemplateHandleDrop = action({
 
     const orderToken = generateKeyPositionedBetween(
       template,
-      yield* projectCategoryCardSiblings({ cardId: taskTemplateId }),
+      yield* projectSectionItemSiblings({ itemId: taskTemplateId }),
       edge === "top" ? "before" : "after",
     );
 
@@ -565,7 +565,7 @@ export const taskTemplateHandleDrop = action({
       yield* updateTask({
         id: dropItem.id,
         task: {
-          projectCategoryId: template.projectCategoryId,
+          projectSectionId: template.projectSectionId,
           orderToken,
         },
       });
@@ -573,17 +573,17 @@ export const taskTemplateHandleDrop = action({
       yield* updateTemplate({
         id: dropItem.id,
         template: {
-          projectCategoryId: template.projectCategoryId,
+          projectSectionId: template.projectSectionId,
           orderToken,
         },
       });
-    } else if (isTaskProjection(dropItem)) {
+    } else if (isDailyEntry(dropItem)) {
       const droppedTask = yield* taskById({ id: dropItem.id });
       if (droppedTask) {
         yield* updateTask({
           id: droppedTask.id,
           task: {
-            projectCategoryId: template.projectCategoryId,
+            projectSectionId: template.projectSectionId,
             orderToken,
           },
         });
@@ -622,9 +622,9 @@ export const generateTasksFromTemplates = action({
         throw new Error("TemplateId is null");
       }
 
-      // Create task card after the template card in the project category
-      yield* createTaskCardAfter({
-        cardId: task.templateId,
+      // Create task item after the template item in the project section
+      yield* createTaskAfterSectionItem({
+        itemId: task.templateId,
         taskParams: {
           ...task,
         },
@@ -636,10 +636,10 @@ export const generateTasksFromTemplates = action({
         toParentType: taskType,
       });
 
-      // Create projection at top of daily list for the task's date
+      // Create entry at top of daily list for the task's date
       const localDate = fromUTC(new Date(task.createdAt));
       const dmy = getDMY(localDate);
-      yield* createProjectionInDailyList({
+      yield* createEntryInDailyList({
         taskId: task.id,
         date: dmy,
       });
@@ -678,28 +678,24 @@ export const moveTemplateToProject = action({
     const template = yield* taskTemplateById({ id: templateId });
     if (!template) throw new Error("Template not found");
 
-    const firstCategory = yield* firstProjectCategoryChild({ projectId });
-    if (!firstCategory) throw new Error("No categories found");
+    const firstSection = yield* firstProjectSectionChild({ projectId });
+    if (!firstSection) throw new Error("No sections found");
 
     yield* updateTemplate({
       id: templateId,
       template: {
-        projectCategoryId: firstCategory.id,
+        projectSectionId: firstSection.id,
       },
     });
   },
 });
 
 // Local slice object for registerModelSlice (not exported)
-const cardsTaskTemplatesSlice = {
+const taskTemplatesSlice = {
   byId: taskTemplateById,
   delete: deleteTemplates,
   canDrop: taskTemplateCanDrop,
   handleDrop: taskTemplateHandleDrop,
 };
 
-registerModelSlice(
-  cardsTaskTemplatesSlice,
-  taskTemplatesTable,
-  taskTemplateType,
-);
+registerModelSlice(taskTemplatesSlice, taskTemplatesTable, taskTemplateType);

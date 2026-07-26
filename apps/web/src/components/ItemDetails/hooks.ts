@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { useDebouncedPersistedDraft } from "@/hooks/useDebouncedPersistedDraft";
+import { useDebouncedPersistedDraft } from "@/hooks/useDebouncedPersistedDraft.ts";
 
 export function useTitleEditing({
   title,

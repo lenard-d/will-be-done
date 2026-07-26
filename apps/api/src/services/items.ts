@@ -1,8 +1,8 @@
 import { selectSync } from "@will-be-done/hyperdb";
 import {
-  projectCategoryById,
-  projectCategoryCards,
-  projectCategoryTasksByState,
+  projectSectionById,
+  projectSectionItems,
+  projectSectionTasksByState,
   type TaskTemplate,
 } from "@will-be-done/slices/space";
 import { getHyperDB } from "../db/db";
@@ -16,7 +16,7 @@ export interface PublicTaskTemplate {
   id: string;
   title: string;
   content?: string;
-  projectCategoryId: string;
+  projectSectionId: string;
   nature: "red" | "green" | "unknown";
   repeatRule: string;
   repeatRuleDtStart: number;
@@ -24,7 +24,7 @@ export interface PublicTaskTemplate {
   lastGeneratedAt: number;
 }
 
-export type PublicCard = PublicTask | PublicTaskTemplate;
+export type PublicItem = PublicTask | PublicTaskTemplate;
 
 function toPublicTaskTemplate(template: TaskTemplate): PublicTaskTemplate {
   return {
@@ -32,7 +32,7 @@ function toPublicTaskTemplate(template: TaskTemplate): PublicTaskTemplate {
     id: template.id,
     title: template.title,
     ...(template.content === undefined ? {} : { content: template.content }),
-    projectCategoryId: template.projectCategoryId,
+    projectSectionId: template.projectSectionId,
     nature: template.nature ?? "unknown",
     repeatRule: template.repeatRule,
     repeatRuleDtStart: template.repeatRuleDtStart,
@@ -41,37 +41,37 @@ function toPublicTaskTemplate(template: TaskTemplate): PublicTaskTemplate {
   };
 }
 
-export function listCategoryCards({
+export function listSectionItems({
   spaceId,
-  categoryId,
+  sectionId,
   userId,
   taskState = "todo",
 }: {
   spaceId: string;
-  categoryId: string;
+  sectionId: string;
   userId: string;
   taskState?: "todo" | "done";
-}): PublicCard[] {
+}): PublicItem[] {
   ensureDatabaseAccessOrCreate({ dbId: spaceId, dbType: "space", userId });
   const db = getHyperDB(spaceDBConfig(spaceId)).db;
 
-  const category = selectSync(db, {
-    selector: projectCategoryById,
-    args: { id: categoryId },
+  const section = selectSync(db, {
+    selector: projectSectionById,
+    args: { id: sectionId },
   });
-  if (!category) throw new ResourceNotFoundError("Project category");
+  if (!section) throw new ResourceNotFoundError("Project section");
 
   if (taskState === "done") {
     return selectSync(db, {
-      selector: projectCategoryTasksByState,
-      args: { projectCategoryId: categoryId, state: "done" },
+      selector: projectSectionTasksByState,
+      args: { projectSectionId: sectionId, state: "done" },
     }).map(toPublicTask);
   }
 
   return selectSync(db, {
-    selector: projectCategoryCards,
-    args: { projectCategoryId: categoryId },
-  }).map((card) =>
-    card.type === "task" ? toPublicTask(card) : toPublicTaskTemplate(card),
+    selector: projectSectionItems,
+    args: { projectSectionId: sectionId },
+  }).map((item) =>
+    item.type === "task" ? toPublicTask(item) : toPublicTaskTemplate(item),
   );
 }

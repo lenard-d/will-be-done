@@ -7,8 +7,8 @@ import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   createTaskFromTemplate,
   moveTemplateToProject,
-  projectCategoriesByProjectId,
-  projectOfCategoryOrDefault,
+  projectSectionsByProjectId,
+  projectOfProjectSectionOrDefault,
   type TaskTemplate,
   taskTemplateRuleText,
   updateTemplate,
@@ -20,7 +20,7 @@ import {
   EditableTitle,
   DetailRow,
   ProjectDetailRow,
-  CategoryDetailRow,
+  SectionDetailRow,
   EditableDescription,
 } from "./shared.tsx";
 import { SquareCheckboxIcon } from "@/components/ui/icons.tsx";
@@ -33,25 +33,25 @@ export function TemplateBody({
   setIsEditingTitle,
   isEditingDescription,
   setIsEditingDescription,
-  onCardIdChange,
+  onItemIdChange,
 }: {
   template: TaskTemplate;
   isEditingTitle: boolean;
   setIsEditingTitle: (v: boolean) => void;
   isEditingDescription: boolean;
   setIsEditingDescription: (v: boolean) => void;
-  onCardIdChange?: (cardId: string) => void;
+  onItemIdChange?: (itemId: string) => void;
 }) {
   const dispatch = useAsyncDispatch();
   const templateId = template.id;
   const openProject = useOpenProject();
 
   const { data: project } = useAsyncSelector({
-    selector: projectOfCategoryOrDefault,
-    args: { categoryId: template.projectCategoryId },
+    selector: projectOfProjectSectionOrDefault,
+    args: { projectSectionId: template.projectSectionId },
   });
-  const { data: projectCategories = [] } = useAsyncSelector({
-    selector: projectCategoriesByProjectId,
+  const { data: projectSections = [] } = useAsyncSelector({
+    selector: projectSectionsByProjectId,
     args: { projectId: project?.id ?? "" },
     enabled: !!project,
     defaultValue: [],
@@ -112,9 +112,9 @@ export function TemplateBody({
         createTaskFromTemplate({ taskTemplate: template }),
       );
       useFocusStore.getState().focusByKey(buildFocusKey(task.id, task.type));
-      onCardIdChange?.(task.id);
+      onItemIdChange?.(task.id);
     })();
-  }, [template, dispatch, onCardIdChange]);
+  }, [template, dispatch, onItemIdChange]);
 
   const handleRepeatConfirm = useCallback(
     (ruleString: string) => {
@@ -158,15 +158,15 @@ export function TemplateBody({
           onEditClick={() => setIsMoveProjectModalOpen(true)}
         />
 
-        <CategoryDetailRow
-          projectCategoryId={template.projectCategoryId}
-          projectCategories={projectCategories}
-          onChange={(categoryId) =>
+        <SectionDetailRow
+          projectSectionId={template.projectSectionId}
+          projectSections={projectSections}
+          onChange={(projectSectionId) =>
             void dispatch(
               updateTemplate({
                 id: templateId,
                 template: {
-                  projectCategoryId: categoryId,
+                  projectSectionId: projectSectionId,
                 },
               }),
             )

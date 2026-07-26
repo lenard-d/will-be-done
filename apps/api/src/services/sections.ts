@@ -1,11 +1,11 @@
 import { selectSync, syncDispatch } from "@will-be-done/hyperdb";
 import {
-  createCategory as createCategoryAction,
-  deleteCategories,
+  createProjectSection as createProjectSectionAction,
+  deleteProjectSections,
   projectById,
-  projectCategoryById,
-  projectCategoriesByProjectId,
-  updateCategory as updateCategoryAction,
+  projectSectionById,
+  projectSectionsByProjectId,
+  updateProjectSection as updateProjectSectionAction,
 } from "@will-be-done/slices/space";
 import { getHyperDB } from "../db/db";
 import { spaceDBConfig } from "../db/configs";
@@ -17,19 +17,19 @@ import {
   type Placement,
 } from "./placement";
 
-export interface PublicProjectCategory {
+export interface PublicProjectSection {
   id: string;
   projectId: string;
   title: string;
   createdAt: number;
 }
 
-function toPublicProjectCategory({
+function toPublicProjectSection({
   id,
   projectId,
   title,
   createdAt,
-}: PublicProjectCategory): PublicProjectCategory {
+}: PublicProjectSection): PublicProjectSection {
   return { id, projectId, title, createdAt };
 }
 
@@ -38,7 +38,7 @@ function getSpaceDatabase(spaceId: string, userId: string) {
   return getHyperDB(spaceDBConfig(spaceId)).db;
 }
 
-export function listProjectCategories({
+export function listProjectSections({
   spaceId,
   projectId,
   userId,
@@ -46,7 +46,7 @@ export function listProjectCategories({
   spaceId: string;
   projectId: string;
   userId: string;
-}): PublicProjectCategory[] {
+}): PublicProjectSection[] {
   const db = getSpaceDatabase(spaceId, userId);
   const project = selectSync(db, {
     selector: projectById,
@@ -55,12 +55,12 @@ export function listProjectCategories({
   if (!project) throw new ResourceNotFoundError("Project");
 
   return selectSync(db, {
-    selector: projectCategoriesByProjectId,
+    selector: projectSectionsByProjectId,
     args: { projectId },
-  }).map(toPublicProjectCategory);
+  }).map(toPublicProjectSection);
 }
 
-export function createProjectCategory({
+export function createProjectSection({
   spaceId,
   projectId,
   userId,
@@ -72,7 +72,7 @@ export function createProjectCategory({
   userId: string;
   title: string;
   placement?: Placement;
-}): PublicProjectCategory {
+}): PublicProjectSection {
   const db = getSpaceDatabase(spaceId, userId);
   const project = selectSync(db, {
     selector: projectById,
@@ -80,85 +80,85 @@ export function createProjectCategory({
   });
   if (!project) throw new ResourceNotFoundError("Project");
 
-  const categories =
+  const sections =
     placement.kind === "before" || placement.kind === "after"
       ? selectSync(db, {
-          selector: projectCategoriesByProjectId,
+          selector: projectSectionsByProjectId,
           args: { projectId },
         })
       : [];
-  return toPublicProjectCategory(
+  return toPublicProjectSection(
     syncDispatch(
       db,
-      createCategoryAction({
-        categoryDraft: { projectId, title },
-        position: resolveCreatePosition({ entities: categories, placement }),
+      createProjectSectionAction({
+        sectionDraft: { projectId, title },
+        position: resolveCreatePosition({ entities: sections, placement }),
       }),
     ),
   );
 }
 
-export function updateProjectCategory({
+export function updateProjectSection({
   spaceId,
-  categoryId,
+  sectionId,
   userId,
   updates,
 }: {
   spaceId: string;
-  categoryId: string;
+  sectionId: string;
   userId: string;
   updates: { title?: string };
-}): PublicProjectCategory {
+}): PublicProjectSection {
   const db = getSpaceDatabase(spaceId, userId);
   const current = selectSync(db, {
-    selector: projectCategoryById,
-    args: { id: categoryId },
+    selector: projectSectionById,
+    args: { id: sectionId },
   });
-  if (!current) throw new ResourceNotFoundError("Project category");
+  if (!current) throw new ResourceNotFoundError("Project section");
 
   syncDispatch(
     db,
-    updateCategoryAction({
-      categoryId,
-      category: {
+    updateProjectSectionAction({
+      projectSectionId: sectionId,
+      section: {
         ...(updates.title === undefined ? {} : { title: updates.title }),
       },
     }),
   );
 
   const updated = selectSync(db, {
-    selector: projectCategoryById,
-    args: { id: categoryId },
+    selector: projectSectionById,
+    args: { id: sectionId },
   });
-  if (!updated) throw new ResourceNotFoundError("Project category");
-  return toPublicProjectCategory(updated);
+  if (!updated) throw new ResourceNotFoundError("Project section");
+  return toPublicProjectSection(updated);
 }
 
-export function moveProjectCategory({
+export function moveProjectSection({
   spaceId,
-  categoryId,
+  sectionId,
   userId,
   projectId,
   placement,
 }: {
   spaceId: string;
-  categoryId: string;
+  sectionId: string;
   userId: string;
   projectId: string;
   placement: Placement;
-}): PublicProjectCategory {
+}): PublicProjectSection {
   const db = getSpaceDatabase(spaceId, userId);
   const current = selectSync(db, {
-    selector: projectCategoryById,
-    args: { id: categoryId },
+    selector: projectSectionById,
+    args: { id: sectionId },
   });
-  if (!current) throw new ResourceNotFoundError("Project category");
+  if (!current) throw new ResourceNotFoundError("Project section");
   const currentProject = selectSync(db, {
     selector: projectById,
     args: { id: current.projectId },
   });
   if (currentProject?.isInbox) {
-    throw new ConflictError("Inbox category cannot be moved");
+    throw new ConflictError("Inbox section cannot be moved");
   }
   const destinationProject = selectSync(db, {
     selector: projectById,
@@ -166,49 +166,49 @@ export function moveProjectCategory({
   });
   if (!destinationProject) throw new ResourceNotFoundError("Project");
 
-  const categories = selectSync(db, {
-    selector: projectCategoriesByProjectId,
+  const sections = selectSync(db, {
+    selector: projectSectionsByProjectId,
     args: { projectId },
-  }).filter((category) => category.id !== categoryId);
+  }).filter((section) => section.id !== sectionId);
   syncDispatch(
     db,
-    updateCategoryAction({
-      categoryId,
-      category: {
+    updateProjectSectionAction({
+      projectSectionId: sectionId,
+      section: {
         projectId,
-        orderToken: resolveOrderToken({ entities: categories, placement }),
+        orderToken: resolveOrderToken({ entities: sections, placement }),
       },
     }),
   );
   const updated = selectSync(db, {
-    selector: projectCategoryById,
-    args: { id: categoryId },
+    selector: projectSectionById,
+    args: { id: sectionId },
   });
-  if (!updated) throw new ResourceNotFoundError("Project category");
-  return toPublicProjectCategory(updated);
+  if (!updated) throw new ResourceNotFoundError("Project section");
+  return toPublicProjectSection(updated);
 }
 
-export function deleteProjectCategory({
+export function deleteProjectSection({
   spaceId,
-  categoryId,
+  sectionId,
   userId,
 }: {
   spaceId: string;
-  categoryId: string;
+  sectionId: string;
   userId: string;
 }): void {
   const db = getSpaceDatabase(spaceId, userId);
-  const category = selectSync(db, {
-    selector: projectCategoryById,
-    args: { id: categoryId },
+  const section = selectSync(db, {
+    selector: projectSectionById,
+    args: { id: sectionId },
   });
-  if (!category) throw new ResourceNotFoundError("Project category");
+  if (!section) throw new ResourceNotFoundError("Project section");
   const project = selectSync(db, {
     selector: projectById,
-    args: { id: category.projectId },
+    args: { id: section.projectId },
   });
   if (project?.isInbox) {
-    throw new ConflictError("Inbox category cannot be deleted");
+    throw new ConflictError("Inbox section cannot be deleted");
   }
-  syncDispatch(db, deleteCategories({ ids: [categoryId] }));
+  syncDispatch(db, deleteProjectSections({ ids: [sectionId] }));
 }

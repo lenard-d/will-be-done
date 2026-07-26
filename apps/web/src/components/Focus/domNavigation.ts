@@ -7,7 +7,7 @@ type VerticalEdge = Extract<Edge, "top" | "bottom">;
  * DOM attributes used for keyboard focus navigation:
  *
  * data-focusable-key="<FocusKey>"
- *   Marks an element as a keyboard-navigable item (task card, project item, etc.).
+ *   Marks an element as a keyboard-navigable item (task item, project item, etc.).
  *   The value is a FocusKey string ("type^^id^^component"). j/k/h/l navigation
  *   reads and writes this attribute to track the focused item.
  *
@@ -24,7 +24,7 @@ type VerticalEdge = Extract<Edge, "top" | "bottom">;
  *
  * data-column-model-id / data-column-model-type
  *   Set on data-focus-column elements. Identifies the backing model (e.g. a
- *   dailyList or projectCategory) so tasks can be moved between columns.
+ *   dailyList or projectSection) so tasks can be moved between columns.
  *
  * data-focus-region-direction="row" | "column"
  *   Wraps a group of data-focus-column elements and controls how navigation
@@ -34,7 +34,7 @@ type VerticalEdge = Extract<Edge, "top" | "bottom">;
  *              scoped to columns within the same region, preventing bleed-over
  *              into other boards on the same page.
  *
- *   "column" – columns are stacked top-to-bottom (e.g. project category sections
+ *   "column" – columns are stacked top-to-bottom (e.g. project sections
  *              in mobile view). When j/k reaches the boundary of a column,
  *              navigation overflows into the adjacent stacked column.
  */

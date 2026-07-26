@@ -13,11 +13,11 @@ import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import {
   createTaskTemplateFromTask,
-  dailyProjectionDateOfTask,
+  dailyEntryDateOfTask,
   deleteTemplates,
   moveTaskToProject,
-  projectCategoriesByProjectId,
-  projectOfCategoryOrDefault,
+  projectSectionsByProjectId,
+  projectOfProjectSectionOrDefault,
   type Task,
   taskTemplateById,
   taskTemplateRuleText,
@@ -34,7 +34,7 @@ import {
   EditableTitle,
   DetailRow,
   ProjectDetailRow,
-  CategoryDetailRow,
+  SectionDetailRow,
   EditableDescription,
 } from "./shared.tsx";
 import { useOpenProject } from "@/hooks/useOpenProject.ts";
@@ -45,31 +45,31 @@ export function TaskBody({
   setIsEditingTitle,
   isEditingDescription,
   setIsEditingDescription,
-  onCardIdChange,
+  onItemIdChange,
 }: {
   task: Task;
   isEditingTitle: boolean;
   setIsEditingTitle: (v: boolean) => void;
   isEditingDescription: boolean;
   setIsEditingDescription: (v: boolean) => void;
-  onCardIdChange?: (cardId: string) => void;
+  onItemIdChange?: (itemId: string) => void;
 }) {
   const dispatch = useAsyncDispatch();
   const taskId = task.id;
   const openProject = useOpenProject();
 
   const { data: project } = useAsyncSelector({
-    selector: projectOfCategoryOrDefault,
-    args: { categoryId: task.projectCategoryId },
+    selector: projectOfProjectSectionOrDefault,
+    args: { projectSectionId: task.projectSectionId },
   });
-  const { data: projectCategories = [] } = useAsyncSelector({
-    selector: projectCategoriesByProjectId,
+  const { data: projectSections = [] } = useAsyncSelector({
+    selector: projectSectionsByProjectId,
     args: { projectId: project?.id ?? "" },
     enabled: !!project,
     defaultValue: [],
   });
   const { data: scheduleDate } = useAsyncSelector({
-    selector: dailyProjectionDateOfTask,
+    selector: dailyEntryDateOfTask,
     args: { taskId: taskId },
   });
 
@@ -161,11 +161,11 @@ export function TaskBody({
           useFocusStore
             .getState()
             .focusByKey(buildFocusKey(template.id, template.type));
-          onCardIdChange?.(template.id);
+          onItemIdChange?.(template.id);
         })();
       }
     },
-    [task, dispatch, onCardIdChange],
+    [task, dispatch, onItemIdChange],
   );
 
   if (!project) return null;
@@ -200,15 +200,15 @@ export function TaskBody({
           onEditClick={() => setIsMoveProjectModalOpen(true)}
         />
 
-        <CategoryDetailRow
-          projectCategoryId={task.projectCategoryId}
-          projectCategories={projectCategories}
-          onChange={(categoryId) =>
+        <SectionDetailRow
+          projectSectionId={task.projectSectionId}
+          projectSections={projectSections}
+          onChange={(projectSectionId) =>
             void dispatch(
               updateTask({
                 id: taskId,
                 task: {
-                  projectCategoryId: categoryId,
+                  projectSectionId: projectSectionId,
                 },
               }),
             )

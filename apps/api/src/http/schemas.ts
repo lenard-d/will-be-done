@@ -116,13 +116,13 @@ export const DeleteSpaceParamsSchema = z.object({
   spaceId: z.string().min(1).describe("Space identifier"),
 });
 
-export const ProjectCategoriesParamsSchema = z.object({
+export const ProjectSectionsParamsSchema = z.object({
   spaceId: z.string().min(1).describe("Space identifier"),
   projectId: z.string().min(1).describe("Project identifier"),
 });
 
-export const ProjectCategorySchema = z.object({
-  id: z.string().describe("Project category identifier"),
+export const ProjectSectionSchema = z.object({
+  id: z.string().describe("Project section identifier"),
   projectId: z.string().describe("Parent project identifier"),
   title: z.string(),
   createdAt: z
@@ -132,27 +132,27 @@ export const ProjectCategorySchema = z.object({
     .describe("Creation time as Unix milliseconds"),
 });
 
-export const ListProjectCategoriesResponseSchema = z.object({
-  categories: z.array(ProjectCategorySchema),
+export const ListProjectSectionsResponseSchema = z.object({
+  sections: z.array(ProjectSectionSchema),
 });
 
-export const CategoryParamsSchema = z.object({
+export const SectionParamsSchema = z.object({
   spaceId: z.string().min(1).describe("Space identifier"),
-  categoryId: z.string().min(1).describe("Project category identifier"),
+  sectionId: z.string().min(1).describe("Project section identifier"),
 });
 
-export const CreateProjectCategoryBodySchema = z
+export const CreateProjectSectionBodySchema = z
   .object({
     title: z.string().trim().min(1),
     placement: PlacementSchema.optional(),
   })
   .strict();
 
-export const ProjectCategoryResponseSchema = z.object({
-  category: ProjectCategorySchema,
+export const ProjectSectionResponseSchema = z.object({
+  section: ProjectSectionSchema,
 });
 
-export const UpdateProjectCategoryBodySchema = z
+export const UpdateProjectSectionBodySchema = z
   .object({
     title: z.string().trim().min(1).optional(),
   })
@@ -161,16 +161,16 @@ export const UpdateProjectCategoryBodySchema = z
     message: "At least one field must be provided",
   });
 
-export const MoveProjectCategoryBodySchema = z
+export const MoveProjectSectionBodySchema = z
   .object({
     projectId: z.string().min(1),
     placement: PlacementSchema,
   })
   .strict();
 
-export const CategoryTasksParamsSchema = z.object({
+export const SectionTasksParamsSchema = z.object({
   spaceId: z.string().min(1).describe("Space identifier"),
-  categoryId: z.string().min(1).describe("Project category identifier"),
+  sectionId: z.string().min(1).describe("Project section identifier"),
 });
 
 export const TaskParamsSchema = z.object({
@@ -187,7 +187,7 @@ export const TaskSchema = z.object({
   title: z.string(),
   content: z.string().optional(),
   state: TaskStateSchema,
-  projectCategoryId: z.string().describe("Parent project category identifier"),
+  projectSectionId: z.string().describe("Parent project section identifier"),
   nature: TaskNatureSchema,
   createdAt: z
     .number()
@@ -206,7 +206,7 @@ export const TaskTemplateSchema = z.object({
   id: z.string().describe("Task template identifier"),
   title: z.string(),
   content: z.string().optional(),
-  projectCategoryId: z.string().describe("Parent project category identifier"),
+  projectSectionId: z.string().describe("Parent project section identifier"),
   nature: TaskNatureSchema,
   repeatRule: z.string(),
   repeatRuleDtStart: z.number().int().nonnegative(),
@@ -214,17 +214,17 @@ export const TaskTemplateSchema = z.object({
   lastGeneratedAt: z.number().int().nonnegative(),
 });
 
-export const CardSchema = z.discriminatedUnion("type", [
+export const ItemSchema = z.discriminatedUnion("type", [
   TaskSchema,
   TaskTemplateSchema,
 ]);
 
-export const ListCategoryCardsQuerySchema = z.object({
+export const ListSectionItemsQuerySchema = z.object({
   taskState: TaskStateSchema.optional().default("todo"),
 });
 
-export const ListCategoryCardsResponseSchema = z.object({
-  cards: z.array(CardSchema),
+export const ListSectionItemsResponseSchema = z.object({
+  items: z.array(ItemSchema),
 });
 
 export const CreateTaskBodySchema = z
@@ -250,17 +250,17 @@ export const ScheduleTaskResponseSchema = z.object({
   date: z.iso.date(),
 });
 
-export const DailyListCardsParamsSchema = z.object({
+export const DailyListItemsParamsSchema = z.object({
   spaceId: z.string().min(1).describe("Space identifier"),
   date: z.iso.date().describe("Daily-list date in YYYY-MM-DD format"),
 });
 
-export const DailyListCardsQuerySchema = z.object({
+export const DailyListItemsQuerySchema = z.object({
   state: TaskStateSchema.optional().default("todo"),
 });
 
-export const DailyListCardsResponseSchema = z.object({
-  cards: z.array(TaskSchema),
+export const DailyListItemsResponseSchema = z.object({
+  items: z.array(TaskSchema),
 });
 
 export const UpdateTaskBodySchema = z
@@ -277,7 +277,7 @@ export const UpdateTaskBodySchema = z
 
 export const MoveTaskBodySchema = z
   .object({
-    projectCategoryId: z.string().min(1),
+    projectSectionId: z.string().min(1),
     placement: PlacementSchema,
   })
   .strict();

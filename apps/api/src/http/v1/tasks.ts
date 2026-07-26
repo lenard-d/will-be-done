@@ -3,13 +3,13 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { authenticateBearerToken } from "../../services/authentication";
 import { DatabaseAccessDeniedError } from "../../services/databaseAccess";
-import { listCategoryCards } from "../../services/cards";
+import { listSectionItems } from "../../services/items";
 import {
   InvalidPlacementError,
   ResourceNotFoundError,
 } from "../../services/errors";
 import {
-  createCategoryTask,
+  createSectionTask,
   deleteTask,
   getTask,
   moveTask,
@@ -17,11 +17,11 @@ import {
 } from "../../services/tasks";
 import { scheduleTask } from "../../services/scheduling";
 import {
-  CategoryTasksParamsSchema,
+  SectionTasksParamsSchema,
   CreateTaskBodySchema,
   ErrorResponseSchema,
-  ListCategoryCardsQuerySchema,
-  ListCategoryCardsResponseSchema,
+  ListSectionItemsQuerySchema,
+  ListSectionItemsResponseSchema,
   MoveTaskBodySchema,
   ScheduleTaskBodySchema,
   ScheduleTaskResponseSchema,
@@ -32,19 +32,19 @@ import {
 
 export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
   server.get(
-    "/spaces/:spaceId/categories/:categoryId/cards",
+    "/spaces/:spaceId/sections/:sectionId/items",
     {
       schema: {
-        operationId: "listCategoryCards",
-        summary: "List category cards",
+        operationId: "listSectionItems",
+        summary: "List section items",
         description:
           "Returns todo tasks and templates in display order by default. When taskState is done, returns completed tasks only.",
-        tags: ["Cards"],
+        tags: ["Items"],
         security: [{ bearerAuth: [] }],
-        params: CategoryTasksParamsSchema,
-        querystring: ListCategoryCardsQuerySchema,
+        params: SectionTasksParamsSchema,
+        querystring: ListSectionItemsQuerySchema,
         response: {
-          200: ListCategoryCardsResponseSchema,
+          200: ListSectionItemsResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -57,28 +57,28 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
       if (!user) return unauthorized(reply);
 
       try {
-        const cards = listCategoryCards({
+        const items = listSectionItems({
           spaceId: request.params.spaceId,
-          categoryId: request.params.categoryId,
+          sectionId: request.params.sectionId,
           userId: user.id,
           taskState: request.query.taskState,
         });
-        return reply.code(200).send({ cards });
+        return reply.code(200).send({ items });
       } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to list cards");
+        return handleTaskError(request, reply, error, "Failed to list items");
       }
     },
   );
 
   server.post(
-    "/spaces/:spaceId/categories/:categoryId/tasks",
+    "/spaces/:spaceId/sections/:sectionId/tasks",
     {
       schema: {
-        operationId: "createCategoryTask",
+        operationId: "createSectionTask",
         summary: "Create a task",
         tags: ["Tasks"],
         security: [{ bearerAuth: [] }],
-        params: CategoryTasksParamsSchema,
+        params: SectionTasksParamsSchema,
         body: CreateTaskBodySchema,
         response: {
           201: TaskResponseSchema,
@@ -95,9 +95,9 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
       if (!user) return unauthorized(reply);
 
       try {
-        const task = createCategoryTask({
+        const task = createSectionTask({
           spaceId: request.params.spaceId,
-          categoryId: request.params.categoryId,
+          sectionId: request.params.sectionId,
           userId: user.id,
           ...request.body,
         });

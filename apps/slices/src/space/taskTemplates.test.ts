@@ -14,15 +14,15 @@ import {
   taskTemplateNewTasksInRange,
   newTasksToGenForTaskTemplate,
   createTaskTemplateFromTask,
-} from "./cardsTaskTemplates";
+} from "./taskTemplates";
 import { dbIdTrait } from "@/traits";
 import {
   checklistItemsTable,
   DailyList,
   dailyListsTable,
   Task,
-  TaskProjection,
-  taskProjectionsTable,
+  DailyEntry,
+  dailyEntriesTable,
   tasksTable,
   TaskTemplate,
   taskTemplatesTable,
@@ -57,7 +57,7 @@ function createDB(timezoneOffsetMinutes: number) {
     db.loadTables([
       checklistItemsTable,
       dailyListsTable,
-      taskProjectionsTable,
+      dailyEntriesTable,
       tasksTable,
       taskTemplatesTable,
     ]),
@@ -104,7 +104,7 @@ function getNewTasksInRange(db: DB, fromDate: Date, toDate: Date): Task[] {
   );
 }
 
-describe("cardsTaskTemplates timezone consistency", () => {
+describe("taskTemplates timezone consistency", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
@@ -128,7 +128,7 @@ describe("cardsTaskTemplates timezone consistency", () => {
       repeatRuleDtStart: createdAtEpoch,
       createdAt: createdAtEpoch,
       lastGeneratedAt: lastGeneratedAtEpoch,
-      projectCategoryId: "cat-1",
+      projectSectionId: "section-1",
     };
 
     // --- Run in UTC+3 (getTimezoneOffset returns -180) ---
@@ -171,7 +171,7 @@ describe("cardsTaskTemplates timezone consistency", () => {
       repeatRuleDtStart: createdAtEpoch,
       createdAt: createdAtEpoch,
       lastGeneratedAt: lastGeneratedAtEpoch,
-      projectCategoryId: "cat-1",
+      projectSectionId: "section-1",
     };
 
     // Device A (UTC+3)
@@ -213,7 +213,7 @@ describe("cardsTaskTemplates timezone consistency", () => {
       repeatRuleDtStart: createdAtEpoch,
       createdAt: createdAtEpoch,
       lastGeneratedAt: lastGeneratedAtEpoch,
-      projectCategoryId: "cat-1",
+      projectSectionId: "section-1",
     };
 
     // Device A (UTC+3)
@@ -260,7 +260,7 @@ describe("cardsTaskTemplates timezone consistency", () => {
       repeatRuleDtStart: oneYearAgo,
       createdAt: oneYearAgo,
       lastGeneratedAt: oneYearAgo, // hasn't run in a year
-      projectCategoryId: "cat-1",
+      projectSectionId: "section-1",
     };
 
     const db = createDB(0); // UTC
@@ -297,7 +297,7 @@ describe("cardsTaskTemplates timezone consistency", () => {
       repeatRuleDtStart: createdAtEpoch,
       createdAt: createdAtEpoch,
       lastGeneratedAt: lastGeneratedAtEpoch,
-      projectCategoryId: "cat-1",
+      projectSectionId: "section-1",
     };
 
     const db = createDB(0); // UTC
@@ -332,7 +332,7 @@ describe("cardsTaskTemplates timezone consistency", () => {
       repeatRuleDtStart: createdAtEpoch,
       createdAt: createdAtEpoch,
       lastGeneratedAt: createdAtEpoch,
-      projectCategoryId: "cat-1",
+      projectSectionId: "section-1",
     };
 
     // User in UTC+3: it's March 2 00:05 local = March 1 21:05 UTC
@@ -372,7 +372,7 @@ describe("cardsTaskTemplates timezone consistency", () => {
       repeatRuleDtStart: createdAtEpoch,
       createdAt: createdAtEpoch,
       lastGeneratedAt: createdAtEpoch,
-      projectCategoryId: "cat-1",
+      projectSectionId: "section-1",
     };
 
     // User in UTC+3: it's March 1 23:55 local = March 1 20:55 UTC
@@ -405,7 +405,7 @@ describe("cardsTaskTemplates timezone consistency", () => {
       repeatRuleDtStart: createdAtEpoch,
       createdAt: createdAtEpoch,
       lastGeneratedAt: createdAtEpoch,
-      projectCategoryId: "cat-1",
+      projectSectionId: "section-1",
     };
 
     // UTC+3 client asking for 23:00 Mar 1 -> 01:00 Mar 2 local time.
@@ -441,7 +441,7 @@ describe("cardsTaskTemplates timezone consistency", () => {
       repeatRuleDtStart: createdAtEpoch,
       createdAt: createdAtEpoch,
       lastGeneratedAt: lastGeneratedAtEpoch,
-      projectCategoryId: "cat-1",
+      projectSectionId: "section-1",
     };
 
     // --- UTC+3 ---
@@ -473,7 +473,7 @@ describe("cardsTaskTemplates timezone consistency", () => {
       title: "Converted daily task",
       content: "Task body",
       state: "todo",
-      projectCategoryId: "cat-1",
+      projectSectionId: "section-1",
       orderToken: "a0",
       lastToggledAt: now,
       nature: "green",
@@ -501,10 +501,10 @@ describe("cardsTaskTemplates timezone consistency", () => {
       },
       [],
     );
-    const projections = runSelector<TaskProjection[]>(
+    const entries = runSelector<DailyEntry[]>(
       db,
       function* () {
-        return yield* selectFrom(taskProjectionsTable, "byIds");
+        return yield* selectFrom(dailyEntriesTable, "byIds");
       },
       [],
     );
@@ -521,12 +521,12 @@ describe("cardsTaskTemplates timezone consistency", () => {
     expect(tasks[0].id).not.toBe(task.id);
     expect(tasks[0].templateId).toBe(template.id);
     expect(tasks[0].title).toBe(task.title);
-    expect(tasks[0].projectCategoryId).toBe(task.projectCategoryId);
+    expect(tasks[0].projectSectionId).toBe(task.projectSectionId);
     expect(tasks[0].templateDate).toBe(
       new Date("2026-03-04T00:00:00Z").getTime(),
     );
-    expect(projections).toHaveLength(1);
-    expect(projections[0].id).toBe(tasks[0].id);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).toBe(tasks[0].id);
     expect(dailyLists).toHaveLength(1);
     expect(dailyLists[0].date).toBe("2026-03-04");
   });

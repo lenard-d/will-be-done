@@ -8,7 +8,7 @@ import { spaceDBConfig } from "../db/configs";
 import { ensureDatabaseAccessOrCreate } from "./databaseAccess";
 import { toPublicTask, type PublicTask } from "./tasks";
 
-export function listDailyListCards({
+export function listDailyListItems({
   spaceId,
   userId,
   date,

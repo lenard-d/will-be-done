@@ -1,29 +1,29 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { authenticateBearerToken } from "../../services/authentication";
 import { DatabaseAccessDeniedError } from "../../services/databaseAccess";
-import { listDailyListCards } from "../../services/dailyLists";
+import { listDailyListItems } from "../../services/dailyLists";
 import {
-  DailyListCardsParamsSchema,
-  DailyListCardsQuerySchema,
-  DailyListCardsResponseSchema,
+  DailyListItemsParamsSchema,
+  DailyListItemsQuerySchema,
+  DailyListItemsResponseSchema,
   ErrorResponseSchema,
 } from "../schemas";
 
 export const dailyListRoutes: FastifyPluginAsyncZod = async (server) => {
   server.get(
-    "/spaces/:spaceId/daily-lists/:date/cards",
+    "/spaces/:spaceId/daily-lists/:date/items",
     {
       schema: {
-        operationId: "listDailyListCards",
-        summary: "List daily-list cards",
+        operationId: "listDailyListItems",
+        summary: "List daily-list items",
         description:
           "Returns scheduled todo tasks in daily-list order by default, or completed tasks ordered by most recently completed.",
         tags: ["Daily lists"],
         security: [{ bearerAuth: [] }],
-        params: DailyListCardsParamsSchema,
-        querystring: DailyListCardsQuerySchema,
+        params: DailyListItemsParamsSchema,
+        querystring: DailyListItemsQuerySchema,
         response: {
-          200: DailyListCardsResponseSchema,
+          200: DailyListItemsResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           500: ErrorResponseSchema,
@@ -40,13 +40,13 @@ export const dailyListRoutes: FastifyPluginAsyncZod = async (server) => {
       }
 
       try {
-        const cards = listDailyListCards({
+        const items = listDailyListItems({
           spaceId: request.params.spaceId,
           userId: user.id,
           date: request.params.date,
           state: request.query.state,
         });
-        return reply.code(200).send({ cards });
+        return reply.code(200).send({ items });
       } catch (error) {
         if (error instanceof DatabaseAccessDeniedError) {
           return reply.code(403).send({
@@ -54,10 +54,10 @@ export const dailyListRoutes: FastifyPluginAsyncZod = async (server) => {
             message: "You do not have access to this space",
           });
         }
-        request.log.error(error, "Failed to list daily-list cards");
+        request.log.error(error, "Failed to list daily-list items");
         return reply.code(500).send({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to list daily-list cards",
+          message: "Failed to list daily-list items",
         });
       }
     },

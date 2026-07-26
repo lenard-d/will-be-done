@@ -27,6 +27,7 @@ import {
   DatabaseAccessDeniedError,
   ensureDatabaseAccessOrCreate,
 } from "./services/databaseAccess";
+import { assertSupportedSyncVersion } from "./syncVersion";
 
 export interface AppRouterDependencies {
   mainDB: DB;
@@ -60,9 +61,11 @@ export function createAppRouter({
           dbId: z.string(),
           dbType: z.union([z.literal("user"), z.literal("space")]),
           clientId: z.string(),
+          syncVersion: z.number().int().optional(),
         }),
       )
       .query(async (opts) => {
+        assertSupportedSyncVersion(opts.input.syncVersion);
         if (!opts.ctx.user) {
           throw new TRPCError({ code: "UNAUTHORIZED" });
         }
@@ -91,9 +94,11 @@ export function createAppRouter({
           dbId: z.string(),
           dbType: z.union([z.literal("user"), z.literal("space")]),
           changeset: ChangesetArray,
+          syncVersion: z.number().int().optional(),
         }),
       )
       .mutation(async (opts) => {
+        assertSupportedSyncVersion(opts.input.syncVersion);
         if (!opts.ctx.user) {
           throw new TRPCError({ code: "UNAUTHORIZED" });
         }
@@ -128,9 +133,11 @@ export function createAppRouter({
         z.object({
           dbId: z.string(),
           dbType: z.union([z.literal("user"), z.literal("space")]),
+          syncVersion: z.number().int().optional(),
         }),
       )
       .subscription(async function* (opts) {
+        assertSupportedSyncVersion(opts.input.syncVersion);
         if (!opts.ctx.user) {
           throw new TRPCError({ code: "UNAUTHORIZED" });
         }

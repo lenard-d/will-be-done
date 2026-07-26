@@ -14,34 +14,34 @@ import {
   checklistItemsTable,
   dailyListByDate,
   dailyListsTable,
-  dailyProjectionsByDailyListId,
-  projectCategoriesTable,
+  dailyEntriesByDailyListId,
+  projectSectionsTable,
   projectsTable,
-  projectCategoryType,
+  projectSectionType,
   projectType,
-  taskProjectionsTable,
+  dailyEntriesTable,
   tasksTable,
   taskTemplatesTable,
   taskTemplateType,
   taskType,
   type Project,
-  type ProjectCategory,
+  type ProjectSection,
   type Task,
   type TaskTemplate,
 } from "@will-be-done/slices/space";
 import * as databases from "../db/db";
 import { dbsTable } from "../slices/dbSlice";
 import {
-  createProjectCategory,
-  deleteProjectCategory,
-  listProjectCategories,
-  moveProjectCategory,
-  updateProjectCategory,
-} from "./categories";
-import { listCategoryCards } from "./cards";
+  createProjectSection,
+  deleteProjectSection,
+  listProjectSections,
+  moveProjectSection,
+  updateProjectSection,
+} from "./sections";
+import { listSectionItems } from "./items";
 import { InvalidPlacementError, ResourceNotFoundError } from "./errors";
 import {
-  createCategoryTask,
+  createSectionTask,
   deleteTask,
   getTask,
   moveTask,
@@ -55,7 +55,7 @@ import {
   updateSpaceProject,
 } from "./projects";
 import { scheduleTask } from "./scheduling";
-import { listDailyListCards } from "./dailyLists";
+import { listDailyListItems } from "./dailyLists";
 
 const action = createAction();
 const orderA = generateJitteredKeyBetween(null, null);
@@ -78,18 +78,18 @@ const seedDomain = action({
         createdAt: 100,
       },
     ];
-    const categories: ProjectCategory[] = [
+    const sections: ProjectSection[] = [
       {
-        type: projectCategoryType,
-        id: "category-1",
+        type: projectSectionType,
+        id: "section-1",
         projectId: "project-1",
         title: "First",
         orderToken: orderA,
         createdAt: 101,
       },
       {
-        type: projectCategoryType,
-        id: "category-2",
+        type: projectSectionType,
+        id: "section-2",
         projectId: "project-1",
         title: "Second",
         orderToken: orderB,
@@ -102,7 +102,7 @@ const seedDomain = action({
         id: "task-a",
         title: "A",
         state: "todo",
-        projectCategoryId: "category-1",
+        projectSectionId: "section-1",
         orderToken: orderA,
         lastToggledAt: 100,
         nature: "unknown",
@@ -115,7 +115,7 @@ const seedDomain = action({
         id: "task-c",
         title: "C",
         state: "todo",
-        projectCategoryId: "category-1",
+        projectSectionId: "section-1",
         orderToken: orderC,
         lastToggledAt: 100,
         nature: "green",
@@ -128,7 +128,7 @@ const seedDomain = action({
         id: "done-old",
         title: "Done old",
         state: "done",
-        projectCategoryId: "category-1",
+        projectSectionId: "section-1",
         orderToken: orderD,
         lastToggledAt: 200,
         nature: "unknown",
@@ -141,7 +141,7 @@ const seedDomain = action({
         id: "done-new",
         title: "Done new",
         state: "done",
-        projectCategoryId: "category-1",
+        projectSectionId: "section-1",
         orderToken: orderE,
         lastToggledAt: 300,
         nature: "unknown",
@@ -155,7 +155,7 @@ const seedDomain = action({
         type: taskTemplateType,
         id: "template-b",
         title: "Template B",
-        projectCategoryId: "category-1",
+        projectSectionId: "section-1",
         orderToken: orderB,
         repeatRule: "FREQ=DAILY",
         repeatRuleDtStart: 100,
@@ -166,7 +166,7 @@ const seedDomain = action({
     ];
 
     yield* insert(projectsTable, projects);
-    yield* insert(projectCategoriesTable, categories);
+    yield* insert(projectSectionsTable, sections);
     yield* insert(tasksTable, tasks);
     yield* insert(taskTemplatesTable, templates);
   },
@@ -181,12 +181,12 @@ function setUpDatabases() {
   execSync(
     spaceDB.loadTables([
       projectsTable,
-      projectCategoriesTable,
+      projectSectionsTable,
       tasksTable,
       taskTemplatesTable,
       checklistItemsTable,
       dailyListsTable,
-      taskProjectionsTable,
+      dailyEntriesTable,
     ]),
   );
   syncDispatch(spaceDB, seedDomain({}));
@@ -199,27 +199,27 @@ function setUpDatabases() {
   return { spaceDB };
 }
 
-describe("category and task services", () => {
+describe("section and task services", () => {
   afterEach(() => mock.restore());
 
-  test("lists project categories in display order without order tokens", () => {
+  test("lists project sections in display order without order tokens", () => {
     setUpDatabases();
 
     expect(
-      listProjectCategories({
+      listProjectSections({
         spaceId: "space-1",
         projectId: "project-1",
         userId: "user-1",
       }),
     ).toEqual([
       {
-        id: "category-1",
+        id: "section-1",
         projectId: "project-1",
         title: "First",
         createdAt: 101,
       },
       {
-        id: "category-2",
+        id: "section-2",
         projectId: "project-1",
         title: "Second",
         createdAt: 102,
@@ -227,7 +227,7 @@ describe("category and task services", () => {
     ]);
 
     expect(() =>
-      listProjectCategories({
+      listProjectSections({
         spaceId: "space-1",
         projectId: "missing",
         userId: "user-1",
@@ -235,15 +235,15 @@ describe("category and task services", () => {
     ).toThrow(ResourceNotFoundError);
   });
 
-  test("lists todo tasks and templates as cards, or done tasks only", () => {
+  test("lists todo tasks and templates as items, or done tasks only", () => {
     setUpDatabases();
 
     expect(
-      listCategoryCards({
+      listSectionItems({
         spaceId: "space-1",
-        categoryId: "category-1",
+        sectionId: "section-1",
         userId: "user-1",
-      }).map((card) => [card.type, card.id]),
+      }).map((item) => [item.type, item.id]),
     ).toEqual([
       ["task", "task-a"],
       ["template", "template-b"],
@@ -251,12 +251,12 @@ describe("category and task services", () => {
     ]);
 
     expect(
-      listCategoryCards({
+      listSectionItems({
         spaceId: "space-1",
-        categoryId: "category-1",
+        sectionId: "section-1",
         userId: "user-1",
         taskState: "done",
-      }).map((card) => [card.type, card.id]),
+      }).map((item) => [item.type, item.id]),
     ).toEqual([
       ["task", "done-new"],
       ["task", "done-old"],
@@ -266,48 +266,48 @@ describe("category and task services", () => {
   test("creates and moves tasks using ID-based placement", () => {
     setUpDatabases();
 
-    const created = createCategoryTask({
+    const created = createSectionTask({
       spaceId: "space-1",
-      categoryId: "category-1",
+      sectionId: "section-1",
       userId: "user-1",
       title: "B",
       placement: { kind: "after", anchorId: "task-a" },
     });
     expect(created).not.toHaveProperty("orderToken");
     expect(
-      listCategoryCards({
+      listSectionItems({
         spaceId: "space-1",
-        categoryId: "category-1",
+        sectionId: "section-1",
         userId: "user-1",
       })
-        .filter((card) => card.type === "task")
-        .map((card) => card.title),
+        .filter((item) => item.type === "task")
+        .map((item) => item.title),
     ).toEqual(["A", "B", "C"]);
 
     const moved = moveTask({
       spaceId: "space-1",
       taskId: created.id,
       userId: "user-1",
-      projectCategoryId: "category-2",
+      projectSectionId: "section-2",
       placement: { kind: "first" },
     });
-    expect(moved.projectCategoryId).toBe("category-2");
+    expect(moved.projectSectionId).toBe("section-2");
     expect(
-      listCategoryCards({
+      listSectionItems({
         spaceId: "space-1",
-        categoryId: "category-2",
+        sectionId: "section-2",
         userId: "user-1",
-      }).map((card) => card.id),
+      }).map((item) => item.id),
     ).toEqual([created.id]);
   });
 
-  test("rejects anchors outside the destination category", () => {
+  test("rejects anchors outside the destination section", () => {
     setUpDatabases();
 
     expect(() =>
-      createCategoryTask({
+      createSectionTask({
         spaceId: "space-1",
-        categoryId: "category-2",
+        sectionId: "section-2",
         userId: "user-1",
         title: "Invalid",
         placement: { kind: "after", anchorId: "task-a" },
@@ -382,27 +382,27 @@ describe("category and task services", () => {
     ).toBe(false);
   });
 
-  test("creates, updates, repositions, and deletes categories", () => {
+  test("creates, updates, repositions, and deletes sections", () => {
     setUpDatabases();
 
-    const created = createProjectCategory({
+    const created = createProjectSection({
       spaceId: "space-1",
       projectId: "project-1",
       userId: "user-1",
       title: "Middle",
-      placement: { kind: "before", anchorId: "category-2" },
+      placement: { kind: "before", anchorId: "section-2" },
     });
     expect(
-      listProjectCategories({
+      listProjectSections({
         spaceId: "space-1",
         projectId: "project-1",
         userId: "user-1",
-      }).map((category) => category.id),
-    ).toEqual(["category-1", created.id, "category-2"]);
+      }).map((section) => section.id),
+    ).toEqual(["section-1", created.id, "section-2"]);
 
-    const updated = updateProjectCategory({
+    const updated = updateProjectSection({
       spaceId: "space-1",
-      categoryId: created.id,
+      sectionId: created.id,
       userId: "user-1",
       updates: { title: "First now" },
     });
@@ -412,32 +412,32 @@ describe("category and task services", () => {
       userId: "user-1",
       title: "Destination",
     });
-    moveProjectCategory({
+    moveProjectSection({
       spaceId: "space-1",
-      categoryId: created.id,
+      sectionId: created.id,
       userId: "user-1",
       projectId: destination.id,
       placement: { kind: "first" },
     });
     expect(
-      listProjectCategories({
+      listProjectSections({
         spaceId: "space-1",
         projectId: destination.id,
         userId: "user-1",
       })[0].id,
     ).toBe(created.id);
 
-    deleteProjectCategory({
+    deleteProjectSection({
       spaceId: "space-1",
-      categoryId: created.id,
+      sectionId: created.id,
       userId: "user-1",
     });
     expect(
-      listProjectCategories({
+      listProjectSections({
         spaceId: "space-1",
         projectId: "project-1",
         userId: "user-1",
-      }).some((category) => category.id === created.id),
+      }).some((section) => section.id === created.id),
     ).toBe(false);
     deleteSpaceProject({
       spaceId: "space-1",
@@ -474,16 +474,16 @@ describe("category and task services", () => {
     expect(firstList).toBeDefined();
     expect(
       selectSync(spaceDB, {
-        selector: dailyProjectionsByDailyListId,
+        selector: dailyEntriesByDailyListId,
         args: { dailyListId: firstList!.id },
-      }).map((projection) => projection.id),
+      }).map((entry) => entry.id),
     ).toEqual(["task-a", "task-c"]);
     expect(
-      listDailyListCards({
+      listDailyListItems({
         spaceId: "space-1",
         userId: "user-1",
         date: "2026-07-22",
-      }).map((card) => card.id),
+      }).map((item) => item.id),
     ).toEqual(["task-a", "task-c"]);
 
     scheduleTask({
@@ -493,15 +493,15 @@ describe("category and task services", () => {
       date: "2026-07-22",
     });
     expect(
-      listDailyListCards({
+      listDailyListItems({
         spaceId: "space-1",
         userId: "user-1",
         date: "2026-07-22",
         state: "done",
-      }).map((card) => card.id),
+      }).map((item) => item.id),
     ).toEqual(["done-new"]);
     expect(
-      listDailyListCards({
+      listDailyListItems({
         spaceId: "space-1",
         userId: "user-1",
         date: "2026-07-24",
@@ -516,9 +516,9 @@ describe("category and task services", () => {
     });
     expect(
       selectSync(spaceDB, {
-        selector: dailyProjectionsByDailyListId,
+        selector: dailyEntriesByDailyListId,
         args: { dailyListId: firstList!.id },
-      }).map((projection) => projection.id),
+      }).map((entry) => entry.id),
     ).toEqual(["task-c", "done-new"]);
   });
 });

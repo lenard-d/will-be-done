@@ -1,8 +1,8 @@
 import { selectSync, syncDispatch } from "@will-be-done/hyperdb";
 import {
   dailyListByDate,
-  dailyProjectionByTaskId,
-  dailyProjectionSiblings,
+  dailyEntryByTaskId,
+  dailyEntrySiblings,
   scheduleTask as scheduleTaskAction,
   taskById,
 } from "@will-be-done/slices/space";
@@ -43,14 +43,14 @@ export function scheduleTask({
   let position: ReturnType<typeof resolveCreatePosition>;
   if (placement.kind === "before" || placement.kind === "after") {
     const anchor = selectSync(db, {
-      selector: dailyProjectionByTaskId,
+      selector: dailyEntryByTaskId,
       args: { taskId: placement.anchorId },
     });
     if (!dailyList || !anchor || anchor.dailyListId !== dailyList.id) {
       position = resolveCreatePosition({ entities: [], placement });
     } else {
       const [before, after] = selectSync(db, {
-        selector: dailyProjectionSiblings,
+        selector: dailyEntrySiblings,
         args: { taskId: anchor.id },
       });
       position =

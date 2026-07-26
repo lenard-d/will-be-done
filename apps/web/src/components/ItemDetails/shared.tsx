@@ -2,7 +2,7 @@ import { Folder, Hash, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TextareaAutosize from "react-textarea-autosize";
 
-// ─── EditableTitle ────────────────────────────────────────────────────────────
+// Editable title
 
 export function EditableTitle({
   icon,
@@ -140,27 +140,31 @@ export function ProjectDetailRow({
   );
 }
 
-// ─── CategoryDetailRow ────────────────────────────────────────────────────────
+// ─── SectionDetailRow ────────────────────────────────────────────────────────
 
-export function CategoryDetailRow({
-  projectCategoryId,
-  projectCategories,
+export function SectionDetailRow({
+  projectSectionId,
+  projectSections,
   onChange,
 }: {
-  projectCategoryId: string;
-  projectCategories: { id: string; title: string }[];
-  onChange: (categoryId: string) => void;
+  projectSectionId: string;
+  projectSections: { id: string; title: string }[];
+  onChange: (projectSectionId: string) => void;
 }) {
   return (
-    <DetailRow icon={<Hash className="h-3 w-3 shrink-0" />} label="Category">
+    <DetailRow icon={<Hash className="h-3 w-3 shrink-0" />} label="Section">
       <select
-        value={projectCategoryId}
+        value={projectSectionId}
         onChange={(e) => onChange(e.target.value)}
         className="bg-transparent text-content text-xs focus:outline-none cursor-pointer rounded px-1 -mx-1 hover:bg-task-panel-hover transition-colors"
       >
-        {projectCategories.map((cat) => (
-          <option key={cat.id} value={cat.id} className="bg-panel text-content">
-            {cat.title}
+        {projectSections.map((section) => (
+          <option
+            key={section.id}
+            value={section.id}
+            className="bg-panel text-content"
+          >
+            {section.title}
           </option>
         ))}
       </select>

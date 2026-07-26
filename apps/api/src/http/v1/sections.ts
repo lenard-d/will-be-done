@@ -4,37 +4,37 @@ import { z } from "zod";
 import { authenticateBearerToken } from "../../services/authentication";
 import { DatabaseAccessDeniedError } from "../../services/databaseAccess";
 import {
-  createProjectCategory,
-  deleteProjectCategory,
-  listProjectCategories,
-  moveProjectCategory,
-  updateProjectCategory,
-} from "../../services/categories";
+  createProjectSection,
+  deleteProjectSection,
+  listProjectSections,
+  moveProjectSection,
+  updateProjectSection,
+} from "../../services/sections";
 import { ConflictError, ResourceNotFoundError } from "../../services/errors";
 import {
-  CategoryParamsSchema,
-  CreateProjectCategoryBodySchema,
+  SectionParamsSchema,
+  CreateProjectSectionBodySchema,
   ErrorResponseSchema,
-  ListProjectCategoriesResponseSchema,
-  MoveProjectCategoryBodySchema,
-  ProjectCategoryResponseSchema,
-  ProjectCategoriesParamsSchema,
-  UpdateProjectCategoryBodySchema,
+  ListProjectSectionsResponseSchema,
+  MoveProjectSectionBodySchema,
+  ProjectSectionResponseSchema,
+  ProjectSectionsParamsSchema,
+  UpdateProjectSectionBodySchema,
 } from "../schemas";
 
-export const categoryRoutes: FastifyPluginAsyncZod = async (server) => {
+export const sectionRoutes: FastifyPluginAsyncZod = async (server) => {
   server.get(
-    "/spaces/:spaceId/projects/:projectId/categories",
+    "/spaces/:spaceId/projects/:projectId/sections",
     {
       schema: {
-        operationId: "listProjectCategories",
-        summary: "List project categories",
-        description: "Returns a project's categories in display order.",
-        tags: ["Project categories"],
+        operationId: "listProjectSections",
+        summary: "List project sections",
+        description: "Returns a project's sections in display order.",
+        tags: ["Project sections"],
         security: [{ bearerAuth: [] }],
-        params: ProjectCategoriesParamsSchema,
+        params: ProjectSectionsParamsSchema,
         response: {
-          200: ListProjectCategoriesResponseSchema,
+          200: ListProjectSectionsResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -52,12 +52,12 @@ export const categoryRoutes: FastifyPluginAsyncZod = async (server) => {
       }
 
       try {
-        const categories = listProjectCategories({
+        const sections = listProjectSections({
           spaceId: request.params.spaceId,
           projectId: request.params.projectId,
           userId: user.id,
         });
-        return reply.code(200).send({ categories });
+        return reply.code(200).send({ sections });
       } catch (error) {
         if (error instanceof DatabaseAccessDeniedError) {
           return reply.code(403).send({
@@ -71,27 +71,27 @@ export const categoryRoutes: FastifyPluginAsyncZod = async (server) => {
             message: error.message,
           });
         }
-        request.log.error(error, "Failed to list project categories");
+        request.log.error(error, "Failed to list project sections");
         return reply.code(500).send({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to list project categories",
+          message: "Failed to list project sections",
         });
       }
     },
   );
 
   server.post(
-    "/spaces/:spaceId/projects/:projectId/categories",
+    "/spaces/:spaceId/projects/:projectId/sections",
     {
       schema: {
-        operationId: "createProjectCategory",
-        summary: "Create a project category",
-        tags: ["Project categories"],
+        operationId: "createProjectSection",
+        summary: "Create a project section",
+        tags: ["Project sections"],
         security: [{ bearerAuth: [] }],
-        params: ProjectCategoriesParamsSchema,
-        body: CreateProjectCategoryBodySchema,
+        params: ProjectSectionsParamsSchema,
+        body: CreateProjectSectionBodySchema,
         response: {
-          201: ProjectCategoryResponseSchema,
+          201: ProjectSectionResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -104,36 +104,36 @@ export const categoryRoutes: FastifyPluginAsyncZod = async (server) => {
       const user = authenticateBearerToken(request.headers.authorization);
       if (!user) return unauthorized(reply);
       try {
-        const category = createProjectCategory({
+        const section = createProjectSection({
           spaceId: request.params.spaceId,
           projectId: request.params.projectId,
           userId: user.id,
           ...request.body,
         });
-        return reply.code(201).send({ category });
+        return reply.code(201).send({ section });
       } catch (error) {
-        return sendCategoryError(
+        return sendSectionError(
           request,
           reply,
           error,
-          "Failed to create project category",
+          "Failed to create project section",
         );
       }
     },
   );
 
   server.patch(
-    "/spaces/:spaceId/categories/:categoryId",
+    "/spaces/:spaceId/sections/:sectionId",
     {
       schema: {
-        operationId: "updateProjectCategory",
-        summary: "Update, move, or reposition a project category",
-        tags: ["Project categories"],
+        operationId: "updateProjectSection",
+        summary: "Update, move, or reposition a project section",
+        tags: ["Project sections"],
         security: [{ bearerAuth: [] }],
-        params: CategoryParamsSchema,
-        body: UpdateProjectCategoryBodySchema,
+        params: SectionParamsSchema,
+        body: UpdateProjectSectionBodySchema,
         response: {
-          200: ProjectCategoryResponseSchema,
+          200: ProjectSectionResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -146,33 +146,33 @@ export const categoryRoutes: FastifyPluginAsyncZod = async (server) => {
       const user = authenticateBearerToken(request.headers.authorization);
       if (!user) return unauthorized(reply);
       try {
-        const category = updateProjectCategory({
+        const section = updateProjectSection({
           spaceId: request.params.spaceId,
-          categoryId: request.params.categoryId,
+          sectionId: request.params.sectionId,
           userId: user.id,
           updates: request.body,
         });
-        return reply.code(200).send({ category });
+        return reply.code(200).send({ section });
       } catch (error) {
-        return sendCategoryError(
+        return sendSectionError(
           request,
           reply,
           error,
-          "Failed to update project category",
+          "Failed to update project section",
         );
       }
     },
   );
 
   server.delete(
-    "/spaces/:spaceId/categories/:categoryId",
+    "/spaces/:spaceId/sections/:sectionId",
     {
       schema: {
-        operationId: "deleteProjectCategory",
-        summary: "Delete a project category",
-        tags: ["Project categories"],
+        operationId: "deleteProjectSection",
+        summary: "Delete a project section",
+        tags: ["Project sections"],
         security: [{ bearerAuth: [] }],
-        params: CategoryParamsSchema,
+        params: SectionParamsSchema,
         response: {
           204: z.null(),
           401: ErrorResponseSchema,
@@ -187,35 +187,35 @@ export const categoryRoutes: FastifyPluginAsyncZod = async (server) => {
       const user = authenticateBearerToken(request.headers.authorization);
       if (!user) return unauthorized(reply);
       try {
-        deleteProjectCategory({
+        deleteProjectSection({
           spaceId: request.params.spaceId,
-          categoryId: request.params.categoryId,
+          sectionId: request.params.sectionId,
           userId: user.id,
         });
         return reply.code(204).send(null);
       } catch (error) {
-        return sendCategoryError(
+        return sendSectionError(
           request,
           reply,
           error,
-          "Failed to delete project category",
+          "Failed to delete project section",
         );
       }
     },
   );
 
   server.post(
-    "/spaces/:spaceId/categories/:categoryId/move",
+    "/spaces/:spaceId/sections/:sectionId/move",
     {
       schema: {
-        operationId: "moveProjectCategory",
-        summary: "Move a project category",
-        tags: ["Project categories"],
+        operationId: "moveProjectSection",
+        summary: "Move a project section",
+        tags: ["Project sections"],
         security: [{ bearerAuth: [] }],
-        params: CategoryParamsSchema,
-        body: MoveProjectCategoryBodySchema,
+        params: SectionParamsSchema,
+        body: MoveProjectSectionBodySchema,
         response: {
-          200: ProjectCategoryResponseSchema,
+          200: ProjectSectionResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -228,19 +228,19 @@ export const categoryRoutes: FastifyPluginAsyncZod = async (server) => {
       const user = authenticateBearerToken(request.headers.authorization);
       if (!user) return unauthorized(reply);
       try {
-        const category = moveProjectCategory({
+        const section = moveProjectSection({
           spaceId: request.params.spaceId,
-          categoryId: request.params.categoryId,
+          sectionId: request.params.sectionId,
           userId: user.id,
           ...request.body,
         });
-        return reply.code(200).send({ category });
+        return reply.code(200).send({ section });
       } catch (error) {
-        return sendCategoryError(
+        return sendSectionError(
           request,
           reply,
           error,
-          "Failed to move project category",
+          "Failed to move project section",
         );
       }
     },
@@ -254,7 +254,7 @@ function unauthorized(reply: FastifyReply) {
   });
 }
 
-function sendCategoryError(
+function sendSectionError(
   request: FastifyRequest,
   reply: FastifyReply,
   error: unknown,

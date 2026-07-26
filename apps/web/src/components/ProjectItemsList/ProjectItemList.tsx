@@ -5,18 +5,18 @@ import { addDays, startOfDay } from "date-fns";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import {
-  createCategory,
-  createProjectCategoryTask,
-  deleteCategories,
-  doneProjectCategoryCardsForDisplay,
+  createProjectSection,
+  createTaskInSection,
+  deleteProjectSections,
+  doneProjectSectionItemsForDisplay,
   moveLeft,
   moveRight,
   type Project,
-  projectCategoriesByProjectId,
-  type ProjectCategory,
-  projectCategoryCardsForDisplayChildren,
-  projectCategorySiblings,
-  updateCategory,
+  projectSectionsByProjectId,
+  type ProjectSection,
+  projectSectionItemsForDisplayChildren,
+  projectSectionSiblings,
+  updateProjectSection,
 } from "@will-be-done/slices/space";
 import {
   TasksColumn,
@@ -35,11 +35,11 @@ import { promptDialog } from "@/components/ui/prompt-dialog-service";
 
 const ProjectTasksColumn = ({
   project,
-  category,
+  section,
   weekDayTimes,
 }: {
   project: Project;
-  category: ProjectCategory;
+  section: ProjectSection;
   weekDayTimes?: Set<number>;
 }) => {
   const dispatch = useAsyncDispatch();
@@ -48,22 +48,22 @@ const ProjectTasksColumn = ({
     !!lastScheduleTime &&
     !!weekDayTimes?.has(startOfDay(lastScheduleTime).getTime());
 
-  const { data: cardsForDisplay = [] } = useAsyncSelector({
-    selector: projectCategoryCardsForDisplayChildren,
-    args: { projectCategoryId: category.id },
+  const { data: itemsForDisplay = [] } = useAsyncSelector({
+    selector: projectSectionItemsForDisplayChildren,
+    args: { projectSectionId: section.id },
   });
   const [isHiddenClicked, setIsHiddenClicked] = useState(false);
   const handleHideClick = () => setIsHiddenClicked((v) => !v);
 
   const [isShowMore, setIsShowMore] = useState(false);
-  const { data: doneCardsForDisplay = [] } = useAsyncSelector({
-    selector: doneProjectCategoryCardsForDisplay,
-    args: { projectCategoryId: category.id, limited: !isShowMore },
+  const { data: doneItemsForDisplay = [] } = useAsyncSelector({
+    selector: doneProjectSectionItemsForDisplay,
+    args: { projectSectionId: section.id, limited: !isShowMore },
   });
 
   const isHidden =
     isHiddenClicked ||
-    (doneCardsForDisplay.length == 0 && cardsForDisplay.length == 0);
+    (doneItemsForDisplay.length == 0 && itemsForDisplay.length == 0);
   const handleAddClick = () => {
     if (isHidden) {
       setIsHiddenClicked(false);
@@ -71,8 +71,8 @@ const ProjectTasksColumn = ({
 
     void (async () => {
       const task = await dispatch(
-        createProjectCategoryTask({
-          categoryId: category.id,
+        createTaskInSection({
+          projectSectionId: section.id,
           position: "prepend",
         }),
       );
@@ -83,10 +83,10 @@ const ProjectTasksColumn = ({
 
   const finalDoneIds = useMemo(() => {
     if (isShowMore) {
-      return doneCardsForDisplay;
+      return doneItemsForDisplay;
     }
-    return doneCardsForDisplay.slice(0, 5);
-  }, [doneCardsForDisplay, isShowMore]);
+    return doneItemsForDisplay.slice(0, 5);
+  }, [doneItemsForDisplay, isShowMore]);
 
   return (
     <TasksColumn
@@ -95,12 +95,12 @@ const ProjectTasksColumn = ({
       header={
         <>
           <div className="uppercase text-content text-xl font-bold ">
-            {category.title}
+            {section.title}
           </div>
         </>
       }
-      columnModelId={category.id}
-      columnModelType={category.type}
+      columnModelId={section.id}
+      columnModelType={section.type}
       onAddClick={handleAddClick}
       actions={
         <>
@@ -114,16 +114,16 @@ const ProjectTasksColumn = ({
                 if (!title) return;
 
                 const [left, _right] = await dispatch(
-                  projectCategorySiblings({ categoryId: category.id }),
+                  projectSectionSiblings({ projectSectionId: section.id }),
                 );
 
                 await dispatch(
-                  createCategory({
-                    categoryDraft: {
-                      projectId: category.projectId,
+                  createProjectSection({
+                    sectionDraft: {
+                      projectId: section.projectId,
                       title,
                     },
-                    position: [left ?? null, category],
+                    position: [left ?? null, section],
                   }),
                 );
               })();
@@ -141,16 +141,16 @@ const ProjectTasksColumn = ({
                 if (!title) return;
 
                 const [_left, right] = await dispatch(
-                  projectCategorySiblings({ categoryId: category.id }),
+                  projectSectionSiblings({ projectSectionId: section.id }),
                 );
 
                 await dispatch(
-                  createCategory({
-                    categoryDraft: {
-                      projectId: category.projectId,
+                  createProjectSection({
+                    sectionDraft: {
+                      projectId: section.projectId,
                       title,
                     },
-                    position: [category, right ?? null],
+                    position: [section, right ?? null],
                   }),
                 );
               })();
@@ -163,7 +163,7 @@ const ProjectTasksColumn = ({
             type="button"
             title="Move column to the left"
             onClick={() => {
-              void dispatch(moveLeft({ categoryId: category.id }));
+              void dispatch(moveLeft({ projectSectionId: section.id }));
             }}
           >
             <MoveLeftIcon className="rotate-180" />
@@ -173,7 +173,7 @@ const ProjectTasksColumn = ({
             type="button"
             title="Move column to the right"
             onClick={() => {
-              void dispatch(moveRight({ categoryId: category.id }));
+              void dispatch(moveRight({ projectSectionId: section.id }));
             }}
           >
             <MoveRightIcon className="rotate-180" />
@@ -184,11 +184,11 @@ const ProjectTasksColumn = ({
             title="Delete column"
             onClick={() => {
               const confirmed = confirm(
-                "Are you sure you want to delete this project category?",
+                "Are you sure you want to delete this project section?",
               );
               if (!confirmed) return;
 
-              void dispatch(deleteCategories({ ids: [category.id] }));
+              void dispatch(deleteProjectSections({ ids: [section.id] }));
             }}
           >
             <TrashIcon className="rotate-180" />
@@ -201,14 +201,14 @@ const ProjectTasksColumn = ({
               void (async () => {
                 const newTitle = await promptDialog(
                   "Enter new title",
-                  category.title,
+                  section.title,
                 );
                 if (!newTitle) return;
 
                 await dispatch(
-                  updateCategory({
-                    categoryId: category.id,
-                    category: {
+                  updateProjectSection({
+                    projectSectionId: section.id,
+                    section: {
                       title: newTitle,
                     },
                   }),
@@ -222,13 +222,13 @@ const ProjectTasksColumn = ({
       }
     >
       <div className="flex flex-col gap-4 w-full py-4">
-        {cardsForDisplay.map((displayData) => {
+        {itemsForDisplay.map((displayData) => {
           return (
             <PreloadedTaskComp
-              key={displayData.cardWrapper.id}
-              card={displayData.card}
-              category={displayData.category}
-              cardWrapper={displayData.cardWrapper}
+              key={displayData.listItem.id}
+              item={displayData.item}
+              section={displayData.section}
+              listItem={displayData.listItem}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={project.id}
@@ -241,10 +241,10 @@ const ProjectTasksColumn = ({
         {finalDoneIds.map((displayData) => {
           return (
             <PreloadedTaskComp
-              key={displayData.cardWrapper.id}
-              card={displayData.card}
-              category={displayData.category}
-              cardWrapper={displayData.cardWrapper}
+              key={displayData.listItem.id}
+              item={displayData.item}
+              section={displayData.section}
+              listItem={displayData.listItem}
               project={displayData.project}
               lastScheduleTime={displayData.lastScheduleTime}
               displayedUnderProjectId={project.id}
@@ -255,7 +255,7 @@ const ProjectTasksColumn = ({
           );
         })}
 
-        {!isShowMore && doneCardsForDisplay.length > 5 && (
+        {!isShowMore && doneItemsForDisplay.length > 5 && (
           <button
             onClick={() => setIsShowMore(true)}
             className="cursor-pointer text-subheader text-sm"
@@ -275,8 +275,8 @@ export const ProjectItemsList = ({
   project: Project;
   selectedDate?: Date;
 }) => {
-  const { data: categories = [] } = useAsyncSelector({
-    selector: projectCategoriesByProjectId,
+  const { data: sections = [] } = useAsyncSelector({
+    selector: projectSectionsByProjectId,
     args: { projectId: project.id },
   });
 
@@ -290,11 +290,11 @@ export const ProjectItemsList = ({
 
   return (
     <>
-      <TasksColumnGrid columnsCount={categories.length}>
-        {categories.map((group) => (
+      <TasksColumnGrid columnsCount={sections.length}>
+        {sections.map((group) => (
           <ProjectTasksColumn
             key={group.id}
-            category={group}
+            section={group}
             project={project}
             weekDayTimes={weekDayTimes}
           />

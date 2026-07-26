@@ -5,7 +5,7 @@ const DEFAULT_WIDTH = 288;
 const MIN_WIDTH = 240;
 const MAX_WIDTH = 380;
 
-export const useCardDetailsOpen = create<{
+export const useItemDetailsOpen = create<{
   isOpen: boolean;
   toggle: () => void;
   setOpen: (v: boolean) => void;
@@ -17,13 +17,13 @@ export const useCardDetailsOpen = create<{
       setOpen: (v: boolean) => set({ isOpen: v }),
     }),
     {
-      name: "card-details-open",
+      name: "item-details-open",
       storage: createJSONStorage(() => localStorage),
     },
   ),
 );
 
-export const useCardDetailsSize = create<{
+export const useItemDetailsSize = create<{
   width: number;
   setWidth: (value: number) => void;
 }>()(
@@ -37,22 +37,22 @@ export const useCardDetailsSize = create<{
       },
     }),
     {
-      name: "card-details-size",
+      name: "item-details-size",
       storage: createJSONStorage(() => localStorage),
     },
   ),
 );
 
-export const useCardDetailsEditRequest = create<{
-  request: { cardId: string; field: "description"; nonce: number } | null;
-  editDescription: (cardId: string) => void;
+export const useItemDetailsEditRequest = create<{
+  request: { itemId: string; field: "description"; nonce: number } | null;
+  editDescription: (itemId: string) => void;
   clearRequest: () => void;
 }>()((set) => ({
   request: null,
-  editDescription: (cardId: string) =>
+  editDescription: (itemId: string) =>
     set({
       request: {
-        cardId,
+        itemId,
         field: "description",
         nonce: Date.now(),
       },

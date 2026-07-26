@@ -1,12 +1,12 @@
 import { selectSync, syncDispatch } from "@will-be-done/hyperdb";
 import {
-  createProjectCategoryTask,
+  createTaskInSection,
   deleteTaskById,
-  projectCategoryById,
-  projectCategoryCards,
+  projectSectionById,
+  projectSectionItems,
   taskById,
   updateTask as updateTaskAction,
-  type Card,
+  type Item,
   type Task,
 } from "@will-be-done/slices/space";
 import { getHyperDB } from "../db/db";
@@ -30,7 +30,7 @@ export interface PublicTask {
   title: string;
   content?: string;
   state: PublicTaskState;
-  projectCategoryId: string;
+  projectSectionId: string;
   nature: PublicTaskNature;
   createdAt: number;
   lastToggledAt: number;
@@ -43,7 +43,7 @@ export function toPublicTask(task: Task): PublicTask {
     title: task.title,
     ...(task.content === undefined ? {} : { content: task.content }),
     state: task.state,
-    projectCategoryId: task.projectCategoryId,
+    projectSectionId: task.projectSectionId,
     nature: task.nature ?? "unknown",
     createdAt: task.createdAt,
     lastToggledAt: task.lastToggledAt,
@@ -55,27 +55,27 @@ function getSpaceDatabase(spaceId: string, userId: string) {
   return getHyperDB(spaceDBConfig(spaceId)).db;
 }
 
-function requireCategory(
+function requireSection(
   db: ReturnType<typeof getSpaceDatabase>,
-  categoryId: string,
+  sectionId: string,
 ) {
-  const category = selectSync(db, {
-    selector: projectCategoryById,
-    args: { id: categoryId },
+  const section = selectSync(db, {
+    selector: projectSectionById,
+    args: { id: sectionId },
   });
-  if (!category) throw new ResourceNotFoundError("Project category");
-  return category;
+  if (!section) throw new ResourceNotFoundError("Project section");
+  return section;
 }
 
-function cardsInCategory(
+function itemsInSection(
   db: ReturnType<typeof getSpaceDatabase>,
-  categoryId: string,
+  sectionId: string,
   excludedId?: string,
-): Card[] {
+): Item[] {
   return selectSync(db, {
-    selector: projectCategoryCards,
-    args: { projectCategoryId: categoryId },
-  }).filter((card) => card.id !== excludedId);
+    selector: projectSectionItems,
+    args: { projectSectionId: sectionId },
+  }).filter((item) => item.id !== excludedId);
 }
 
 export function getTask({
@@ -93,9 +93,9 @@ export function getTask({
   return toPublicTask(task);
 }
 
-export function createCategoryTask({
+export function createSectionTask({
   spaceId,
-  categoryId,
+  sectionId,
   userId,
   title,
   content,
@@ -103,7 +103,7 @@ export function createCategoryTask({
   placement = { kind: "last" },
 }: {
   spaceId: string;
-  categoryId: string;
+  sectionId: string;
   userId: string;
   title: string;
   content?: string;
@@ -111,19 +111,19 @@ export function createCategoryTask({
   placement?: Placement;
 }): PublicTask {
   const db = getSpaceDatabase(spaceId, userId);
-  requireCategory(db, categoryId);
+  requireSection(db, sectionId);
   const position = resolveCreatePosition({
     entities:
       placement.kind === "before" || placement.kind === "after"
-        ? cardsInCategory(db, categoryId)
+        ? itemsInSection(db, sectionId)
         : [],
     placement,
   });
 
   const task = syncDispatch(
     db,
-    createProjectCategoryTask({
-      categoryId,
+    createTaskInSection({
+      projectSectionId: sectionId,
       position,
       taskAttrs: {
         title,
@@ -178,13 +178,13 @@ export function moveTask({
   spaceId,
   taskId,
   userId,
-  projectCategoryId,
+  projectSectionId,
   placement,
 }: {
   spaceId: string;
   taskId: string;
   userId: string;
-  projectCategoryId: string;
+  projectSectionId: string;
   placement: Placement;
 }): PublicTask {
   const db = getSpaceDatabase(spaceId, userId);
@@ -193,16 +193,16 @@ export function moveTask({
   if (current.state === "done") {
     throw new InvalidPlacementError("Completed tasks cannot be moved");
   }
-  requireCategory(db, projectCategoryId);
+  requireSection(db, projectSectionId);
 
   syncDispatch(
     db,
     updateTaskAction({
       id: taskId,
       task: {
-        projectCategoryId,
+        projectSectionId,
         orderToken: resolveOrderToken({
-          entities: cardsInCategory(db, projectCategoryId, taskId),
+          entities: itemsInSection(db, projectSectionId, taskId),
           placement,
         }),
       },

@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ProjectDetailView } from "@/components/ProjectView/ProjectDetailView.tsx";
 import { preloadSelectorAsync } from "@will-be-done/hyperdb";
 import {
-  doneProjectCategoryCardsForDisplay,
+  doneProjectSectionItemsForDisplay,
   projectByIdOrDefault,
-  projectCategoriesByProjectId,
-  projectCategoryCardsForDisplayChildren,
+  projectSectionsByProjectId,
+  projectSectionItemsForDisplayChildren,
 } from "@will-be-done/slices/space";
 
 export const Route = createFileRoute(
@@ -19,8 +19,8 @@ export const Route = createFileRoute(
       promises.push(promise);
     };
 
-    const categories = await preloadSelectorAsync(db, {
-      selector: projectCategoriesByProjectId,
+    const sections = await preloadSelectorAsync(db, {
+      selector: projectSectionsByProjectId,
       args: { projectId: params.projectId },
     });
 
@@ -31,20 +31,20 @@ export const Route = createFileRoute(
       }),
     );
 
-    for (const category of categories) {
+    for (const section of sections) {
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: projectCategoryCardsForDisplayChildren,
-          args: { projectCategoryId: category.id },
+          selector: projectSectionItemsForDisplayChildren,
+          args: { projectSectionId: section.id },
         }),
       );
     }
 
-    for (const category of categories) {
+    for (const section of sections) {
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: doneProjectCategoryCardsForDisplay,
-          args: { projectCategoryId: category.id, limited: true },
+          selector: doneProjectSectionItemsForDisplay,
+          args: { projectSectionId: section.id, limited: true },
         }),
       );
     }
