@@ -1,87 +1,47 @@
-import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { authenticateBearerToken } from "../../services/authentication";
 import { DatabaseAccessDeniedError } from "../../services/databaseAccess";
-import { listSectionItems } from "../../services/items";
 import {
   InvalidPlacementError,
   ResourceNotFoundError,
 } from "../../services/errors";
 import {
-  createSectionTask,
-  deleteTask,
-  getTask,
-  moveTask,
-  updateTask,
-} from "../../services/tasks";
-import { clearTaskSchedule, scheduleTask } from "../../services/scheduling";
+  convertTaskTemplateToTask,
+  convertTaskToTemplate,
+  createSectionTaskTemplate,
+  deleteTaskTemplate,
+  getTaskTemplate,
+  moveTaskTemplate,
+  updateTaskTemplate,
+} from "../../services/taskTemplates";
 import {
-  SectionTasksParamsSchema,
-  CreateTaskBodySchema,
+  ConvertTaskToTemplateBodySchema,
+  CreateTaskTemplateBodySchema,
   ErrorResponseSchema,
-  ListSectionItemsQuerySchema,
-  ListSectionItemsResponseSchema,
-  MoveTaskBodySchema,
-  ScheduleTaskBodySchema,
-  ScheduleTaskResponseSchema,
+  MoveTaskTemplateBodySchema,
+  SectionTasksParamsSchema,
   TaskParamsSchema,
   TaskResponseSchema,
-  UpdateTaskBodySchema,
+  TaskTemplateParamsSchema,
+  TaskTemplateResponseSchema,
+  UpdateTaskTemplateBodySchema,
 } from "../schemas";
 
-export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
-  server.get(
-    "/spaces/:spaceId/sections/:sectionId/items",
-    {
-      schema: {
-        operationId: "listSectionItems",
-        summary: "List section items",
-        description:
-          "Returns todo tasks and templates in display order by default. When taskState is done, returns completed tasks only.",
-        tags: ["Items"],
-        security: [{ bearerAuth: [] }],
-        params: SectionTasksParamsSchema,
-        querystring: ListSectionItemsQuerySchema,
-        response: {
-          200: ListSectionItemsResponseSchema,
-          401: ErrorResponseSchema,
-          403: ErrorResponseSchema,
-          404: ErrorResponseSchema,
-          500: ErrorResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) return unauthorized(reply);
-
-      try {
-        const items = listSectionItems({
-          spaceId: request.params.spaceId,
-          sectionId: request.params.sectionId,
-          userId: user.id,
-          taskState: request.query.taskState,
-        });
-        return reply.code(200).send({ items });
-      } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to list items");
-      }
-    },
-  );
-
+export const taskTemplateRoutes: FastifyPluginAsyncZod = async (server) => {
   server.post(
-    "/spaces/:spaceId/sections/:sectionId/tasks",
+    "/spaces/:spaceId/sections/:sectionId/task-templates",
     {
       schema: {
-        operationId: "createSectionTask",
-        summary: "Create a task",
-        tags: ["Tasks"],
+        operationId: "createTaskTemplate",
+        summary: "Create a task template",
+        tags: ["Task templates"],
         security: [{ bearerAuth: [] }],
         params: SectionTasksParamsSchema,
-        body: CreateTaskBodySchema,
+        body: CreateTaskTemplateBodySchema,
         response: {
-          201: TaskResponseSchema,
+          201: TaskTemplateResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -95,30 +55,35 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
       if (!user) return unauthorized(reply);
 
       try {
-        const task = createSectionTask({
+        const template = createSectionTaskTemplate({
           spaceId: request.params.spaceId,
           sectionId: request.params.sectionId,
           userId: user.id,
           ...request.body,
         });
-        return reply.code(201).send({ task });
+        return reply.code(201).send({ template });
       } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to create task");
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to create task template",
+        );
       }
     },
   );
 
   server.get(
-    "/spaces/:spaceId/tasks/:taskId",
+    "/spaces/:spaceId/task-templates/:templateId",
     {
       schema: {
-        operationId: "getTask",
-        summary: "Get a task",
-        tags: ["Tasks"],
+        operationId: "getTaskTemplate",
+        summary: "Get a task template",
+        tags: ["Task templates"],
         security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
+        params: TaskTemplateParamsSchema,
         response: {
-          200: TaskResponseSchema,
+          200: TaskTemplateResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -131,30 +96,117 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
       if (!user) return unauthorized(reply);
 
       try {
-        const task = getTask({
+        const template = getTaskTemplate({
           spaceId: request.params.spaceId,
-          taskId: request.params.taskId,
+          templateId: request.params.templateId,
           userId: user.id,
         });
-        return reply.code(200).send({ task });
+        return reply.code(200).send({ template });
       } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to get task");
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to get task template",
+        );
       }
     },
   );
 
   server.patch(
-    "/spaces/:spaceId/tasks/:taskId",
+    "/spaces/:spaceId/task-templates/:templateId",
     {
       schema: {
-        operationId: "updateTask",
-        summary: "Update or move a task",
-        tags: ["Tasks"],
+        operationId: "updateTaskTemplate",
+        summary: "Update a task template",
+        tags: ["Task templates"],
         security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
-        body: UpdateTaskBodySchema,
+        params: TaskTemplateParamsSchema,
+        body: UpdateTaskTemplateBodySchema,
         response: {
-          200: TaskResponseSchema,
+          200: TaskTemplateResponseSchema,
+          401: ErrorResponseSchema,
+          403: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = authenticateBearerToken(request.headers.authorization);
+      if (!user) return unauthorized(reply);
+
+      try {
+        const template = updateTaskTemplate({
+          spaceId: request.params.spaceId,
+          templateId: request.params.templateId,
+          userId: user.id,
+          updates: request.body,
+        });
+        return reply.code(200).send({ template });
+      } catch (error) {
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to update task template",
+        );
+      }
+    },
+  );
+
+  server.delete(
+    "/spaces/:spaceId/task-templates/:templateId",
+    {
+      schema: {
+        operationId: "deleteTaskTemplate",
+        summary: "Delete a task template",
+        tags: ["Task templates"],
+        security: [{ bearerAuth: [] }],
+        params: TaskTemplateParamsSchema,
+        response: {
+          204: z.null(),
+          401: ErrorResponseSchema,
+          403: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = authenticateBearerToken(request.headers.authorization);
+      if (!user) return unauthorized(reply);
+
+      try {
+        deleteTaskTemplate({
+          spaceId: request.params.spaceId,
+          templateId: request.params.templateId,
+          userId: user.id,
+        });
+        return reply.code(204).send(null);
+      } catch (error) {
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to delete task template",
+        );
+      }
+    },
+  );
+
+  server.post(
+    "/spaces/:spaceId/task-templates/:templateId/move",
+    {
+      schema: {
+        operationId: "moveTaskTemplate",
+        summary: "Move a task template",
+        tags: ["Task templates"],
+        security: [{ bearerAuth: [] }],
+        params: TaskTemplateParamsSchema,
+        body: MoveTaskTemplateBodySchema,
+        response: {
+          200: TaskTemplateResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -168,156 +220,80 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
       if (!user) return unauthorized(reply);
 
       try {
-        const task = updateTask({
+        const template = moveTaskTemplate({
+          spaceId: request.params.spaceId,
+          templateId: request.params.templateId,
+          userId: user.id,
+          ...request.body,
+        });
+        return reply.code(200).send({ template });
+      } catch (error) {
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to move task template",
+        );
+      }
+    },
+  );
+
+  server.post(
+    "/spaces/:spaceId/tasks/:taskId/convert-to-template",
+    {
+      schema: {
+        operationId: "convertTaskToTemplate",
+        summary: "Convert a task to a recurring template",
+        tags: ["Task templates"],
+        security: [{ bearerAuth: [] }],
+        params: TaskParamsSchema,
+        body: ConvertTaskToTemplateBodySchema,
+        response: {
+          200: TaskTemplateResponseSchema,
+          401: ErrorResponseSchema,
+          403: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = authenticateBearerToken(request.headers.authorization);
+      if (!user) return unauthorized(reply);
+
+      try {
+        const template = convertTaskToTemplate({
           spaceId: request.params.spaceId,
           taskId: request.params.taskId,
           userId: user.id,
           updates: request.body,
         });
-        return reply.code(200).send({ task });
+        return reply.code(200).send({ template });
       } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to update task");
-      }
-    },
-  );
-
-  server.delete(
-    "/spaces/:spaceId/tasks/:taskId",
-    {
-      schema: {
-        operationId: "deleteTask",
-        summary: "Delete a task",
-        tags: ["Tasks"],
-        security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
-        response: {
-          204: z.null(),
-          401: ErrorResponseSchema,
-          403: ErrorResponseSchema,
-          404: ErrorResponseSchema,
-          500: ErrorResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) return unauthorized(reply);
-
-      try {
-        deleteTask({
-          spaceId: request.params.spaceId,
-          taskId: request.params.taskId,
-          userId: user.id,
-        });
-        return reply.code(204).send(null);
-      } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to delete task");
-      }
-    },
-  );
-
-  server.delete(
-    "/spaces/:spaceId/tasks/:taskId/schedule",
-    {
-      schema: {
-        operationId: "clearTaskSchedule",
-        summary: "Clear a task schedule",
-        tags: ["Tasks"],
-        security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
-        response: {
-          204: z.null(),
-          401: ErrorResponseSchema,
-          403: ErrorResponseSchema,
-          404: ErrorResponseSchema,
-          500: ErrorResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) return unauthorized(reply);
-
-      try {
-        clearTaskSchedule({
-          spaceId: request.params.spaceId,
-          taskId: request.params.taskId,
-          userId: user.id,
-        });
-        return reply.code(204).send(null);
-      } catch (error) {
-        return handleTaskError(
+        return handleError(
           request,
           reply,
           error,
-          "Failed to clear task schedule",
+          "Failed to convert task to template",
         );
       }
     },
   );
 
   server.post(
-    "/spaces/:spaceId/tasks/:taskId/schedule",
+    "/spaces/:spaceId/task-templates/:templateId/convert-to-task",
     {
       schema: {
-        operationId: "scheduleTask",
-        summary: "Schedule a task",
-        description:
-          "Schedules or reschedules a task on a date. Existing schedules are replaced.",
-        tags: ["Tasks"],
+        operationId: "convertTaskTemplateToTask",
+        summary: "Convert a task template to a task",
+        tags: ["Task templates"],
         security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
-        body: ScheduleTaskBodySchema,
-        response: {
-          200: ScheduleTaskResponseSchema,
-          401: ErrorResponseSchema,
-          403: ErrorResponseSchema,
-          404: ErrorResponseSchema,
-          409: ErrorResponseSchema,
-          500: ErrorResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) return unauthorized(reply);
-
-      try {
-        return reply.code(200).send(
-          scheduleTask({
-            spaceId: request.params.spaceId,
-            taskId: request.params.taskId,
-            userId: user.id,
-            ...request.body,
-          }),
-        );
-      } catch (error) {
-        return handleTaskError(
-          request,
-          reply,
-          error,
-          "Failed to schedule task",
-        );
-      }
-    },
-  );
-
-  server.post(
-    "/spaces/:spaceId/tasks/:taskId/move",
-    {
-      schema: {
-        operationId: "moveTask",
-        summary: "Move a task",
-        tags: ["Tasks"],
-        security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
-        body: MoveTaskBodySchema,
+        params: TaskTemplateParamsSchema,
         response: {
           200: TaskResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
-          409: ErrorResponseSchema,
           500: ErrorResponseSchema,
         },
       },
@@ -327,15 +303,19 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
       if (!user) return unauthorized(reply);
 
       try {
-        const task = moveTask({
+        const task = convertTaskTemplateToTask({
           spaceId: request.params.spaceId,
-          taskId: request.params.taskId,
+          templateId: request.params.templateId,
           userId: user.id,
-          ...request.body,
         });
         return reply.code(200).send({ task });
       } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to move task");
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to convert task template to task",
+        );
       }
     },
   );
@@ -348,7 +328,7 @@ function unauthorized(reply: FastifyReply) {
   });
 }
 
-function handleTaskError(
+function handleError(
   request: FastifyRequest,
   reply: FastifyReply,
   error: unknown,

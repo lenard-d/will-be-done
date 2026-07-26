@@ -132,21 +132,15 @@ export const projectSectionTasksByState = selector({
   },
   handler: function* projectSectionTasksByState({ projectSectionId, state }) {
     if (state === "done") {
-      return yield* selectFrom(
-        tasksTable,
-        "byProjectSectionIdStatesToggledAt",
-      )
+      return yield* selectFrom(tasksTable, "byProjectSectionIdStatesToggledAt")
         .where((q) =>
           q.eq("projectSectionId", projectSectionId).eq("state", state),
         )
         .order("desc");
     }
 
-    return yield* selectFrom(
-      tasksTable,
-      "byProjectSectionIdOrderStates",
-    ).where((q) =>
-      q.eq("projectSectionId", projectSectionId).eq("state", state),
+    return yield* selectFrom(tasksTable, "byProjectSectionIdOrderStates").where(
+      (q) => q.eq("projectSectionId", projectSectionId).eq("state", state),
     );
   },
 });

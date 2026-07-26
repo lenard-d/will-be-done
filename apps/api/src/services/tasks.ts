@@ -1,10 +1,18 @@
-import { selectSync, syncDispatch } from "@will-be-done/hyperdb";
+import {
+  createAction,
+  selectSync,
+  syncDispatch,
+  upsert,
+} from "@will-be-done/hyperdb";
 import {
   createTaskInSection,
+  dailyEntryByTaskId,
+  dailyListById,
   deleteTaskById,
   projectSectionById,
   projectSectionItems,
   taskById,
+  tasksTable,
   updateTask as updateTaskAction,
   type Item,
   type Task,
@@ -34,9 +42,38 @@ export interface PublicTask {
   nature: PublicTaskNature;
   createdAt: number;
   lastToggledAt: number;
+  scheduledDate: string | null;
 }
 
-export function toPublicTask(task: Task): PublicTask {
+type SpaceDatabase = ReturnType<typeof getHyperDB>["db"];
+
+const action = createAction();
+const replaceTask = action({
+  name: "replaceApiTask",
+  args: { task: tasksTable.v() },
+  handler: function* ({ task }) {
+    yield* upsert(tasksTable, [task]);
+  },
+});
+
+export function getTaskScheduledDate(
+  db: SpaceDatabase,
+  taskId: string,
+): string | null {
+  const entry = selectSync(db, {
+    selector: dailyEntryByTaskId,
+    args: { taskId },
+  });
+  if (!entry) return null;
+
+  const dailyList = selectSync(db, {
+    selector: dailyListById,
+    args: { id: entry.dailyListId },
+  });
+  return dailyList?.date ?? null;
+}
+
+export function toPublicTask(db: SpaceDatabase, task: Task): PublicTask {
   return {
     type: "task",
     id: task.id,
@@ -47,6 +84,7 @@ export function toPublicTask(task: Task): PublicTask {
     nature: task.nature ?? "unknown",
     createdAt: task.createdAt,
     lastToggledAt: task.lastToggledAt,
+    scheduledDate: getTaskScheduledDate(db, task.id),
   };
 }
 
@@ -90,7 +128,7 @@ export function getTask({
   const db = getSpaceDatabase(spaceId, userId);
   const task = selectSync(db, { selector: taskById, args: { id: taskId } });
   if (!task) throw new ResourceNotFoundError("Task");
-  return toPublicTask(task);
+  return toPublicTask(db, task);
 }
 
 export function createSectionTask({
@@ -132,7 +170,7 @@ export function createSectionTask({
       },
     }),
   );
-  return toPublicTask(task);
+  return toPublicTask(db, task);
 }
 
 export function updateTask({
@@ -146,30 +184,31 @@ export function updateTask({
   userId: string;
   updates: {
     title?: string;
-    content?: string;
+    content?: string | null;
     state?: PublicTaskState;
-    nature?: PublicTaskNature;
+    nature?: PublicTaskNature | null;
   };
 }): PublicTask {
   const db = getSpaceDatabase(spaceId, userId);
   const current = selectSync(db, { selector: taskById, args: { id: taskId } });
   if (!current) throw new ResourceNotFoundError("Task");
 
-  syncDispatch(
-    db,
-    updateTaskAction({
-      id: taskId,
-      task: {
-        ...(updates.title === undefined ? {} : { title: updates.title }),
-        ...(updates.content === undefined ? {} : { content: updates.content }),
-        ...(updates.nature === undefined ? {} : { nature: updates.nature }),
-        ...(updates.state === undefined ? {} : { state: updates.state }),
-        ...(updates.state !== undefined && updates.state !== current.state
-          ? { lastToggledAt: Date.now() }
-          : {}),
-      },
-    }),
-  );
+  const next: Task = {
+    ...current,
+    ...(updates.title === undefined ? {} : { title: updates.title }),
+    ...(typeof updates.content === "string"
+      ? { content: updates.content }
+      : {}),
+    ...(typeof updates.nature === "string" ? { nature: updates.nature } : {}),
+    ...(updates.state === undefined ? {} : { state: updates.state }),
+    ...(updates.state !== undefined && updates.state !== current.state
+      ? { lastToggledAt: Date.now() }
+      : {}),
+  };
+  if (updates.content === null) delete next.content;
+  if (updates.nature === null) delete next.nature;
+
+  syncDispatch(db, replaceTask({ task: next }));
 
   return getTask({ spaceId, taskId, userId });
 }

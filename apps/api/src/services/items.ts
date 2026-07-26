@@ -26,7 +26,9 @@ export interface PublicTaskTemplate {
 
 export type PublicItem = PublicTask | PublicTaskTemplate;
 
-function toPublicTaskTemplate(template: TaskTemplate): PublicTaskTemplate {
+export function toPublicTaskTemplate(
+  template: TaskTemplate,
+): PublicTaskTemplate {
   return {
     type: "template",
     id: template.id,
@@ -65,13 +67,13 @@ export function listSectionItems({
     return selectSync(db, {
       selector: projectSectionTasksByState,
       args: { projectSectionId: sectionId, state: "done" },
-    }).map(toPublicTask);
+    }).map((task) => toPublicTask(db, task));
   }
 
   return selectSync(db, {
     selector: projectSectionItems,
     args: { projectSectionId: sectionId },
   }).map((item) =>
-    item.type === "task" ? toPublicTask(item) : toPublicTaskTemplate(item),
+    item.type === "task" ? toPublicTask(db, item) : toPublicTaskTemplate(item),
   );
 }

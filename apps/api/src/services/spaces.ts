@@ -3,6 +3,7 @@ import {
   createSpace,
   deleteSpace,
   listSpaces,
+  updateSpace,
 } from "@will-be-done/slices/user";
 import { userDBConfig } from "../db/configs";
 import { getHyperDB } from "../db/db";
@@ -56,4 +57,20 @@ export function deleteUserSpace({
   spaceId: string;
 }): boolean {
   return syncDispatch(getUserDatabase(userId), deleteSpace({ id: spaceId }));
+}
+
+export function updateUserSpace({
+  userId,
+  spaceId,
+  name,
+}: {
+  userId: string;
+  spaceId: string;
+  name: string;
+}): PublicSpace | null {
+  const space = syncDispatch(
+    getUserDatabase(userId),
+    updateSpace({ id: spaceId, name }),
+  );
+  return space ? toPublicSpace(space) : null;
 }

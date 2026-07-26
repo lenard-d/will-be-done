@@ -30,5 +30,5 @@ export function listDailyListItems({
   return selectSync(db, {
     selector: dailyListTasksByState,
     args: { dailyListId: dailyList.id, state },
-  }).map(toPublicTask);
+  }).map((task) => toPublicTask(db, task));
 }

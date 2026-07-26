@@ -3,6 +3,7 @@ import {
   dailyListByDate,
   dailyEntryByTaskId,
   dailyEntrySiblings,
+  removeFromDailyList,
   scheduleTask as scheduleTaskAction,
   taskById,
 } from "@will-be-done/slices/space";
@@ -71,5 +72,22 @@ export function scheduleTask({
     }),
   );
 
-  return { task: toPublicTask(task), date };
+  return { task: toPublicTask(db, task), date };
+}
+
+export function clearTaskSchedule({
+  spaceId,
+  taskId,
+  userId,
+}: {
+  spaceId: string;
+  taskId: string;
+  userId: string;
+}): void {
+  ensureDatabaseAccessOrCreate({ dbId: spaceId, dbType: "space", userId });
+  const db = getHyperDB(spaceDBConfig(spaceId)).db;
+  const task = selectSync(db, { selector: taskById, args: { id: taskId } });
+  if (!task) throw new ResourceNotFoundError("Task");
+
+  syncDispatch(db, removeFromDailyList({ taskId }));
 }

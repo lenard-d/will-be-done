@@ -1,50 +1,44 @@
-import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { authenticateBearerToken } from "../../services/authentication";
+import {
+  createChecklistItem,
+  deleteChecklistItem,
+  getChecklistItem,
+  listChecklistItems,
+  moveChecklistItem,
+  updateChecklistItem,
+} from "../../services/checklistItems";
 import { DatabaseAccessDeniedError } from "../../services/databaseAccess";
-import { listSectionItems } from "../../services/items";
 import {
   InvalidPlacementError,
   ResourceNotFoundError,
 } from "../../services/errors";
 import {
-  createSectionTask,
-  deleteTask,
-  getTask,
-  moveTask,
-  updateTask,
-} from "../../services/tasks";
-import { clearTaskSchedule, scheduleTask } from "../../services/scheduling";
-import {
-  SectionTasksParamsSchema,
-  CreateTaskBodySchema,
+  ChecklistItemParamsSchema,
+  ChecklistItemResponseSchema,
+  ChecklistItemsResponseSchema,
+  CreateChecklistItemBodySchema,
   ErrorResponseSchema,
-  ListSectionItemsQuerySchema,
-  ListSectionItemsResponseSchema,
-  MoveTaskBodySchema,
-  ScheduleTaskBodySchema,
-  ScheduleTaskResponseSchema,
-  TaskParamsSchema,
-  TaskResponseSchema,
-  UpdateTaskBodySchema,
+  MoveChecklistItemBodySchema,
+  TaskChecklistParamsSchema,
+  TaskTemplateChecklistParamsSchema,
+  UpdateChecklistItemBodySchema,
 } from "../schemas";
 
-export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
+export const checklistItemRoutes: FastifyPluginAsyncZod = async (server) => {
   server.get(
-    "/spaces/:spaceId/sections/:sectionId/items",
+    "/spaces/:spaceId/tasks/:taskId/checklist-items",
     {
       schema: {
-        operationId: "listSectionItems",
-        summary: "List section items",
-        description:
-          "Returns todo tasks and templates in display order by default. When taskState is done, returns completed tasks only.",
-        tags: ["Items"],
+        operationId: "listTaskChecklistItems",
+        summary: "List a task's checklist items",
+        tags: ["Checklist items"],
         security: [{ bearerAuth: [] }],
-        params: SectionTasksParamsSchema,
-        querystring: ListSectionItemsQuerySchema,
+        params: TaskChecklistParamsSchema,
         response: {
-          200: ListSectionItemsResponseSchema,
+          200: ChecklistItemsResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -55,33 +49,37 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
       if (!user) return unauthorized(reply);
-
       try {
-        const items = listSectionItems({
+        const checklistItems = listChecklistItems({
           spaceId: request.params.spaceId,
-          sectionId: request.params.sectionId,
           userId: user.id,
-          taskState: request.query.taskState,
+          parentType: "task",
+          parentId: request.params.taskId,
         });
-        return reply.code(200).send({ items });
+        return reply.code(200).send({ checklistItems });
       } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to list items");
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to list checklist items",
+        );
       }
     },
   );
 
   server.post(
-    "/spaces/:spaceId/sections/:sectionId/tasks",
+    "/spaces/:spaceId/tasks/:taskId/checklist-items",
     {
       schema: {
-        operationId: "createSectionTask",
-        summary: "Create a task",
-        tags: ["Tasks"],
+        operationId: "createTaskChecklistItem",
+        summary: "Create a checklist item for a task",
+        tags: ["Checklist items"],
         security: [{ bearerAuth: [] }],
-        params: SectionTasksParamsSchema,
-        body: CreateTaskBodySchema,
+        params: TaskChecklistParamsSchema,
+        body: CreateChecklistItemBodySchema,
         response: {
-          201: TaskResponseSchema,
+          201: ChecklistItemResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -93,32 +91,37 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
       if (!user) return unauthorized(reply);
-
       try {
-        const task = createSectionTask({
+        const checklistItem = createChecklistItem({
           spaceId: request.params.spaceId,
-          sectionId: request.params.sectionId,
           userId: user.id,
+          parentType: "task",
+          parentId: request.params.taskId,
           ...request.body,
         });
-        return reply.code(201).send({ task });
+        return reply.code(201).send({ checklistItem });
       } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to create task");
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to create checklist item",
+        );
       }
     },
   );
 
   server.get(
-    "/spaces/:spaceId/tasks/:taskId",
+    "/spaces/:spaceId/task-templates/:templateId/checklist-items",
     {
       schema: {
-        operationId: "getTask",
-        summary: "Get a task",
-        tags: ["Tasks"],
+        operationId: "listTaskTemplateChecklistItems",
+        summary: "List a task template's checklist items",
+        tags: ["Checklist items"],
         security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
+        params: TaskTemplateChecklistParamsSchema,
         response: {
-          200: TaskResponseSchema,
+          200: ChecklistItemsResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -129,36 +132,122 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
       if (!user) return unauthorized(reply);
-
       try {
-        const task = getTask({
+        const checklistItems = listChecklistItems({
           spaceId: request.params.spaceId,
-          taskId: request.params.taskId,
           userId: user.id,
+          parentType: "template",
+          parentId: request.params.templateId,
         });
-        return reply.code(200).send({ task });
+        return reply.code(200).send({ checklistItems });
       } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to get task");
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to list checklist items",
+        );
+      }
+    },
+  );
+
+  server.post(
+    "/spaces/:spaceId/task-templates/:templateId/checklist-items",
+    {
+      schema: {
+        operationId: "createTaskTemplateChecklistItem",
+        summary: "Create a checklist item for a task template",
+        tags: ["Checklist items"],
+        security: [{ bearerAuth: [] }],
+        params: TaskTemplateChecklistParamsSchema,
+        body: CreateChecklistItemBodySchema,
+        response: {
+          201: ChecklistItemResponseSchema,
+          401: ErrorResponseSchema,
+          403: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+          409: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = authenticateBearerToken(request.headers.authorization);
+      if (!user) return unauthorized(reply);
+      try {
+        const checklistItem = createChecklistItem({
+          spaceId: request.params.spaceId,
+          userId: user.id,
+          parentType: "template",
+          parentId: request.params.templateId,
+          ...request.body,
+        });
+        return reply.code(201).send({ checklistItem });
+      } catch (error) {
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to create checklist item",
+        );
+      }
+    },
+  );
+
+  server.get(
+    "/spaces/:spaceId/checklist-items/:checklistItemId",
+    {
+      schema: {
+        operationId: "getChecklistItem",
+        summary: "Get a checklist item",
+        tags: ["Checklist items"],
+        security: [{ bearerAuth: [] }],
+        params: ChecklistItemParamsSchema,
+        response: {
+          200: ChecklistItemResponseSchema,
+          401: ErrorResponseSchema,
+          403: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = authenticateBearerToken(request.headers.authorization);
+      if (!user) return unauthorized(reply);
+      try {
+        const checklistItem = getChecklistItem({
+          spaceId: request.params.spaceId,
+          userId: user.id,
+          checklistItemId: request.params.checklistItemId,
+        });
+        return reply.code(200).send({ checklistItem });
+      } catch (error) {
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to get checklist item",
+        );
       }
     },
   );
 
   server.patch(
-    "/spaces/:spaceId/tasks/:taskId",
+    "/spaces/:spaceId/checklist-items/:checklistItemId",
     {
       schema: {
-        operationId: "updateTask",
-        summary: "Update or move a task",
-        tags: ["Tasks"],
+        operationId: "updateChecklistItem",
+        summary: "Update a checklist item",
+        tags: ["Checklist items"],
         security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
-        body: UpdateTaskBodySchema,
+        params: ChecklistItemParamsSchema,
+        body: UpdateChecklistItemBodySchema,
         response: {
-          200: TaskResponseSchema,
+          200: ChecklistItemResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
-          409: ErrorResponseSchema,
           500: ErrorResponseSchema,
         },
       },
@@ -166,30 +255,34 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
       if (!user) return unauthorized(reply);
-
       try {
-        const task = updateTask({
+        const checklistItem = updateChecklistItem({
           spaceId: request.params.spaceId,
-          taskId: request.params.taskId,
           userId: user.id,
+          checklistItemId: request.params.checklistItemId,
           updates: request.body,
         });
-        return reply.code(200).send({ task });
+        return reply.code(200).send({ checklistItem });
       } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to update task");
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to update checklist item",
+        );
       }
     },
   );
 
   server.delete(
-    "/spaces/:spaceId/tasks/:taskId",
+    "/spaces/:spaceId/checklist-items/:checklistItemId",
     {
       schema: {
-        operationId: "deleteTask",
-        summary: "Delete a task",
-        tags: ["Tasks"],
+        operationId: "deleteChecklistItem",
+        summary: "Delete a checklist item",
+        tags: ["Checklist items"],
         security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
+        params: ChecklistItemParamsSchema,
         response: {
           204: z.null(),
           401: ErrorResponseSchema,
@@ -202,74 +295,36 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
       if (!user) return unauthorized(reply);
-
       try {
-        deleteTask({
+        deleteChecklistItem({
           spaceId: request.params.spaceId,
-          taskId: request.params.taskId,
           userId: user.id,
+          checklistItemId: request.params.checklistItemId,
         });
         return reply.code(204).send(null);
       } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to delete task");
-      }
-    },
-  );
-
-  server.delete(
-    "/spaces/:spaceId/tasks/:taskId/schedule",
-    {
-      schema: {
-        operationId: "clearTaskSchedule",
-        summary: "Clear a task schedule",
-        tags: ["Tasks"],
-        security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
-        response: {
-          204: z.null(),
-          401: ErrorResponseSchema,
-          403: ErrorResponseSchema,
-          404: ErrorResponseSchema,
-          500: ErrorResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) return unauthorized(reply);
-
-      try {
-        clearTaskSchedule({
-          spaceId: request.params.spaceId,
-          taskId: request.params.taskId,
-          userId: user.id,
-        });
-        return reply.code(204).send(null);
-      } catch (error) {
-        return handleTaskError(
+        return handleError(
           request,
           reply,
           error,
-          "Failed to clear task schedule",
+          "Failed to delete checklist item",
         );
       }
     },
   );
 
   server.post(
-    "/spaces/:spaceId/tasks/:taskId/schedule",
+    "/spaces/:spaceId/checklist-items/:checklistItemId/move",
     {
       schema: {
-        operationId: "scheduleTask",
-        summary: "Schedule a task",
-        description:
-          "Schedules or reschedules a task on a date. Existing schedules are replaced.",
-        tags: ["Tasks"],
+        operationId: "moveChecklistItem",
+        summary: "Move a checklist item",
+        tags: ["Checklist items"],
         security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
-        body: ScheduleTaskBodySchema,
+        params: ChecklistItemParamsSchema,
+        body: MoveChecklistItemBodySchema,
         response: {
-          200: ScheduleTaskResponseSchema,
+          200: ChecklistItemResponseSchema,
           401: ErrorResponseSchema,
           403: ErrorResponseSchema,
           404: ErrorResponseSchema,
@@ -281,61 +336,21 @@ export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
     async (request, reply) => {
       const user = authenticateBearerToken(request.headers.authorization);
       if (!user) return unauthorized(reply);
-
       try {
-        return reply.code(200).send(
-          scheduleTask({
-            spaceId: request.params.spaceId,
-            taskId: request.params.taskId,
-            userId: user.id,
-            ...request.body,
-          }),
-        );
-      } catch (error) {
-        return handleTaskError(
-          request,
-          reply,
-          error,
-          "Failed to schedule task",
-        );
-      }
-    },
-  );
-
-  server.post(
-    "/spaces/:spaceId/tasks/:taskId/move",
-    {
-      schema: {
-        operationId: "moveTask",
-        summary: "Move a task",
-        tags: ["Tasks"],
-        security: [{ bearerAuth: [] }],
-        params: TaskParamsSchema,
-        body: MoveTaskBodySchema,
-        response: {
-          200: TaskResponseSchema,
-          401: ErrorResponseSchema,
-          403: ErrorResponseSchema,
-          404: ErrorResponseSchema,
-          409: ErrorResponseSchema,
-          500: ErrorResponseSchema,
-        },
-      },
-    },
-    async (request, reply) => {
-      const user = authenticateBearerToken(request.headers.authorization);
-      if (!user) return unauthorized(reply);
-
-      try {
-        const task = moveTask({
+        const checklistItem = moveChecklistItem({
           spaceId: request.params.spaceId,
-          taskId: request.params.taskId,
           userId: user.id,
+          checklistItemId: request.params.checklistItemId,
           ...request.body,
         });
-        return reply.code(200).send({ task });
+        return reply.code(200).send({ checklistItem });
       } catch (error) {
-        return handleTaskError(request, reply, error, "Failed to move task");
+        return handleError(
+          request,
+          reply,
+          error,
+          "Failed to move checklist item",
+        );
       }
     },
   );
@@ -348,7 +363,7 @@ function unauthorized(reply: FastifyReply) {
   });
 }
 
-function handleTaskError(
+function handleError(
   request: FastifyRequest,
   reply: FastifyReply,
   error: unknown,

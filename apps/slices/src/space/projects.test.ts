@@ -597,6 +597,10 @@ describe("moving stashed tasks through app drops", () => {
       "target-project-existing-task",
     );
     const stashedTask = createTask(db, section.id, "stashed-drop-on-project");
+    syncDispatch(
+      db,
+      updateTask({ id: stashedTask.id, task: { orderToken: "0" } }),
+    );
 
     syncDispatch(
       db,

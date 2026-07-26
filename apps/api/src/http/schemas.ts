@@ -112,9 +112,22 @@ export const CreateSpaceResponseSchema = z.object({
   space: SpaceSchema,
 });
 
-export const DeleteSpaceParamsSchema = z.object({
+export const SpaceParamsSchema = z.object({
   spaceId: z.string().min(1).describe("Space identifier"),
 });
+
+export const DeleteSpaceParamsSchema = SpaceParamsSchema;
+
+export const UpdateSpaceBodySchema = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+  })
+  .strict()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "At least one field must be provided",
+  });
+
+export const SpaceResponseSchema = z.object({ space: SpaceSchema });
 
 export const ProjectSectionsParamsSchema = z.object({
   spaceId: z.string().min(1).describe("Space identifier"),
@@ -199,6 +212,10 @@ export const TaskSchema = z.object({
     .int()
     .nonnegative()
     .describe("Last state change time as Unix milliseconds"),
+  scheduledDate: z.iso
+    .date()
+    .nullable()
+    .describe("Current schedule date, or null when the task is unscheduled"),
 });
 
 export const TaskTemplateSchema = z.object({
@@ -212,6 +229,56 @@ export const TaskTemplateSchema = z.object({
   repeatRuleDtStart: z.number().int().nonnegative(),
   createdAt: z.number().int().nonnegative(),
   lastGeneratedAt: z.number().int().nonnegative(),
+});
+
+export const TaskTemplateParamsSchema = z.object({
+  spaceId: z.string().min(1).describe("Space identifier"),
+  templateId: z.string().min(1).describe("Task template identifier"),
+});
+
+export const CreateTaskTemplateBodySchema = z
+  .object({
+    title: z.string().trim().min(1),
+    content: z.string().nullable().optional(),
+    nature: TaskNatureSchema.nullable().optional(),
+    repeatRule: z.string().trim().min(1).optional(),
+    repeatRuleDtStart: z.number().int().nonnegative().optional(),
+    placement: PlacementSchema.optional(),
+  })
+  .strict();
+
+export const UpdateTaskTemplateBodySchema = z
+  .object({
+    title: z.string().trim().min(1).optional(),
+    content: z.string().nullable().optional(),
+    nature: TaskNatureSchema.nullable().optional(),
+    repeatRule: z.string().trim().min(1).optional(),
+    repeatRuleDtStart: z.number().int().nonnegative().optional(),
+  })
+  .strict()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "At least one field must be provided",
+  });
+
+export const ConvertTaskToTemplateBodySchema = z
+  .object({
+    title: z.string().trim().min(1).optional(),
+    content: z.string().nullable().optional(),
+    nature: TaskNatureSchema.nullable().optional(),
+    repeatRule: z.string().trim().min(1).optional(),
+    repeatRuleDtStart: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
+export const MoveTaskTemplateBodySchema = z
+  .object({
+    projectSectionId: z.string().min(1),
+    placement: PlacementSchema,
+  })
+  .strict();
+
+export const TaskTemplateResponseSchema = z.object({
+  template: TaskTemplateSchema,
 });
 
 export const ItemSchema = z.discriminatedUnion("type", [
@@ -266,9 +333,9 @@ export const DailyListItemsResponseSchema = z.object({
 export const UpdateTaskBodySchema = z
   .object({
     title: z.string().trim().min(1).optional(),
-    content: z.string().optional(),
+    content: z.string().nullable().optional(),
     state: TaskStateSchema.optional(),
-    nature: TaskNatureSchema.optional(),
+    nature: TaskNatureSchema.nullable().optional(),
   })
   .strict()
   .refine((body) => Object.keys(body).length > 0, {
@@ -278,6 +345,68 @@ export const UpdateTaskBodySchema = z
 export const MoveTaskBodySchema = z
   .object({
     projectSectionId: z.string().min(1),
+    placement: PlacementSchema,
+  })
+  .strict();
+
+export const ChecklistParentTypeSchema = z.enum(["task", "template"]);
+
+export const TaskChecklistParamsSchema = z.object({
+  spaceId: z.string().min(1).describe("Space identifier"),
+  taskId: z.string().min(1).describe("Task identifier"),
+});
+
+export const TaskTemplateChecklistParamsSchema = z.object({
+  spaceId: z.string().min(1).describe("Space identifier"),
+  templateId: z.string().min(1).describe("Task template identifier"),
+});
+
+export const ChecklistItemParamsSchema = z.object({
+  spaceId: z.string().min(1).describe("Space identifier"),
+  checklistItemId: z.string().min(1).describe("Checklist item identifier"),
+});
+
+export const ChecklistItemSchema = z.object({
+  type: z.literal("checklistItem"),
+  id: z.string().describe("Checklist item identifier"),
+  parentId: z.string().describe("Task or task-template identifier"),
+  parentType: ChecklistParentTypeSchema,
+  state: TaskStateSchema,
+  content: z.string(),
+  createdAt: z.number().int().nonnegative(),
+  checkedAt: z.number().int().nonnegative().nullable(),
+});
+
+export const ChecklistItemsResponseSchema = z.object({
+  checklistItems: z.array(ChecklistItemSchema),
+});
+
+export const ChecklistItemResponseSchema = z.object({
+  checklistItem: ChecklistItemSchema,
+});
+
+export const CreateChecklistItemBodySchema = z
+  .object({
+    content: z.string(),
+    state: TaskStateSchema.optional(),
+    placement: PlacementSchema.optional(),
+  })
+  .strict();
+
+export const UpdateChecklistItemBodySchema = z
+  .object({
+    content: z.string().optional(),
+    state: TaskStateSchema.optional(),
+  })
+  .strict()
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "At least one field must be provided",
+  });
+
+export const MoveChecklistItemBodySchema = z
+  .object({
+    parentId: z.string().min(1),
+    parentType: ChecklistParentTypeSchema,
     placement: PlacementSchema,
   })
   .strict();

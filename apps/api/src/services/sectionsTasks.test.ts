@@ -54,8 +54,25 @@ import {
   moveSpaceProject,
   updateSpaceProject,
 } from "./projects";
-import { scheduleTask } from "./scheduling";
+import { clearTaskSchedule, scheduleTask } from "./scheduling";
 import { listDailyListItems } from "./dailyLists";
+import {
+  convertTaskTemplateToTask,
+  convertTaskToTemplate,
+  createSectionTaskTemplate,
+  deleteTaskTemplate,
+  getTaskTemplate,
+  moveTaskTemplate,
+  updateTaskTemplate,
+} from "./taskTemplates";
+import {
+  createChecklistItem,
+  deleteChecklistItem,
+  getChecklistItem,
+  listChecklistItems,
+  moveChecklistItem,
+  updateChecklistItem,
+} from "./checklistItems";
 
 const action = createAction();
 const orderA = generateJitteredKeyBetween(null, null);
@@ -326,6 +343,21 @@ describe("section and task services", () => {
     });
     expect(updated).toMatchObject({ state: "done", title: "Finished" });
 
+    updateTask({
+      spaceId: "space-1",
+      taskId: "task-c",
+      userId: "user-1",
+      updates: { content: "Description", nature: "red" },
+    });
+    const cleared = updateTask({
+      spaceId: "space-1",
+      taskId: "task-c",
+      userId: "user-1",
+      updates: { content: null, nature: null },
+    });
+    expect(cleared).not.toHaveProperty("content");
+    expect(cleared.nature).toBe("unknown");
+
     deleteTask({
       spaceId: "space-1",
       taskId: "task-a",
@@ -463,9 +495,16 @@ describe("section and task services", () => {
       placement: { kind: "before", anchorId: "task-c" },
     });
     expect(scheduled).toMatchObject({
-      task: { id: "task-a" },
+      task: { id: "task-a", scheduledDate: "2026-07-22" },
       date: "2026-07-22",
     });
+    expect(
+      getTask({
+        spaceId: "space-1",
+        taskId: "task-a",
+        userId: "user-1",
+      }).scheduledDate,
+    ).toBe("2026-07-22");
 
     const firstList = selectSync(spaceDB, {
       selector: dailyListByDate,
@@ -520,5 +559,200 @@ describe("section and task services", () => {
         args: { dailyListId: firstList!.id },
       }).map((entry) => entry.id),
     ).toEqual(["task-c", "done-new"]);
+
+    clearTaskSchedule({
+      spaceId: "space-1",
+      taskId: "task-a",
+      userId: "user-1",
+    });
+    clearTaskSchedule({
+      spaceId: "space-1",
+      taskId: "task-a",
+      userId: "user-1",
+    });
+    expect(
+      getTask({
+        spaceId: "space-1",
+        taskId: "task-a",
+        userId: "user-1",
+      }).scheduledDate,
+    ).toBeNull();
+  });
+
+  test("creates, updates, moves, and deletes task templates", () => {
+    setUpDatabases();
+
+    const created = createSectionTaskTemplate({
+      spaceId: "space-1",
+      sectionId: "section-1",
+      userId: "user-1",
+      title: "Recurring",
+      repeatRule: "FREQ=WEEKLY;INTERVAL=1",
+      content: "Notes",
+      nature: "green",
+      placement: { kind: "after", anchorId: "task-a" },
+    });
+    expect(
+      listSectionItems({
+        spaceId: "space-1",
+        sectionId: "section-1",
+        userId: "user-1",
+      }).map((item) => item.id),
+    ).toEqual(["task-a", created.id, "template-b", "task-c"]);
+
+    const updated = updateTaskTemplate({
+      spaceId: "space-1",
+      templateId: created.id,
+      userId: "user-1",
+      updates: { title: "Renamed", content: null, nature: null },
+    });
+    expect(updated.title).toBe("Renamed");
+    expect(updated).not.toHaveProperty("content");
+    expect(updated.nature).toBe("unknown");
+
+    expect(
+      moveTaskTemplate({
+        spaceId: "space-1",
+        templateId: created.id,
+        userId: "user-1",
+        projectSectionId: "section-2",
+        placement: { kind: "first" },
+      }).projectSectionId,
+    ).toBe("section-2");
+    expect(
+      getTaskTemplate({
+        spaceId: "space-1",
+        templateId: created.id,
+        userId: "user-1",
+      }).id,
+    ).toBe(created.id);
+
+    deleteTaskTemplate({
+      spaceId: "space-1",
+      templateId: created.id,
+      userId: "user-1",
+    });
+    expect(() =>
+      getTaskTemplate({
+        spaceId: "space-1",
+        templateId: created.id,
+        userId: "user-1",
+      }),
+    ).toThrow(ResourceNotFoundError);
+  });
+
+  test("converts between tasks and templates", () => {
+    setUpDatabases();
+
+    const template = convertTaskToTemplate({
+      spaceId: "space-1",
+      taskId: "task-a",
+      userId: "user-1",
+      updates: { repeatRule: "FREQ=DAILY;INTERVAL=1" },
+    });
+    expect(template.title).toBe("A");
+    expect(() =>
+      getTask({
+        spaceId: "space-1",
+        taskId: "task-a",
+        userId: "user-1",
+      }),
+    ).toThrow(ResourceNotFoundError);
+
+    const task = convertTaskTemplateToTask({
+      spaceId: "space-1",
+      templateId: template.id,
+      userId: "user-1",
+    });
+    expect(task).toMatchObject({ title: "A", scheduledDate: null });
+    expect(() =>
+      getTaskTemplate({
+        spaceId: "space-1",
+        templateId: template.id,
+        userId: "user-1",
+      }),
+    ).toThrow(ResourceNotFoundError);
+  });
+
+  test("manages and repositions checklist items for tasks and templates", () => {
+    setUpDatabases();
+
+    const first = createChecklistItem({
+      spaceId: "space-1",
+      userId: "user-1",
+      parentType: "task",
+      parentId: "task-a",
+      content: "First",
+    });
+    const second = createChecklistItem({
+      spaceId: "space-1",
+      userId: "user-1",
+      parentType: "task",
+      parentId: "task-a",
+      content: "Second",
+    });
+
+    moveChecklistItem({
+      spaceId: "space-1",
+      userId: "user-1",
+      checklistItemId: second.id,
+      parentType: "task",
+      parentId: "task-a",
+      placement: { kind: "before", anchorId: first.id },
+    });
+    expect(
+      listChecklistItems({
+        spaceId: "space-1",
+        userId: "user-1",
+        parentType: "task",
+        parentId: "task-a",
+      }).map((item) => item.id),
+    ).toEqual([second.id, first.id]);
+
+    const updated = updateChecklistItem({
+      spaceId: "space-1",
+      userId: "user-1",
+      checklistItemId: first.id,
+      updates: { content: "Finished", state: "done" },
+    });
+    expect(updated).toMatchObject({ content: "Finished", state: "done" });
+    expect(updated.checkedAt).not.toBeNull();
+
+    moveChecklistItem({
+      spaceId: "space-1",
+      userId: "user-1",
+      checklistItemId: first.id,
+      parentType: "template",
+      parentId: "template-b",
+      placement: { kind: "last" },
+    });
+    expect(
+      listChecklistItems({
+        spaceId: "space-1",
+        userId: "user-1",
+        parentType: "template",
+        parentId: "template-b",
+      }).map((item) => item.id),
+    ).toEqual([first.id]);
+    expect(
+      getChecklistItem({
+        spaceId: "space-1",
+        userId: "user-1",
+        checklistItemId: first.id,
+      }).parentType,
+    ).toBe("template");
+
+    deleteChecklistItem({
+      spaceId: "space-1",
+      userId: "user-1",
+      checklistItemId: first.id,
+    });
+    expect(() =>
+      getChecklistItem({
+        spaceId: "space-1",
+        userId: "user-1",
+        checklistItemId: first.id,
+      }),
+    ).toThrow(ResourceNotFoundError);
   });
 });

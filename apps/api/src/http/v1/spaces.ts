@@ -5,6 +5,7 @@ import {
   createUserSpace,
   deleteUserSpace,
   listUserSpaces,
+  updateUserSpace,
 } from "../../services/spaces";
 import {
   CreateSpaceBodySchema,
@@ -12,6 +13,9 @@ import {
   DeleteSpaceParamsSchema,
   ErrorResponseSchema,
   ListSpacesResponseSchema,
+  SpaceParamsSchema,
+  SpaceResponseSchema,
+  UpdateSpaceBodySchema,
 } from "../schemas";
 
 export const spaceRoutes: FastifyPluginAsyncZod = async (server) => {
@@ -140,6 +144,56 @@ export const spaceRoutes: FastifyPluginAsyncZod = async (server) => {
         return reply.code(500).send({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to delete space",
+        });
+      }
+    },
+  );
+
+  server.patch(
+    "/spaces/:spaceId",
+    {
+      schema: {
+        operationId: "updateSpace",
+        summary: "Update a space",
+        tags: ["Spaces"],
+        security: [{ bearerAuth: [] }],
+        params: SpaceParamsSchema,
+        body: UpdateSpaceBodySchema,
+        response: {
+          200: SpaceResponseSchema,
+          401: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = authenticateBearerToken(request.headers.authorization);
+      if (!user) {
+        return reply.code(401).send({
+          code: "UNAUTHORIZED",
+          message: "A valid bearer token is required",
+        });
+      }
+
+      try {
+        const space = updateUserSpace({
+          userId: user.id,
+          spaceId: request.params.spaceId,
+          name: request.body.name!,
+        });
+        if (!space) {
+          return reply.code(404).send({
+            code: "NOT_FOUND",
+            message: "Space not found",
+          });
+        }
+        return reply.code(200).send({ space });
+      } catch (error) {
+        request.log.error(error, "Failed to update space");
+        return reply.code(500).send({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to update space",
         });
       }
     },
