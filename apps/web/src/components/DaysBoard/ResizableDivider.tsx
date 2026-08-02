@@ -92,9 +92,7 @@ export const ResizableDivider = ({
   }
 
   return (
-    <div
-      className="absolute left-0 right-0 top-0 z-30 h-0 w-full"
-    >
+    <div className="absolute left-0 right-0 top-0 z-30 h-0 w-full">
       {onHideClick && (
         <div className="absolute left-0 right-0 top-0 z-30 flex -translate-y-full justify-center">
           <button

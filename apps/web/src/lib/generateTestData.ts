@@ -5,13 +5,13 @@ import { type Backup } from "@will-be-done/slices/space";
  * Generate a test backup with configurable counts.
  *
  * @param projects  Number of projects (an Inbox project is always prepended)
- * @param categories  Number of categories per project
- * @param doneTasks  Number of done tasks per category
- * @param todoTasks  Number of todo tasks per category
+ * @param sections  Number of sections per project
+ * @param doneTasks  Number of done tasks per section
+ * @param todoTasks  Number of todo tasks per section
  */
 export function generateTestBackup(
   projects: number,
-  categories: number,
+  sections: number,
   doneTasks: number,
   todoTasks: number,
 ): Backup {
@@ -19,13 +19,13 @@ export function generateTestBackup(
 
   // Pre-generate enough ordering keys
   const totalProjects = projects + 1; // +1 for inbox
-  const totalCategories = totalProjects * categories;
+  const totalSections = totalProjects * sections;
   const tasksPerCat = doneTasks + todoTasks;
-  const maxKeys = Math.max(totalProjects, totalCategories, tasksPerCat, 1);
+  const maxKeys = Math.max(totalProjects, totalSections, tasksPerCat, 1);
   const K = generateNKeysBetween(null, null, maxKeys);
 
   const backupProjects: Backup["projects"] = [];
-  const backupCategories: Backup["projectCategories"] = [];
+  const backupSections: Backup["projectSections"] = [];
   const backupTasks: Backup["tasks"] = [];
 
   // Inbox project
@@ -39,23 +39,23 @@ export function generateTestBackup(
     createdAt: base - 1_000_000,
   });
 
-  // Generate ordering keys for categories and tasks within each scope
-  const catKeys =
-    categories > 0 ? generateNKeysBetween(null, null, categories) : [];
+  // Generate ordering keys for sections and tasks within each scope
+  const sectionKeys =
+    sections > 0 ? generateNKeysBetween(null, null, sections) : [];
   const taskKeys =
     tasksPerCat > 0 ? generateNKeysBetween(null, null, tasksPerCat) : [];
 
-  // Add inbox categories + tasks
-  for (let c = 0; c < categories; c++) {
-    const catId = `c-test-inbox-${c}`;
-    backupCategories.push({
-      id: catId,
-      title: `Inbox Category ${c + 1}`,
+  // Add inbox sections + tasks
+  for (let c = 0; c < sections; c++) {
+    const sectionId = `c-test-inbox-${c}`;
+    backupSections.push({
+      id: sectionId,
+      title: `Inbox Section ${c + 1}`,
       projectId: inboxId,
-      orderToken: catKeys[c],
+      orderToken: sectionKeys[c],
       createdAt: base - 900_000,
     });
-    pushTasks(catId, `inbox-${c}`, base);
+    pushTasks(sectionId, `inbox-${c}`, base);
   }
 
   // Regular projects
@@ -70,27 +70,27 @@ export function generateTestBackup(
       createdAt: base - 800_000 + p,
     });
 
-    for (let c = 0; c < categories; c++) {
-      const catId = `c-test-${p}-${c}`;
-      backupCategories.push({
-        id: catId,
-        title: `Category ${c + 1}`,
+    for (let c = 0; c < sections; c++) {
+      const sectionId = `c-test-${p}-${c}`;
+      backupSections.push({
+        id: sectionId,
+        title: `Section ${c + 1}`,
         projectId,
-        orderToken: catKeys[c],
+        orderToken: sectionKeys[c],
         createdAt: base - 700_000 + p * 100 + c,
       });
-      pushTasks(catId, `${p}-${c}`, base);
+      pushTasks(sectionId, `${p}-${c}`, base);
     }
   }
 
-  function pushTasks(catId: string, prefix: string, now: number) {
+  function pushTasks(sectionId: string, prefix: string, now: number) {
     let idx = 0;
     for (let d = 0; d < doneTasks; d++, idx++) {
       backupTasks.push({
         id: `tk-test-${prefix}-done-${d}`,
         title: `Done task ${d + 1}`,
         state: "done",
-        projectCategoryId: catId,
+        projectSectionId: sectionId,
         orderToken: taskKeys[idx],
         lastToggledAt: now - 50_000 + d,
         createdAt: now - 600_000 + idx,
@@ -104,7 +104,7 @@ export function generateTestBackup(
         id: `tk-test-${prefix}-todo-${t}`,
         title: `Todo task ${t + 1}`,
         state: "todo",
-        projectCategoryId: catId,
+        projectSectionId: sectionId,
         orderToken: taskKeys[idx],
         lastToggledAt: 0,
         createdAt: now - 600_000 + idx,
@@ -117,10 +117,10 @@ export function generateTestBackup(
 
   return {
     projects: backupProjects,
-    projectCategories: backupCategories,
+    projectSections: backupSections,
     tasks: backupTasks,
     taskTemplates: [],
     dailyLists: [],
-    dailyListProjections: [],
+    dailyEntries: [],
   };
 }

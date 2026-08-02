@@ -1,5 +1,6 @@
 import { asyncDispatch, type HyperDB } from "@will-be-done/hyperdb";
 import {
+  CURRENT_SYNC_VERSION,
   getSyncStateOrDefault,
   updateSyncState,
 } from "@will-be-done/slices/common";
@@ -17,6 +18,11 @@ import {
 } from "./syncActions";
 import { withSyncRequestTimeout } from "./syncRequestTimeout";
 import type { SyncConfig } from "./syncTypes";
+import {
+  isUnsupportedSyncVersionError,
+  markSyncUpdateRequired,
+  syncChannelName,
+} from "./syncCompatibility";
 
 const SYNC_POLL_INTERVAL_MS = 5000;
 
@@ -33,6 +39,7 @@ export class Syncer {
   private electionChannel: BroadcastChannel;
   private elector: LeaderElector;
   private runId = 0;
+  private terminal = false;
   private clientId: string;
   private syncConfig: SyncConfig;
   private wsUnsubscribe: (() => void) | null = null;
@@ -54,7 +61,9 @@ export class Syncer {
   ) {
     this.clientId = clientId;
     this.syncConfig = syncConfig;
-    this.electionChannel = new BroadcastChannel("election-" + clientId);
+    this.electionChannel = new BroadcastChannel(
+      syncChannelName("election", clientId),
+    );
     this.elector = createLeaderElection(this.electionChannel);
     this.applyServerChangesIfNoClientChanges =
       createApplyServerChangesIfNoClientChanges(nextClock);
@@ -70,6 +79,7 @@ export class Syncer {
 
   startLoop() {
     this.elector.onduplicate = () => {
+      if (this.terminal) return;
       syncerLog("onduplicate");
 
       this.runId++;
@@ -81,7 +91,17 @@ export class Syncer {
   }
 
   forceSync() {
+    if (this.terminal) return;
     this.forceSyncNotification.modify((version) => version + 1);
+  }
+
+  private stopForRequiredUpdate() {
+    if (this.terminal) return;
+    this.terminal = true;
+    this.runId++;
+    this.cleanupWebSocket();
+    this.forceSyncNotification.modify((version) => version + 1);
+    markSyncUpdateRequired();
   }
 
   private cleanupWebSocket() {
@@ -96,6 +116,7 @@ export class Syncer {
       {
         dbId: this.syncConfig.dbId,
         dbType: this.syncConfig.dbType,
+        syncVersion: CURRENT_SYNC_VERSION,
       },
       {
         onData: () => {
@@ -103,6 +124,10 @@ export class Syncer {
           this.wsNotification.modify((version) => version + 1);
         },
         onError: (err) => {
+          if (isUnsupportedSyncVersionError(err)) {
+            this.stopForRequiredUpdate();
+            return;
+          }
           console.error("WebSocket subscription error:", err);
           this.wsNotification.modify((version) => version + 1);
         },
@@ -116,6 +141,8 @@ export class Syncer {
     const myRunId = ++this.runId;
 
     await this.elector.awaitLeadership();
+
+    if (this.terminal || this.runId !== myRunId) return;
 
     this.setupWebSocketSubscription();
 
@@ -134,6 +161,10 @@ export class Syncer {
         syncerLog("applying changes from server");
         await this.getAndApplyChanges();
       } catch (e) {
+        if (isUnsupportedSyncVersionError(e)) {
+          this.stopForRequiredUpdate();
+          return;
+        }
         console.error(e);
       }
 
@@ -195,6 +226,7 @@ export class Syncer {
             dbId: this.syncConfig.dbId,
             dbType: this.syncConfig.dbType,
             clientId: this.clientId,
+            syncVersion: CURRENT_SYNC_VERSION,
           },
           { signal },
         ),
@@ -243,6 +275,7 @@ export class Syncer {
           dbId: this.syncConfig.dbId,
           dbType: this.syncConfig.dbType,
           changeset: changesets,
+          syncVersion: CURRENT_SYNC_VERSION,
         },
         { signal },
       ),

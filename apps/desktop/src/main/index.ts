@@ -6,15 +6,31 @@ import {
   Menu,
   globalShortcut,
   screen,
-  nativeImage
+  nativeImage,
+  Tray
 } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { autoUpdater } from 'electron-updater'
 import icon from '../../resources/icon.png?asset'
 import ElectronStore from 'electron-store'
+import * as dbusNative from '@homebridge/dbus-native'
 
 app.setName('Will Be Done')
+
+app.commandLine.appendSwitch(
+  'enable-features',
+  [
+    'OverlayScrollbar',
+    'OverlayScrollbarFlashAfterAnyScrollUpdate',
+    'FluentOverlayScrollbar',
+    'FluentScrollbar',
+    // Electron's globalShortcut API needs the desktop portal under Wayland.
+    'GlobalShortcutsPortal',
+    // Pass the requested accelerator to portals that support preferred triggers.
+    'GlobalShortcutsPortalPreferredTrigger'
+  ].join(',')
+)
 
 if (is.dev) {
   app.setName('Will Be Done Dev')
@@ -27,25 +43,55 @@ if (is.dev) {
   app.setPath('userData', `${app.getPath('userData')}-dev`)
 }
 
+const SHOW_QUICK_ADD_ARG = '--show-quick-add'
+const FLATPAK_APP_ID = 'app.willbedone.WillBeDone'
+const DBUS_OBJECT_PATH = '/app/willbedone/WillBeDone'
 const gotTheLock = app.requestSingleInstanceLock()
 
-if (!is.dev) {
-  if (!gotTheLock) {
-    app.quit()
-  } else {
-    app.on('second-instance', () => {
-      // Someone tried to run a second instance, we should focus our window.
-      if (mainWindow) {
-        if (mainWindow.isMinimized()) mainWindow.restore()
-
-        mainWindow.focus()
+interface AppControlBus {
+  connection: {
+    end(): void
+    on(event: 'error', listener: (error: Error) => void): void
+  }
+  exportInterface(
+    implementation: { ShowMainWindow(): void; ShowQuickAdd(): void },
+    path: string,
+    descriptor: {
+      name: string
+      methods: {
+        ShowMainWindow: [string, string]
+        ShowQuickAdd: [string, string]
       }
-    })
-
-    // Note: Windows only
-    if (process.platform === 'win32') {
-      app.setAppUserModelId(app.name)
     }
+  ): void
+  requestName(
+    name: string,
+    flags: number,
+    callback: (error: Error | undefined, result: number) => void
+  ): void
+}
+
+function hasQuickAddArgument(commandLine: string[]): boolean {
+  return commandLine.includes(SHOW_QUICK_ADD_ARG) || app.commandLine.hasSwitch('show-quick-add')
+}
+
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    if (hasQuickAddArgument(commandLine)) {
+      logPopup('quick add requested by second instance')
+      showPopup()
+      return
+    }
+
+    // Someone tried to run a second instance, so focus the main window.
+    showMainWindow()
+  })
+
+  // Note: Windows only
+  if (process.platform === 'win32') {
+    app.setAppUserModelId(app.name)
   }
 }
 
@@ -56,13 +102,65 @@ const Store =
   (ElectronStore as unknown as { default: typeof ElectronStore }).default || ElectronStore
 const store = new Store<{ serverUrl?: string }>()
 
-const DEFAULT_SERVER = 'http://localhost:5173'
+const DEFAULT_SERVER = is.dev ? 'http://localhost:5173' : 'https://app.will-be-done.app'
 const SERVER_CHECK_TIMEOUT_MS = 5000
 const SERVER_CHECK_FILE = '631521eb-a436-4740-9db3-e6f1d72392fe.json'
 const SERVER_CHECK_NONCE = '4f2c9a71-f7bb-4a57-b9b9-6d433c9f5b2e'
 
 let mainWindow: BrowserWindow | null = null
 let popupWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+let loadingLocalMainWindow = false
+let isQuitting = false
+let appControlBus: AppControlBus | null = null
+let popupFocusRequestId = 0
+
+function registerQuickAddBus(): void {
+  if (process.env.FLATPAK_ID !== FLATPAK_APP_ID) return
+
+  try {
+    const bus = (
+      dbusNative as unknown as {
+        sessionBus(): AppControlBus
+      }
+    ).sessionBus()
+
+    bus.connection.on('error', (error) => {
+      console.error('Quick Add D-Bus connection failed:', error)
+    })
+
+    bus.requestName(FLATPAK_APP_ID, 0, (error, result) => {
+      if (error || (result !== 1 && result !== 4)) {
+        console.error('Failed to own Quick Add D-Bus name:', error || `result ${result}`)
+        bus.connection.end()
+        return
+      }
+
+      bus.exportInterface(
+        {
+          ShowMainWindow(): void {
+            showMainWindow()
+          },
+          ShowQuickAdd(): void {
+            showPopup()
+          }
+        },
+        DBUS_OBJECT_PATH,
+        {
+          name: FLATPAK_APP_ID,
+          methods: {
+            ShowMainWindow: ['', ''],
+            ShowQuickAdd: ['', '']
+          }
+        }
+      )
+      appControlBus = bus
+      logPopup('application D-Bus interface registered')
+    })
+  } catch (error) {
+    console.error('Failed to register Quick Add D-Bus interface:', error)
+  }
+}
 
 function getServerUrl(): string {
   return (store.get(serverUrlKey) as string | undefined) || DEFAULT_SERVER
@@ -170,29 +268,47 @@ function loadLocalMainWindow(mode: 'setup' | 'recovery', failedUrl?: string): vo
     query.set('failedUrl', failedUrl)
   }
 
-  if (is.dev) {
-    void mainWindow.loadURL(`${getServerUrl()}?${query.toString()}`)
+  loadingLocalMainWindow = true
+
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL
+  if (is.dev && rendererUrl) {
+    const localUrl = new URL(rendererUrl)
+    query.forEach((value, key) => localUrl.searchParams.set(key, value))
+    void mainWindow.loadURL(localUrl.toString()).catch(() => undefined)
     return
   }
 
-  void mainWindow.loadFile(join(__dirname, '../renderer/index.html'), {
-    query: Object.fromEntries(query.entries())
-  })
+  void mainWindow
+    .loadFile(join(__dirname, '../renderer/index.html'), {
+      query: Object.fromEntries(query.entries())
+    })
+    .catch(() => undefined)
 }
 
 function loadRemoteMainWindow(url: string): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
-  void mainWindow.loadURL(url)
+  void mainWindow.loadURL(url).catch(() => undefined)
 }
 
-function createWindow(): void {
+function showMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow()
+    return
+  }
+
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+function createWindow(showOnReady = true): void {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 480,
     minHeight: 400,
     show: false,
-    autoHideMenuBar: false,
+    autoHideMenuBar: process.platform !== 'darwin',
     backgroundColor: '#0a0a0f',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
@@ -204,11 +320,25 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
+    if (showOnReady) {
+      mainWindow?.show()
+    }
+  })
+
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault()
+      mainWindow?.hide()
+    }
   })
 
   mainWindow.on('closed', () => {
     mainWindow = null
+    loadingLocalMainWindow = false
+  })
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    loadingLocalMainWindow = false
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -222,6 +352,8 @@ function createWindow(): void {
       if (!isMainFrame || !validatedURL || !isHttpUrl(validatedURL)) return
 
       event.preventDefault()
+      if (loadingLocalMainWindow) return
+
       loadLocalMainWindow('recovery', validatedURL)
     }
   )
@@ -231,10 +363,44 @@ function createWindow(): void {
   buildMenu()
 }
 
+function initTray(): void {
+  const trayIcon = nativeImage.createFromPath(icon)
+  tray = new Tray(process.platform === 'darwin' ? trayIcon : trayIcon.resize({ width: 20 }))
+  tray.setToolTip(app.name)
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'Open Will Be Done',
+        click: showMainWindow
+      },
+      {
+        label: 'Quick Add',
+        click: showPopup
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit',
+        click: () => app.quit()
+      }
+    ])
+  )
+  tray.on('click', showMainWindow)
+}
+
 const POPUP_WIDTH = 500
 const POPUP_HEIGHT = 160
+const POPUP_LOG_PREFIX = '[quick-add]'
+
+function logPopup(message: string, details?: unknown): void {
+  if (details === undefined) {
+    console.log(POPUP_LOG_PREFIX, message)
+  } else {
+    console.log(POPUP_LOG_PREFIX, message, details)
+  }
+}
 
 function initPopupWindow(): void {
+  logPopup('creating popup window')
   popupWindow = new BrowserWindow({
     width: POPUP_WIDTH,
     height: POPUP_HEIGHT,
@@ -256,12 +422,39 @@ function initPopupWindow(): void {
   popupWindow.setAlwaysOnTop(true, 'pop-up-menu')
 
   const popupUrl = `${getServerUrl()}/popup`
-  popupWindow.loadURL(popupUrl)
+  logPopup('loading popup URL', popupUrl)
+  void popupWindow.loadURL(popupUrl).catch((error: unknown) => {
+    console.error(POPUP_LOG_PREFIX, 'failed to load popup URL', error)
+  })
   const thisWindow = popupWindow
 
-  popupWindow.on('blur', () => {
-    hidePopup()
+  popupWindow.once('ready-to-show', () => {
+    logPopup('popup is ready to show')
   })
+
+  popupWindow.webContents.on('did-finish-load', () => {
+    logPopup('popup content finished loading')
+  })
+
+  popupWindow.webContents.on(
+    'did-fail-load',
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      if (isMainFrame) {
+        console.error(POPUP_LOG_PREFIX, 'popup content failed to load', {
+          errorCode,
+          errorDescription,
+          validatedURL
+        })
+      }
+    }
+  )
+
+  if (process.platform !== 'linux') {
+    popupWindow.on('blur', () => {
+      logPopup('popup lost focus; hiding it')
+      hidePopup()
+    })
+  }
 
   // If the window is somehow destroyed, recreate it
   popupWindow.on('closed', () => {
@@ -272,6 +465,7 @@ function initPopupWindow(): void {
 }
 
 function showPopup(): void {
+  logPopup('show requested')
   if (!popupWindow || popupWindow.isDestroyed()) {
     initPopupWindow()
     // First open: wait for ready-to-show
@@ -285,7 +479,10 @@ function showPopup(): void {
 }
 
 function positionAndShowPopup(): void {
-  if (!popupWindow || popupWindow.isDestroyed()) return
+  if (!popupWindow || popupWindow.isDestroyed()) {
+    logPopup('cannot show because the popup window does not exist')
+    return
+  }
 
   const cursorPoint = screen.getCursorScreenPoint()
   const activeDisplay = screen.getDisplayNearestPoint(cursorPoint)
@@ -297,9 +494,46 @@ function positionAndShowPopup(): void {
   popupWindow.focus()
   popupWindow.webContents.focus()
   popupWindow.webContents.send('popup-show')
+  retryPopupInputFocus(popupWindow, ++popupFocusRequestId)
+
+  logPopup('popup shown', {
+    position: popupWindow.getPosition(),
+    visible: popupWindow.isVisible(),
+    focused: popupWindow.isFocused()
+  })
+}
+
+function retryPopupInputFocus(window: BrowserWindow, requestId: number, attemptsLeft = 20): void {
+  setTimeout(() => {
+    if (
+      requestId !== popupFocusRequestId ||
+      attemptsLeft === 0 ||
+      window.isDestroyed() ||
+      !window.isVisible()
+    ) {
+      return
+    }
+
+    void window.webContents
+      .executeJavaScript(
+        "(() => { const input = document.querySelector('input'); input?.focus(); return document.activeElement === input })()"
+      )
+      .then((focused) => {
+        if (focused) {
+          logPopup('input focused by retry', { attempts: 21 - attemptsLeft })
+          return
+        }
+
+        retryPopupInputFocus(window, requestId, attemptsLeft - 1)
+      })
+      .catch((error: unknown) => {
+        console.error(POPUP_LOG_PREFIX, 'input focus retry failed', error)
+      })
+  }, 50)
 }
 
 function hidePopup(): void {
+  popupFocusRequestId += 1
   if (popupWindow && !popupWindow.isDestroyed() && popupWindow.isVisible()) {
     popupWindow.hide()
   }
@@ -385,93 +619,124 @@ function buildMenu(): void {
     }
   ]
 
-  const menu = Menu.buildFromTemplate(template)
+  const menu = process.platform === 'darwin' ? Menu.buildFromTemplate(template) : null
   Menu.setApplicationMenu(menu)
 }
 
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId(app.name)
+if (gotTheLock) {
+  app.whenReady().then(() => {
+    logPopup('Electron ready', {
+      platform: process.platform,
+      sessionType: process.env.XDG_SESSION_TYPE || 'unknown',
+      waylandDisplay: Boolean(process.env.WAYLAND_DISPLAY),
+      ozonePlatform: app.commandLine.getSwitchValue('ozone-platform') || 'default'
+    })
 
-  // Set dock icon on macOS (needed for dev mode)
-  if (process.platform === 'darwin') {
-    app.dock?.setIcon(nativeImage.createFromPath(icon))
-  }
+    electronApp.setAppUserModelId(app.name)
 
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
-
-  // IPC: close/hide popup window
-  ipcMain.on('close-popup', () => {
-    hidePopup()
-  })
-
-  // Global shortcut for quick-add task
-  globalShortcut.register('CmdOrCtrl+Shift+A', () => {
-    showPopup()
-  })
-
-  // IPC: get/set server URL, reload window to new server
-  ipcMain.handle('get-server-url', () => {
-    return getServerUrl()
-  })
-
-  ipcMain.handle('check-server-url', async (_event, url?: string) => {
-    return checkServerUrl(url || getServerUrl())
-  })
-
-  ipcMain.handle('set-server-url', async (_event, url: string) => {
-    const checkResult = await checkServerUrl(url)
-    if (!checkResult.ok) {
-      throw new Error(checkResult.error)
+    // Set dock icon on macOS (needed for dev mode)
+    if (process.platform === 'darwin') {
+      app.dock?.setIcon(nativeImage.createFromPath(icon))
     }
 
-    store.set(serverUrlKey, checkResult.serverUrl)
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
 
-    reloadPopupWindow()
+    // IPC: close/hide popup window
+    ipcMain.on('close-popup', () => {
+      hidePopup()
+    })
 
-    // Destroy and recreate the main window to cleanly navigate to the new server
-    // (avoids race conditions between the renderer's JS and loadURL)
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.destroy()
+    // Global shortcut for quick-add task
+    const quickAddShortcuts = ['CmdOrCtrl+Shift+A']
+
+    for (const quickAddShortcut of quickAddShortcuts) {
+      logPopup('registering global shortcut', quickAddShortcut)
+      const shortcutRegistered = globalShortcut.register(quickAddShortcut, () => {
+        logPopup('global shortcut activated', quickAddShortcut)
+        showPopup()
+      })
+      const shortcutIsRegistered = globalShortcut.isRegistered(quickAddShortcut)
+      if (!shortcutRegistered || !shortcutIsRegistered) {
+        console.error(`Failed to register global shortcut: ${quickAddShortcut}`)
+      } else {
+        logPopup('global shortcut registered', quickAddShortcut)
+      }
     }
-    createWindow()
-  })
 
-  ipcMain.handle('reset-server-url', async () => {
-    store.set(serverUrlKey, DEFAULT_SERVER)
+    // IPC: get/set server URL, reload window to new server
+    ipcMain.handle('get-server-url', () => {
+      return getServerUrl()
+    })
 
-    reloadPopupWindow()
+    ipcMain.handle('check-server-url', async (_event, url?: string) => {
+      return checkServerUrl(url || getServerUrl())
+    })
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.destroy()
-    }
-    createWindow()
-  })
+    ipcMain.handle('set-server-url', async (_event, url: string) => {
+      const checkResult = await checkServerUrl(url)
+      if (!checkResult.ok) {
+        throw new Error(checkResult.error)
+      }
 
-  createWindow()
-  initPopupWindow()
+      store.set(serverUrlKey, checkResult.serverUrl)
 
-  // Check for updates (downloads and notifies user when ready)
-  if (!is.dev && app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify()
-  }
+      reloadPopupWindow()
 
-  app.on('activate', function () {
-    if (!mainWindow || mainWindow.isDestroyed()) {
+      // Destroy and recreate the main window to cleanly navigate to the new server
+      // (avoids race conditions between the renderer's JS and loadURL)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.destroy()
+      }
       createWindow()
-    } else if (!mainWindow.isVisible()) {
-      mainWindow.show()
+    })
+
+    ipcMain.handle('reset-server-url', async () => {
+      store.set(serverUrlKey, DEFAULT_SERVER)
+
+      reloadPopupWindow()
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.destroy()
+      }
+      createWindow()
+    })
+
+    const showQuickAddAtLaunch = hasQuickAddArgument(process.argv)
+    createWindow(!showQuickAddAtLaunch)
+    initPopupWindow()
+    initTray()
+    registerQuickAddBus()
+
+    if (showQuickAddAtLaunch) {
+      logPopup('quick add requested at launch')
+      popupWindow?.once('ready-to-show', () => {
+        showPopup()
+      })
     }
+
+    // Check for updates (downloads and notifies user when ready)
+    if (!is.dev && app.isPackaged) {
+      autoUpdater.checkForUpdatesAndNotify()
+    }
+
+    app.on('activate', function () {
+      if (!mainWindow || mainWindow.isDestroyed()) {
+        createWindow()
+      } else if (!mainWindow.isVisible()) {
+        mainWindow.show()
+      }
+    })
   })
+}
+
+app.on('before-quit', () => {
+  isQuitting = true
+  appControlBus?.connection.end()
+  appControlBus = null
 })
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
-})
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
 })

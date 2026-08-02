@@ -9,18 +9,18 @@ import {
   habitsTable,
   installProjectTaskStatsHooks,
   loadSpaceBackup,
-  migrateProjectCategoryTaskStats,
+  migrateProjectSectionTaskStats,
   migrateScheduledTodoTasks,
-  projectCategoriesTable,
-  projectCategoryTaskStatsTable,
+  projectSectionsTable,
+  projectSectionTaskStatsTable,
   projectsTable,
   registeredSpaceSyncableTableNameMap,
   registeredSpaceSyncableTables,
   scheduledTodoTasksTable,
   routinesTable,
   spaceMigrationsTable,
-  stashProjectionsTable,
-  taskProjectionsTable,
+  stashEntriesTable,
+  dailyEntriesTable,
   tasksTable,
 } from "@will-be-done/slices/space";
 import { asyncDispatch, selectAsync } from "@will-be-done/hyperdb";
@@ -42,7 +42,7 @@ export const spaceDBConfig = (dbId: string) => {
     dbType: spaceDbType,
     persistDBTables: [
       ...registeredSpaceSyncableTables,
-      projectCategoryTaskStatsTable,
+      projectSectionTaskStatsTable,
       scheduledTodoTasksTable,
       spaceMigrationsTable,
       changesTable,
@@ -61,20 +61,19 @@ export const spaceDBConfig = (dbId: string) => {
           { table: changesTable, scanIndex: "byEntityIdAndTableName" },
           { table: tasksTable, scanIndex: "byIds" },
           { table: dailyListsTable, scanIndex: "byIds" },
-          { table: taskProjectionsTable, scanIndex: "byIds" },
+          { table: dailyEntriesTable, scanIndex: "byIds" },
           { table: projectsTable, scanIndex: "byIds" },
-          { table: projectCategoriesTable, scanIndex: "byIds" },
-          { table: stashProjectionsTable, scanIndex: "byIds" },
-          { table: projectCategoryTaskStatsTable, scanIndex: "byIds" },
+          { table: projectSectionsTable, scanIndex: "byIds" },
+          { table: stashEntriesTable, scanIndex: "byIds" },
+          { table: projectSectionTaskStatsTable, scanIndex: "byIds" },
           { table: scheduledTodoTasksTable, scanIndex: "byIds" },
-          { table: stashProjectionsTable, scanIndex: "byIds" },
           { table: checklistItemsTable, scanIndex: "byIds" },
           { table: habitsTable, scanIndex: "byIds" },
           { table: routinesTable, scanIndex: "byIds" },
           { table: habitCompletionsTable, scanIndex: "byIds" },
         ]),
       );
-      await asyncDispatch(db, migrateProjectCategoryTaskStats({}));
+      await asyncDispatch(db, migrateProjectSectionTaskStats({}));
       await asyncDispatch(db, migrateScheduledTodoTasks({}));
 
       // To make load faster
@@ -118,17 +117,17 @@ export const demoSpaceDBConfig = () => {
       await execAsync(
         db.preloadTables([
           { table: projectsTable, scanIndex: "byIds" },
-          { table: projectCategoriesTable, scanIndex: "byIds" },
-          { table: taskProjectionsTable, scanIndex: "byIds" },
-          { table: stashProjectionsTable, scanIndex: "byIds" },
-          { table: projectCategoryTaskStatsTable, scanIndex: "byIds" },
+          { table: projectSectionsTable, scanIndex: "byIds" },
+          { table: dailyEntriesTable, scanIndex: "byIds" },
+          { table: stashEntriesTable, scanIndex: "byIds" },
+          { table: projectSectionTaskStatsTable, scanIndex: "byIds" },
           { table: scheduledTodoTasksTable, scanIndex: "byIds" },
           { table: habitsTable, scanIndex: "byIds" },
           { table: routinesTable, scanIndex: "byIds" },
           { table: habitCompletionsTable, scanIndex: "byIds" },
         ]),
       );
-      await asyncDispatch(db, migrateProjectCategoryTaskStats({}));
+      await asyncDispatch(db, migrateProjectSectionTaskStats({}));
       await asyncDispatch(db, migrateScheduledTodoTasks({}));
 
       // To make load faster
@@ -159,6 +158,6 @@ export const userDBConfig = (dbId: string) => {
     ],
     syncableDBTables: registeredUserSyncableTables,
     tableNameMap: registeredUserSyncableTableNameMap,
-    afterInit: () => { },
+    afterInit: () => {},
   } satisfies SyncConfig;
 };

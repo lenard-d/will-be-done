@@ -369,4 +369,3 @@ may be a value or a zero-argument function that returns the value. Use
 - For partial updates, read the current row and `upsert` the complete next row.
 - Keep schema, selectors, and actions in shared modules/packages so client and server can
   import the same data layer.
-

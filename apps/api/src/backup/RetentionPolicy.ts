@@ -27,7 +27,7 @@ export class RetentionPolicy {
       case "hourly":
         return addHours(
           now,
-          -retentionCount * this.config.WBD_BACKUP_HOURLY_INTERVAL_HOURS
+          -retentionCount * this.config.WBD_BACKUP_HOURLY_INTERVAL_HOURS,
         );
       case "daily":
         return addDays(now, -retentionCount);

@@ -11,10 +11,13 @@ describe("resolveSpaceId", () => {
     );
   });
 
-  test("uses the first registered space only when --space is omitted", () => {
-    expect(resolveSpaceId(undefined, spaces)).toBe("space-one");
+  test("uses the only registered space when --space is omitted", () => {
+    expect(resolveSpaceId(undefined, [{ id: "space-one" }])).toBe("space-one");
     expect(() => resolveSpaceId(undefined, [])).toThrow(
       "No will-be-done space found",
+    );
+    expect(() => resolveSpaceId(undefined, spaces)).toThrow(
+      "Multiple spaces found; pass --space ID explicitly",
     );
   });
 });

@@ -1,4 +1,9 @@
-import { asyncDispatch, DB, execAsync } from "@will-be-done/hyperdb";
+import {
+  asyncDispatch,
+  DB,
+  execAsync,
+  selectAsync,
+} from "@will-be-done/hyperdb";
 import {
   insertChangeFromInsert,
   changesTable,
@@ -8,10 +13,14 @@ import {
 import { dbIdTrait } from "@will-be-done/slices/traits";
 import {
   createInboxIfNotExists,
-  createProjectCategoryTask,
-  firstProjectCategoryChild,
+  createTaskInSection,
+  firstProjectSectionChild,
   registeredSpaceSyncableTables,
   tasksTable,
+  areSpaceStorageMigrationsApplied,
+  migrateLegacySpaceStorage,
+  spaceMigrationsTable,
+  spaceStorageMigrationTables,
 } from "@will-be-done/slices/space";
 import { BroadcastChannel } from "broadcast-channel";
 import { authUtils } from "@/lib/auth";
@@ -20,6 +29,8 @@ import {
   resolvePersistentDriverKind,
 } from "./persistentDriver";
 import { getClientId, initClock } from "./syncClock";
+import { syncChannelName } from "./syncCompatibility";
+import { withStoreStartupLock } from "./storeDbs";
 
 export async function initPopupStore(spaceId: string) {
   const dbName = "space-" + spaceId;
@@ -33,12 +44,24 @@ export async function initPopupStore(spaceId: string) {
     syncStateTable,
   ];
 
-  const persistentDriver = await openPersistentDriver(dbName);
-  const asyncDB = new DB(persistentDriver, {
-    traits: [dbIdTrait("space", spaceId)],
-  });
+  const asyncDB = await withStoreStartupLock(dbName, async () => {
+    const persistentDriver = await openPersistentDriver(dbName);
+    const db = new DB(persistentDriver, {
+      traits: [dbIdTrait("space", spaceId)],
+    });
 
-  await execAsync(asyncDB.loadTables(persistDBTables));
+    await execAsync(db.loadTables([spaceMigrationsTable]));
+    const migrationApplied = await selectAsync(db, {
+      selector: areSpaceStorageMigrationsApplied,
+      args: {},
+    });
+    if (!migrationApplied) {
+      await execAsync(db.loadTables(spaceStorageMigrationTables));
+      await asyncDispatch(db, migrateLegacySpaceStorage({}));
+    }
+    await execAsync(db.loadTables(persistDBTables));
+    return db;
+  });
 
   // Ensure inbox exists
   await asyncDispatch(asyncDB, createInboxIfNotExists({}));
@@ -51,17 +74,17 @@ export async function initPopupStore(spaceId: string) {
           // Get inbox project
           const inbox = yield* createInboxIfNotExists({});
 
-          // Get first category of inbox
-          const inboxCategory = yield* firstProjectCategoryChild({
+          // Get first section of inbox
+          const inboxSection = yield* firstProjectSectionChild({
             projectId: inbox.id,
           });
-          if (!inboxCategory) {
-            throw new Error("Inbox category not found");
+          if (!inboxSection) {
+            throw new Error("Inbox section not found");
           }
 
           // Create task at the top (prepend)
-          const task = yield* createProjectCategoryTask({
-            categoryId: inboxCategory.id,
+          const task = yield* createTaskInSection({
+            projectSectionId: inboxSection.id,
             position: "prepend",
             taskAttrs: { title },
           });
@@ -79,7 +102,7 @@ export async function initPopupStore(spaceId: string) {
       );
 
       // Notify main window via BroadcastChannel
-      const bc = new BroadcastChannel(`changes-${clientId}`);
+      const bc = new BroadcastChannel(syncChannelName("changes", clientId));
       const changeset: ChangesetArrayType = [
         {
           tableName: tasksTable.tableName,

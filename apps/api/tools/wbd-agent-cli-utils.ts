@@ -11,7 +11,9 @@ export function resolveSpaceId(
     return requestedSpaceId;
   }
 
-  const defaultSpaceId = spaces[0]?.id;
-  if (!defaultSpaceId) throw new Error("No will-be-done space found");
-  return defaultSpaceId;
+  if (spaces.length === 0) throw new Error("No will-be-done space found");
+  if (spaces.length > 1) {
+    throw new Error("Multiple spaces found; pass --space ID explicitly");
+  }
+  return spaces[0].id;
 }

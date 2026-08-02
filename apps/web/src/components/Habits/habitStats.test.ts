@@ -11,7 +11,7 @@ const task = (values: Partial<Task>): Task => ({
   id: values.id ?? crypto.randomUUID(),
   title: values.title ?? "Task",
   state: values.state ?? "done",
-  projectCategoryId: values.projectCategoryId ?? "category",
+  projectSectionId: values.projectSectionId ?? "category",
   orderToken: values.orderToken ?? "a",
   lastToggledAt: values.lastToggledAt ?? 0,
   createdAt: values.createdAt ?? 0,

@@ -1,7 +1,8 @@
 {
   "name": "will-be-done",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "Task management app",
+  "desktopName": "app.willbedone.WillBeDone",
   "main": "./out/main/index.js",
   "author": "quolpr",
   "homepage": "https://will-be-done.app",
@@ -17,6 +18,7 @@
     "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
+    "quick-add": "NODE_ENV=development electron . --show-quick-add",
     "build": "pnpm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "pnpm run build && electron-builder --dir",
@@ -27,6 +29,7 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@homebridge/dbus-native": "^0.7.7",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.3.9"
   },

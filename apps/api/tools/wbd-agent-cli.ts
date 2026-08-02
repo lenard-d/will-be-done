@@ -99,16 +99,36 @@ async function main() {
   const projects = (db: AnyDb) =>
     selectSync(db, { selector: space.allProjects, args: {} });
   const categories = (db: AnyDb) =>
-    selectSync(db, { selector: space.allProjectCategories, args: {} });
+    selectSync(db, { selector: space.allProjectSections, args: {} });
   const tasks = (db: AnyDb) =>
     selectSync(db, { selector: space.allTasks, args: {} });
+  const requireProject = (db: AnyDb, projectId: string) =>
+    projects(db).find((project) => project.id === projectId) ??
+    fail(`Project not found: ${projectId}`);
+  const requireCategory = (db: AnyDb, categoryId: string) =>
+    categories(db).find((category) => category.id === categoryId) ??
+    fail(`Category not found: ${categoryId}`);
+  const requireTask = (db: AnyDb, taskId: string) =>
+    tasks(db).find((task) => task.id === taskId) ??
+    fail(`Task not found: ${taskId}`);
   const chooseCategory = (db: AnyDb) => {
     const explicitCategory = option("--category");
-    if (explicitCategory) return explicitCategory;
+    const explicitProject = option("--project");
+    if (explicitCategory) {
+      const category = requireCategory(db, explicitCategory);
+      if (explicitProject) {
+        requireProject(db, explicitProject);
+        if (category.projectId !== explicitProject) {
+          fail(`Category ${explicitCategory} does not belong to project ${explicitProject}`);
+        }
+      }
+      return category.id;
+    }
     const rows = projects(db);
     const projectId =
-      option("--project") ?? rows.find((row) => row.isInbox)?.id ?? rows[0]?.id;
+      explicitProject ?? rows.find((row) => row.isInbox)?.id ?? rows[0]?.id;
     if (!projectId) fail("No project found");
+    requireProject(db, projectId);
     return (
       categories(db).find((row) => row.projectId === projectId)?.id ??
       fail(`Project has no category: ${projectId}`)
@@ -162,10 +182,11 @@ async function main() {
     const projectId = args[0] || fail("Missing project-id");
     const title = args.slice(1).join(" ") || fail("Missing category title");
     const { spaceId, db } = spaceContext();
+    requireProject(db, projectId);
     const category = syncDispatch(
       db,
-      space.createCategory({
-        categoryDraft: { projectId, title },
+      space.createProjectSection({
+        sectionDraft: { projectId, title },
         position: "append",
       }),
     );
@@ -184,7 +205,7 @@ async function main() {
           .filter((category) => category.projectId === projectId)
           .map((category) => category.id),
       );
-      rows = rows.filter((task) => categoryIds.has(task.projectCategoryId));
+      rows = rows.filter((task) => categoryIds.has(task.projectSectionId));
     }
     output({ spaceId, tasks: rows });
   } else if (group === "tasks" && command === "create") {
@@ -192,8 +213,8 @@ async function main() {
     const { spaceId, db } = spaceContext();
     const task = syncDispatch(
       db,
-      space.createProjectCategoryTask({
-        categoryId: chooseCategory(db),
+      space.createTaskInSection({
+        projectSectionId: chooseCategory(db),
         position: "append",
         taskAttrs: { title, content: option("--content") },
       }),
@@ -206,7 +227,7 @@ async function main() {
       title?: string;
       content?: string;
       state?: "todo" | "done";
-      projectCategoryId?: string;
+      projectSectionId?: string;
     } = {};
     if (option("--title")) task.title = option("--title");
     if (option("--content")) task.content = option("--content");
@@ -216,7 +237,7 @@ async function main() {
       task.state = state;
     }
     if (option("--category") || option("--project")) {
-      task.projectCategoryId = chooseCategory(db);
+      task.projectSectionId = chooseCategory(db);
     }
     if (Object.keys(task).length === 0) fail("Nothing to update");
     syncDispatch(db, space.updateTask({ id: taskId, task }));
@@ -241,6 +262,7 @@ async function main() {
   } else if (group === "tasks" && command === "delete") {
     const taskId = positionalArgs()[0] || fail("Missing task-id");
     const { spaceId, db } = spaceContext();
+    requireTask(db, taskId);
     syncDispatch(db, space.deleteTasks({ ids: [taskId] }));
     output({ spaceId, deleted: taskId });
   } else {

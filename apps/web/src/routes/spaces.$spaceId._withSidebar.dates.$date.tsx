@@ -5,8 +5,8 @@ import { asyncDispatch, preloadSelectorAsync } from "@will-be-done/hyperdb";
 import {
   createManyDailyListsIfNotPresent,
   dailyListsByDates,
-  dailyProjectionChildrenForDisplay,
-  doneDailyProjectionChildrenForDisplay,
+  dailyEntryChildrenForDisplay,
+  doneDailyEntryChildrenForDisplay,
   inboxProjectId,
 } from "@will-be-done/slices/space";
 
@@ -39,13 +39,13 @@ export const Route = createFileRoute(
     for (const dailyList of dailyLists) {
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: dailyProjectionChildrenForDisplay,
+          selector: dailyEntryChildrenForDisplay,
           args: { dailyListId: dailyList.id },
         }),
       );
       appendPromise(
         preloadSelectorAsync(db, {
-          selector: doneDailyProjectionChildrenForDisplay,
+          selector: doneDailyEntryChildrenForDisplay,
           args: { dailyListId: dailyList.id },
         }),
       );

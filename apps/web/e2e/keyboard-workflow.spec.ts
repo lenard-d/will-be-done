@@ -3,12 +3,12 @@ import { expect, type Locator, test } from "playwright/test";
 import {
   createProjectTask,
   createSpace,
-  dailyTaskCard,
+  dailyTaskItem,
   openSpace,
-  projectTaskCard,
+  projectTaskItem,
   signupUser,
   stashPanel,
-  stashTaskCard,
+  stashTaskItem,
   uniqueE2EName,
 } from "./helpers";
 
@@ -25,51 +25,51 @@ test("supports a keyboard-only planning loop", async ({ page }) => {
   await page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ }).click();
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/projects\/[^/]+$/);
 
-  const firstCard = await createProjectTask(page, firstTitle);
-  await firstCard.click();
-  await expectFocused(firstCard);
+  const firstItem = await createProjectTask(page, firstTitle);
+  await firstItem.click();
+  await expectFocused(firstItem);
 
   await page.keyboard.press("KeyO");
   await page.getByLabel("Edit task title").fill(belowTitle);
   await page.keyboard.press("Enter");
-  await expect(projectTaskCard(page, belowTitle)).toBeVisible();
+  await expect(projectTaskItem(page, belowTitle)).toBeVisible();
 
-  await projectTaskCard(page, belowTitle).click();
+  await projectTaskItem(page, belowTitle).click();
   await page.keyboard.down("Shift");
   await page.keyboard.press("KeyO");
   await page.keyboard.up("Shift");
   await page.getByLabel("Edit task title").fill(aboveTitle);
   await page.keyboard.press("Enter");
-  await expect(projectTaskCard(page, aboveTitle)).toBeVisible();
+  await expect(projectTaskItem(page, aboveTitle)).toBeVisible();
 
-  await projectTaskCard(page, firstTitle).click();
+  await projectTaskItem(page, firstTitle).click();
   await page.keyboard.press("KeyJ");
-  await expectFocused(projectTaskCard(page, aboveTitle));
+  await expectFocused(projectTaskItem(page, aboveTitle));
 
   await page.keyboard.press("KeyK");
-  await expectFocused(projectTaskCard(page, firstTitle));
+  await expectFocused(projectTaskItem(page, firstTitle));
 
   await page.keyboard.press("Space");
-  await expect(projectTaskCard(page, firstTitle)).toHaveAttribute(
+  await expect(projectTaskItem(page, firstTitle)).toHaveAttribute(
     "data-ignore-drop",
     "true",
   );
 
-  await projectTaskCard(page, aboveTitle).click();
+  await projectTaskItem(page, aboveTitle).click();
   await page.keyboard.press("KeyT");
 
   await page.getByRole("link", { name: /today/i }).click();
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/dates\/\d{4}-\d{2}-\d{2}$/);
-  await expect(dailyTaskCard(page, aboveTitle)).toBeVisible();
+  await expect(dailyTaskItem(page, aboveTitle)).toBeVisible();
 
-  await dailyTaskCard(page, aboveTitle).click();
+  await dailyTaskItem(page, aboveTitle).click();
   await page.keyboard.press("KeyR");
-  await expect(dailyTaskCard(page, aboveTitle)).toHaveCount(0);
+  await expect(dailyTaskItem(page, aboveTitle)).toHaveCount(0);
 
   await page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ }).click();
-  await expect(projectTaskCard(page, aboveTitle)).toBeVisible();
+  await expect(projectTaskItem(page, aboveTitle)).toBeVisible();
 
-  await projectTaskCard(page, belowTitle).click();
+  await projectTaskItem(page, belowTitle).click();
   await page.keyboard.down("Shift");
   await page.keyboard.press("KeyS");
   await page.keyboard.up("Shift");
@@ -77,26 +77,26 @@ test("supports a keyboard-only planning loop", async ({ page }) => {
 
   await page.keyboard.press("Backslash");
   await expect(stashPanel(page)).toHaveAttribute("aria-hidden", "false");
-  await expect(stashTaskCard(page, belowTitle)).toBeVisible();
+  await expect(stashTaskItem(page, belowTitle)).toBeVisible();
 
   await page.getByRole("link", { name: "timeline" }).click();
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/timeline\/\d{4}-\d{2}-\d{2}/);
   await expect(stashPanel(page)).toHaveAttribute("aria-hidden", "false");
-  await stashTaskCard(page, belowTitle).click();
+  await stashTaskItem(page, belowTitle).click();
   await page.keyboard.press("KeyV");
-  await expect(page.getByTestId("card-details-panel")).toHaveAttribute(
+  await expect(page.getByTestId("item-details-panel")).toHaveAttribute(
     "aria-hidden",
     "false",
   );
 
   await page.keyboard.press("KeyZ");
   await expect(stashPanel(page)).toHaveAttribute("aria-hidden", "true");
-  await expect(page.getByTestId("card-details-panel")).toHaveAttribute(
+  await expect(page.getByTestId("item-details-panel")).toHaveAttribute(
     "aria-hidden",
     "true",
   );
 });
 
-async function expectFocused(card: Locator) {
-  await expect(card).toHaveClass(/ring-2 ring-accent/);
+async function expectFocused(item: Locator) {
+  await expect(item).toHaveClass(/ring-2 ring-accent/);
 }

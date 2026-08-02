@@ -50,32 +50,60 @@ interface ModalState {
 }
 
 const RRULE_DAYS = [
-  RRule.MO, RRule.TU, RRule.WE, RRule.TH, RRule.FR, RRule.SA, RRule.SU,
+  RRule.MO,
+  RRule.TU,
+  RRule.WE,
+  RRule.TH,
+  RRule.FR,
+  RRule.SA,
+  RRule.SU,
 ];
 const WEEKDAY_LABELS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 const FREQ_ABBREV: Record<FreqMode, string> = {
-  minutely: "min.", daily: "d.", weekly: "w.", monthly: "m.", yearly: "y.",
+  minutely: "min.",
+  daily: "d.",
+  weekly: "w.",
+  monthly: "m.",
+  yearly: "y.",
 };
 
-function todayISO() { return format(new Date(), "yyyy-MM-dd"); }
+function todayISO() {
+  return format(new Date(), "yyyy-MM-dd");
+}
 
 function freqFromRRule(freq: number): FreqMode {
   if (freq === RRule.MINUTELY) return "minutely";
-  if (freq === RRule.WEEKLY)  return "weekly";
+  if (freq === RRule.WEEKLY) return "weekly";
   if (freq === RRule.MONTHLY) return "monthly";
-  if (freq === RRule.YEARLY)  return "yearly";
+  if (freq === RRule.YEARLY) return "yearly";
   return "daily";
 }
 
 function parseRule(ruleString?: string): ModalState {
   const defaults: ModalState = {
-    freq: "daily", interval: 1, weekdays: [],
-    monthDay: 1, yearMonth: 1, yearDay: 1,
-    endMode: "never", count: 5, until: todayISO(),
+    freq: "daily",
+    interval: 1,
+    weekdays: [],
+    monthDay: 1,
+    yearMonth: 1,
+    yearDay: 1,
+    endMode: "never",
+    count: 5,
+    until: todayISO(),
   };
   if (!ruleString) return defaults;
   try {
@@ -86,31 +114,65 @@ function parseRule(ruleString?: string): ModalState {
     let weekdays: number[] = [];
     if (opts.byweekday && (opts.byweekday as unknown[]).length > 0)
       weekdays = (opts.byweekday as unknown[]).map((d) =>
-        typeof d === "number" ? d : (d as { weekday: number }).weekday);
+        typeof d === "number" ? d : (d as { weekday: number }).weekday,
+      );
     const bmd = opts.bymonthday as number[] | null;
-    const bm  = opts.bymonth  as number[] | null;
-    const monthDay  = bmd?.length ? bmd[0]! : 1;
-    const yearDay   = bmd?.length ? bmd[0]! : 1;
-    const yearMonth = bm?.length  ? bm[0]!  : 1;
-    let endMode: EndMode = "never", count = 5, until = todayISO();
-    if (opts.count != null)      { endMode = "count"; count = opts.count; }
-    else if (opts.until != null) { endMode = "date";  until = format(opts.until, "yyyy-MM-dd"); }
-    return { freq, interval, weekdays, monthDay, yearMonth, yearDay, endMode, count, until };
-  } catch { return defaults; }
+    const bm = opts.bymonth as number[] | null;
+    const monthDay = bmd?.length ? bmd[0]! : 1;
+    const yearDay = bmd?.length ? bmd[0]! : 1;
+    const yearMonth = bm?.length ? bm[0]! : 1;
+    let endMode: EndMode = "never",
+      count = 5,
+      until = todayISO();
+    if (opts.count != null) {
+      endMode = "count";
+      count = opts.count;
+    } else if (opts.until != null) {
+      endMode = "date";
+      until = format(opts.until, "yyyy-MM-dd");
+    }
+    return {
+      freq,
+      interval,
+      weekdays,
+      monthDay,
+      yearMonth,
+      yearDay,
+      endMode,
+      count,
+      until,
+    };
+  } catch {
+    return defaults;
+  }
 }
 
 function buildRRule(state: ModalState): RRule {
   const freqMap: Record<FreqMode, number> = {
-    minutely: RRule.MINUTELY, daily: RRule.DAILY, weekly: RRule.WEEKLY, monthly: RRule.MONTHLY, yearly: RRule.YEARLY,
+    minutely: RRule.MINUTELY,
+    daily: RRule.DAILY,
+    weekly: RRule.WEEKLY,
+    monthly: RRule.MONTHLY,
+    yearly: RRule.YEARLY,
   };
-  const opts: Partial<RRuleOptions> = { freq: freqMap[state.freq], interval: state.interval };
+  const opts: Partial<RRuleOptions> = {
+    freq: freqMap[state.freq],
+    interval: state.interval,
+  };
   if (state.freq === "weekly" && state.weekdays.length > 0)
     opts.byweekday = state.weekdays.map((d) => RRULE_DAYS[d]!);
   if (state.freq === "monthly") opts.bymonthday = [state.monthDay];
-  if (state.freq === "yearly")  { opts.bymonth = [state.yearMonth]; opts.bymonthday = [state.yearDay]; }
+  if (state.freq === "yearly") {
+    opts.bymonth = [state.yearMonth];
+    opts.bymonthday = [state.yearDay];
+  }
   if (state.endMode === "count") opts.count = state.count;
   else if (state.endMode === "date" && state.until)
-    try { opts.until = parseISO(state.until); } catch { /* ignore */ }
+    try {
+      opts.until = parseISO(state.until);
+    } catch {
+      /* ignore */
+    }
   return new RRule(opts);
 }
 
@@ -128,14 +190,28 @@ function getNextOccurrences(rule: RRule, n: number): Date[] {
 
 // ─── Number input — no browser spinners ───────────────────────────────────
 
-function NumInput({ value, min, max, width = "4rem", onChange }: {
-  value: number; min: number; max: number; width?: string;
+function NumInput({
+  value,
+  min,
+  max,
+  width = "4rem",
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  width?: string;
   onChange: (v: number) => void;
 }) {
   return (
     <input
-      type="number" min={min} max={max} value={value}
-      onChange={(e) => onChange(Math.min(max, Math.max(min, parseInt(e.target.value) || min)))}
+      type="number"
+      min={min}
+      max={max}
+      value={value}
+      onChange={(e) =>
+        onChange(Math.min(max, Math.max(min, parseInt(e.target.value) || min)))
+      }
       className={cn(
         "text-center text-content text-sm py-1.5 px-2 rounded-lg",
         "bg-transparent border border-border",
@@ -151,15 +227,26 @@ function NumInput({ value, min, max, width = "4rem", onChange }: {
 
 // ─── Radio row ─────────────────────────────────────────────────────────────
 
-function RadioRow({ active, onClick, children }: {
-  active: boolean; onClick: () => void; children: React.ReactNode;
+function RadioRow({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
 }) {
   return (
-    <div onClick={onClick} className="flex items-center gap-3 cursor-pointer py-1.5">
-      <div className={cn(
-        "w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors",
-        active ? "border-accent" : "border-border",
-      )}>
+    <div
+      onClick={onClick}
+      className="flex items-center gap-3 cursor-pointer py-1.5"
+    >
+      <div
+        className={cn(
+          "w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors",
+          active ? "border-accent" : "border-border",
+        )}
+      >
         {active && <div className="w-2 h-2 rounded-full bg-accent" />}
       </div>
       {children}
@@ -185,16 +272,24 @@ export interface RepeatModalProps {
   onCancel: () => void;
 }
 
-export function RepeatModal({ initialRule, onConfirm, onCancel }: RepeatModalProps) {
+export function RepeatModal({
+  initialRule,
+  onConfirm,
+  onCancel,
+}: RepeatModalProps) {
   const [state, setState] = useState<ModalState>(() => parseRule(initialRule));
   const [calendarOpen, setCalendarOpen] = useState(false);
   // Controlled so we can toggle it from both the button and RadioRow clicks
 
-  useEffect(() => { useFocusStore.getState().disableFocus(); }, []);
-  useUnmount(() => { useFocusStore.getState().enableFocus(); });
+  useEffect(() => {
+    useFocusStore.getState().disableFocus();
+  }, []);
+  useUnmount(() => {
+    useFocusStore.getState().enableFocus();
+  });
 
-  const rule      = useMemo(() => buildRRule(state), [state]);
-  const ruleText  = useMemo(() => rule.toText(), [rule]);
+  const rule = useMemo(() => buildRRule(state), [state]);
+  const ruleText = useMemo(() => rule.toText(), [rule]);
   const nextDates = useMemo(() => getNextOccurrences(rule, 3), [rule]);
 
   const set = <K extends keyof ModalState>(key: K, val: ModalState[K]) =>
@@ -209,32 +304,40 @@ export function RepeatModal({ initialRule, onConfirm, onCancel }: RepeatModalPro
     }));
 
   const freqOptions: { value: FreqMode; label: string }[] = [
-    ...(import.meta.env.DEV ? [{ value: "minutely" as const, label: "Minutely" }] : []),
-    { value: "daily",    label: "Daily"    },
-    { value: "weekly",   label: "Weekly"   },
-    { value: "monthly",  label: "Monthly"  },
-    { value: "yearly",   label: "Yearly"   },
+    ...(import.meta.env.DEV
+      ? [{ value: "minutely" as const, label: "Minutely" }]
+      : []),
+    { value: "daily", label: "Daily" },
+    { value: "weekly", label: "Weekly" },
+    { value: "monthly", label: "Monthly" },
+    { value: "yearly", label: "Yearly" },
   ];
 
   const selectedUntilDate = useMemo(() => {
-    try { return state.until ? parseISO(state.until) : undefined; }
-    catch { return undefined; }
+    try {
+      return state.until ? parseISO(state.until) : undefined;
+    } catch {
+      return undefined;
+    }
   }, [state.until]);
 
   return (
     <Dialog static className="relative z-[60]" open onClose={onCancel}>
       <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
         <DialogPanel className="w-full max-w-2xl rounded-2xl overflow-hidden bg-dialog-bg ring-1 ring-dialog-border shadow-[0_32px_80px_rgba(0,0,0,0.85)]">
-
           {/* ── Header ─────────────────────────────────────────────────── */}
           <div className="flex items-center justify-center gap-2.5 px-6 py-4 border-b border-dialog-border">
-            <RefreshCw className="h-[17px] w-[17px] text-accent" strokeWidth={2.5} />
-            <h2 className="text-base font-semibold text-primary tracking-tight">Repeat</h2>
+            <RefreshCw
+              className="h-[17px] w-[17px] text-accent"
+              strokeWidth={2.5}
+            />
+            <h2 className="text-base font-semibold text-primary tracking-tight">
+              Repeat
+            </h2>
           </div>
 
           {/* ── Body ───────────────────────────────────────────────────── */}
           <div className="flex min-h-[400px]">
-
             {/* ── Left sidebar ─────────────────────────────────────────── */}
             <div className="w-48 shrink-0 flex flex-col bg-dialog-sidebar border-r border-dialog-border">
               {/* Frequency list */}
@@ -276,27 +379,35 @@ export function RepeatModal({ initialRule, onConfirm, onCancel }: RepeatModalPro
 
             {/* ── Right panel — flat, no nested cards ──────────────────── */}
             <div className="flex-1 p-5 flex flex-col gap-5">
-
               {/* Repeat every */}
               <div>
                 <SectionLabel>Repeat every</SectionLabel>
                 <div className="flex items-center gap-2.5">
-                  <NumInput value={state.interval} min={1} max={999} width="5rem"
-                    onChange={(v) => set("interval", v)} />
-                  <span className="text-sm text-content-tinted-2">{FREQ_ABBREV[state.freq]}</span>
+                  <NumInput
+                    value={state.interval}
+                    min={1}
+                    max={999}
+                    width="5rem"
+                    onChange={(v) => set("interval", v)}
+                  />
+                  <span className="text-sm text-content-tinted-2">
+                    {FREQ_ABBREV[state.freq]}
+                  </span>
                 </div>
               </div>
 
               {/* Freq-specific — min-height keeps End section stable */}
               <div className="min-h-[72px]">
-
                 {/* Minutely: hint */}
                 {state.freq === "minutely" && (
                   <div>
                     <SectionLabel>Interval</SectionLabel>
                     <div className="flex items-center gap-2.5 text-sm text-content-tinted-2">
                       <Timer className="h-4 w-4 text-accent/70" />
-                      <span>Repeats every {state.interval} minute{state.interval !== 1 ? "s" : ""}</span>
+                      <span>
+                        Repeats every {state.interval} minute
+                        {state.interval !== 1 ? "s" : ""}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -332,8 +443,12 @@ export function RepeatModal({ initialRule, onConfirm, onCancel }: RepeatModalPro
                   <div>
                     <SectionLabel>Day of month</SectionLabel>
                     <div className="flex items-center gap-2.5">
-                      <NumInput value={state.monthDay} min={1} max={31}
-                        onChange={(v) => set("monthDay", v)} />
+                      <NumInput
+                        value={state.monthDay}
+                        min={1}
+                        max={31}
+                        onChange={(v) => set("monthDay", v)}
+                      />
                       <span className="text-sm text-content-tinted-2">day</span>
                     </div>
                   </div>
@@ -344,43 +459,72 @@ export function RepeatModal({ initialRule, onConfirm, onCancel }: RepeatModalPro
                   <div>
                     <SectionLabel>Day of year</SectionLabel>
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <NumInput value={state.yearDay} min={1} max={31}
-                        onChange={(v) => set("yearDay", v)} />
+                      <NumInput
+                        value={state.yearDay}
+                        min={1}
+                        max={31}
+                        onChange={(v) => set("yearDay", v)}
+                      />
                       <span className="text-sm text-content-tinted-2">of</span>
                       <select
                         value={state.yearMonth}
-                        onChange={(e) => set("yearMonth", parseInt(e.target.value))}
+                        onChange={(e) =>
+                          set("yearMonth", parseInt(e.target.value))
+                        }
                         className="bg-dialog-bg text-content text-sm py-1.5 px-3 rounded-lg border border-border focus:outline-none focus:border-accent transition-colors"
                       >
                         {MONTH_NAMES.map((m, i) => (
-                          <option key={m} value={i + 1}>{m}</option>
+                          <option key={m} value={i + 1}>
+                            {m}
+                          </option>
                         ))}
                       </select>
                     </div>
                   </div>
                 )}
-
               </div>
 
               {/* End */}
               <div>
                 <SectionLabel>End</SectionLabel>
                 <div className="space-y-0.5">
-
-                  <RadioRow active={state.endMode === "never"} onClick={() => set("endMode", "never")}>
+                  <RadioRow
+                    active={state.endMode === "never"}
+                    onClick={() => set("endMode", "never")}
+                  >
                     <span className="text-sm text-content">Never</span>
                   </RadioRow>
 
-                  <RadioRow active={state.endMode === "count"} onClick={() => set("endMode", "count")}>
-                    <span className="text-sm text-content w-10 shrink-0">After</span>
-                    <NumInput value={state.count} min={1} max={999} width="4rem"
-                      onChange={(v) => { set("count", v); set("endMode", "count"); }} />
-                    <span className="text-sm text-content-tinted-2">occurrences</span>
+                  <RadioRow
+                    active={state.endMode === "count"}
+                    onClick={() => set("endMode", "count")}
+                  >
+                    <span className="text-sm text-content w-10 shrink-0">
+                      After
+                    </span>
+                    <NumInput
+                      value={state.count}
+                      min={1}
+                      max={999}
+                      width="4rem"
+                      onChange={(v) => {
+                        set("count", v);
+                        set("endMode", "count");
+                      }}
+                    />
+                    <span className="text-sm text-content-tinted-2">
+                      occurrences
+                    </span>
                   </RadioRow>
 
                   {/* Date — non-portaled Popover stays inside Dialog DOM tree */}
-                  <RadioRow active={state.endMode === "date"} onClick={() => set("endMode", "date")}>
-                    <span className="text-sm text-content w-10 shrink-0">On</span>
+                  <RadioRow
+                    active={state.endMode === "date"}
+                    onClick={() => set("endMode", "date")}
+                  >
+                    <span className="text-sm text-content w-10 shrink-0">
+                      On
+                    </span>
                     <PopoverPrimitive.Root
                       open={calendarOpen}
                       onOpenChange={setCalendarOpen}
@@ -401,7 +545,9 @@ export function RepeatModal({ initialRule, onConfirm, onCancel }: RepeatModalPro
                         >
                           <CalendarIcon className="h-3.5 w-3.5 text-content-secondary shrink-0" />
                           <span>
-                            {selectedUntilDate ? format(selectedUntilDate, "MMM d, yyyy") : "Pick a date"}
+                            {selectedUntilDate
+                              ? format(selectedUntilDate, "MMM d, yyyy")
+                              : "Pick a date"}
                           </span>
                         </button>
                       </PopoverPrimitive.Trigger>
@@ -419,10 +565,8 @@ export function RepeatModal({ initialRule, onConfirm, onCancel }: RepeatModalPro
                       </InlinePopoverContent>
                     </PopoverPrimitive.Root>
                   </RadioRow>
-
                 </div>
               </div>
-
             </div>
           </div>
 
@@ -441,7 +585,6 @@ export function RepeatModal({ initialRule, onConfirm, onCancel }: RepeatModalPro
               Ok
             </button>
           </div>
-
         </DialogPanel>
       </div>
     </Dialog>

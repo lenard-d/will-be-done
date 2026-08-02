@@ -297,28 +297,28 @@ function SignupPage() {
 
           {window.location.host === "app.will-be-done.app" &&
             !(typeof window !== "undefined" && !!window.desktopApi) && (
-            <div className="mt-8 flex justify-center">
-              <a
-                href="https://will-be-done.app"
-                className="flex items-center gap-2 text-[13px] text-slate-500 transition-colors hover:text-slate-300"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
+              <div className="mt-8 flex justify-center">
+                <a
+                  href="https://will-be-done.app"
+                  className="flex items-center gap-2 text-[13px] text-slate-500 transition-colors hover:text-slate-300"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-                  />
-                </svg>
-                Back to home
-              </a>
-            </div>
-          )}
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+                    />
+                  </svg>
+                  Back to home
+                </a>
+              </div>
+            )}
         </div>
       </div>
     </div>

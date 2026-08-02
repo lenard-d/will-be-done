@@ -26,7 +26,9 @@ function write(name: string, data: unknown) {
 
 async function paginate<T>(
   label: string,
-  fn: (cursor?: string | null) => Promise<{ results?: T[]; items?: T[]; nextCursor: string | null }>,
+  fn: (
+    cursor?: string | null,
+  ) => Promise<{ results?: T[]; items?: T[]; nextCursor: string | null }>,
 ): Promise<T[]> {
   const all: T[] = [];
   let cursor: string | null | undefined = undefined;
@@ -37,7 +39,9 @@ async function paginate<T>(
     all.push(...batch);
     cursor = res.nextCursor;
     page++;
-    console.log(`  ${label} page ${page}: ${batch.length} items (nextCursor: ${cursor ?? "null"})`);
+    console.log(
+      `  ${label} page ${page}: ${batch.length} items (nextCursor: ${cursor ?? "null"})`,
+    );
   } while (cursor);
   return all;
 }

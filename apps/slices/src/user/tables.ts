@@ -2,6 +2,7 @@ import { defineTable, type ExtractSchema, v } from "@will-be-done/hyperdb";
 
 export const spacesTableType = "space";
 
+// NOTE: add "orderToken" support
 export const spacesTable = defineTable("spaces", {
   id: v.string(),
   type: v.literal(spacesTableType),

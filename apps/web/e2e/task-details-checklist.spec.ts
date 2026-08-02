@@ -7,7 +7,7 @@ import {
   openSpace,
   openTaskDetails,
   signupUser,
-  taskCard,
+  taskItem,
   uniqueE2EName,
 } from "./helpers";
 
@@ -51,7 +51,7 @@ test("edits task details and persists checklist items", async ({ page }) => {
 
   await page.reload();
 
-  await expect(page).toHaveURL(/\/spaces\/[^/]+\/card-details\/[^/]+$/);
+  await expect(page).toHaveURL(/\/spaces\/[^/]+\/item-details\/[^/]+$/);
   await expect(page.getByLabel("Edit task description")).toHaveValue(
     description,
   );
@@ -67,6 +67,6 @@ test("edits task details and persists checklist items", async ({ page }) => {
   await page.getByRole("button", { name: "Back" }).click();
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/dates\/\d{4}-\d{2}-\d{2}$/);
   await expect(
-    taskCard(page, taskTitle).getByText(checklistItem),
+    taskItem(page, taskTitle).getByText(checklistItem),
   ).toBeVisible();
 });

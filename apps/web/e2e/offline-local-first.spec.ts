@@ -5,7 +5,7 @@ import {
   createTodayTask,
   openSpace,
   signupUser,
-  taskCard,
+  taskItem,
   uniqueE2EName,
 } from "./helpers";
 
@@ -25,15 +25,15 @@ test("allows local task writes while offline and keeps them after reconnect", as
   await context.setOffline(true);
   await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
 
-  const offlineCard = await createTodayTask(page, initialTitle);
-  await expect(offlineCard).toBeVisible();
+  const offlineItem = await createTodayTask(page, initialTitle);
+  await expect(offlineItem).toBeVisible();
 
-  await offlineCard.dblclick();
-  await offlineCard.getByLabel("Edit task title").fill(editedTitle);
+  await offlineItem.dblclick();
+  await offlineItem.getByLabel("Edit task title").fill(editedTitle);
   await page.keyboard.press("Enter");
 
-  await expect(taskCard(page, editedTitle)).toBeVisible();
-  await expect(taskCard(page, initialTitle)).toHaveCount(0);
+  await expect(taskItem(page, editedTitle)).toBeVisible();
+  await expect(taskItem(page, initialTitle)).toHaveCount(0);
   await page.waitForTimeout(500);
 
   await context.setOffline(false);
@@ -42,6 +42,6 @@ test("allows local task writes while offline and keeps them after reconnect", as
   await page.reload();
 
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/dates\/\d{4}-\d{2}-\d{2}$/);
-  await expect(taskCard(page, editedTitle)).toBeVisible();
-  await expect(taskCard(page, initialTitle)).toHaveCount(0);
+  await expect(taskItem(page, editedTitle)).toBeVisible();
+  await expect(taskItem(page, initialTitle)).toHaveCount(0);
 });

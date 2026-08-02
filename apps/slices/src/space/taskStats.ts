@@ -7,32 +7,30 @@ import {
 } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import {
-  type ProjectCategory,
-  type ProjectCategoryTaskStats,
+  type ProjectSection,
+  type ProjectSectionTaskStats,
   type Project,
   type ScheduledTodoTask,
   type Task,
-  type TaskProjection,
+  type DailyEntry,
   type DailyList,
   dailyListsTable,
-  projectCategoriesTable,
-  projectCategoryTaskStatsTable,
+  projectSectionsTable,
+  projectSectionTaskStatsTable,
   projectsTable,
   scheduledTodoTasksTable,
   spaceMigrationsTable,
-  taskProjectionsTable,
+  dailyEntriesTable,
   tasksTable,
 } from "./tables";
-import { projectCategoriesByProjectId } from "./projectsCategories";
+import { projectSectionsByProjectId } from "./projectSections";
 import { dailyDateFormat } from "./utils";
 import { parse } from "date-fns";
 
-const projectCategoryTaskStatsMigrationId = "project-category-task-stats-v1";
-const scheduledTodoTasksMigrationId = "scheduled-todo-tasks-v1";
+const projectSectionTaskStatsMigrationId = "project-section-task-stats-v1";
+const scheduledTodoTasksMigrationId = "scheduled-todo-tasks-project-section-v1";
 
-const emptyProjectCategoryTaskStats = (
-  id: string,
-): ProjectCategoryTaskStats => ({
+const emptyProjectSectionTaskStats = (id: string): ProjectSectionTaskStats => ({
   id,
   total: 0,
   todo: 0,
@@ -40,10 +38,10 @@ const emptyProjectCategoryTaskStats = (
 });
 
 function applyTaskDelta(
-  stats: ProjectCategoryTaskStats,
+  stats: ProjectSectionTaskStats,
   task: Task,
   delta: 1 | -1,
-): ProjectCategoryTaskStats {
+): ProjectSectionTaskStats {
   return {
     ...stats,
     total: stats.total + delta,
@@ -51,9 +49,9 @@ function applyTaskDelta(
   };
 }
 
-function normalizeProjectCategoryTaskStats(
-  stats: ProjectCategoryTaskStats,
-): ProjectCategoryTaskStats {
+function normalizeProjectSectionTaskStats(
+  stats: ProjectSectionTaskStats,
+): ProjectSectionTaskStats {
   return {
     ...stats,
     total: Math.max(0, stats.total),
@@ -77,21 +75,14 @@ function* refreshScheduledTodoTasks(
   );
   const taskById = new Map((tasks as Task[]).map((task) => [task.id, task]));
 
-  const projections = yield* selectFrom(taskProjectionsTable, "byId").where(
-    (q) => uniqueTaskIds.map((id) => q.eq("id", id)),
+  const entries = yield* selectFrom(dailyEntriesTable, "byId").where((q) =>
+    uniqueTaskIds.map((id) => q.eq("id", id)),
   );
-  const projectionByTaskId = new Map(
-    (projections as TaskProjection[]).map((projection) => [
-      projection.id,
-      projection,
-    ]),
+  const dailyEntryMapByTaskId = new Map(
+    (entries as DailyEntry[]).map((entry) => [entry.id, entry]),
   );
   const dailyListIds = [
-    ...new Set(
-      (projections as TaskProjection[]).map(
-        (projection) => projection.dailyListId,
-      ),
-    ),
+    ...new Set((entries as DailyEntry[]).map((entry) => entry.dailyListId)),
   ];
   const dailyLists =
     dailyListIds.length > 0
@@ -108,16 +99,14 @@ function* refreshScheduledTodoTasks(
 
   for (const taskId of uniqueTaskIds) {
     const task = taskById.get(taskId);
-    const projection = projectionByTaskId.get(taskId);
-    const dailyList = projection
-      ? dailyListById.get(projection.dailyListId)
-      : undefined;
+    const entry = dailyEntryMapByTaskId.get(taskId);
+    const dailyList = entry ? dailyListById.get(entry.dailyListId) : undefined;
 
     if (task?.state === "todo" && dailyList) {
       nextRows.push({
         id: task.id,
         scheduledAt: getScheduledAt(dailyList),
-        projectCategoryId: task.projectCategoryId,
+        projectSectionId: task.projectSectionId,
       });
     } else {
       staleIds.push(taskId);
@@ -138,77 +127,80 @@ function* refreshScheduledTodoTasksForDailyLists(
   const uniqueDailyListIds = [...new Set(dailyListIds)];
   if (uniqueDailyListIds.length === 0) return;
 
-  const projections = yield* selectFrom(
-    taskProjectionsTable,
+  const entries = yield* selectFrom(
+    dailyEntriesTable,
     "byDailyListIdTokenOrdered",
   ).where((q) =>
     uniqueDailyListIds.map((dailyListId) => q.eq("dailyListId", dailyListId)),
   );
 
   yield* refreshScheduledTodoTasks(
-    (projections as TaskProjection[]).map((projection) => projection.id),
+    (entries as DailyEntry[]).map((entry) => entry.id),
   );
 }
 
-export const rebuildProjectCategoryTaskStats = action({
-  name: "rebuildProjectCategoryTaskStats",
+export const rebuildProjectSectionTaskStats = action({
+  name: "rebuildProjectSectionTaskStats",
   args: {},
-  handler: function* rebuildProjectCategoryTaskStats(): Generator<
+  handler: function* rebuildProjectSectionTaskStats(): Generator<
     unknown,
     void,
     unknown
   > {
     const existingStats = yield* selectFrom(
-      projectCategoryTaskStatsTable,
+      projectSectionTaskStatsTable,
       "byIds",
     );
     if (existingStats.length > 0) {
       yield* deleteRows(
-        projectCategoryTaskStatsTable,
+        projectSectionTaskStatsTable,
         existingStats.map((stats) => stats.id),
       );
     }
 
-    const tasks = yield* selectFrom(tasksTable, "byCategoryIdOrderStates");
-    const statsByCategoryId = new Map<string, ProjectCategoryTaskStats>();
+    const tasks = yield* selectFrom(
+      tasksTable,
+      "byProjectSectionIdOrderStates",
+    );
+    const statsBySectionId = new Map<string, ProjectSectionTaskStats>();
 
     for (const task of tasks) {
       const existingStats =
-        statsByCategoryId.get(task.projectCategoryId) ??
-        emptyProjectCategoryTaskStats(task.projectCategoryId);
+        statsBySectionId.get(task.projectSectionId) ??
+        emptyProjectSectionTaskStats(task.projectSectionId);
 
-      statsByCategoryId.set(
-        task.projectCategoryId,
+      statsBySectionId.set(
+        task.projectSectionId,
         applyTaskDelta(existingStats, task, 1),
       );
     }
 
-    const nextStats = [...statsByCategoryId.values()].filter(
+    const nextStats = [...statsBySectionId.values()].filter(
       (stats) => stats.total > 0,
     );
     if (nextStats.length > 0) {
-      yield* upsert(projectCategoryTaskStatsTable, nextStats);
+      yield* upsert(projectSectionTaskStatsTable, nextStats);
     }
   },
 });
 
-export const migrateProjectCategoryTaskStats = action({
-  name: "migrateProjectCategoryTaskStats",
+export const migrateProjectSectionTaskStats = action({
+  name: "migrateProjectSectionTaskStats",
   args: {},
-  handler: function* migrateProjectCategoryTaskStats(): Generator<
+  handler: function* migrateProjectSectionTaskStats(): Generator<
     unknown,
     void,
     unknown
   > {
     const existingMigration = yield* selectFrom(spaceMigrationsTable, "byId")
-      .where((q) => q.eq("id", projectCategoryTaskStatsMigrationId))
+      .where((q) => q.eq("id", projectSectionTaskStatsMigrationId))
       .firstOr(null);
     if (existingMigration) return;
 
-    yield* rebuildProjectCategoryTaskStats({});
+    yield* rebuildProjectSectionTaskStats({});
     yield* upsert(spaceMigrationsTable, [
       {
-        id: projectCategoryTaskStatsMigrationId,
+        id: projectSectionTaskStatsMigrationId,
         appliedAt: Date.now(),
       },
     ]);
@@ -231,9 +223,9 @@ export const rebuildScheduledTodoTasks = action({
       );
     }
 
-    const projections = yield* selectFrom(taskProjectionsTable, "byIds");
+    const entries = yield* selectFrom(dailyEntriesTable, "byIds");
     yield* refreshScheduledTodoTasks(
-      (projections as TaskProjection[]).map((projection) => projection.id),
+      (entries as DailyEntry[]).map((entry) => entry.id),
     );
   },
 });
@@ -265,14 +257,13 @@ export const projectTasksCount = selector({
   name: "projectTasksCount",
   args: { projectId: v.string() },
   handler: function* projectTasksCount({ projectId }) {
-    const categories = yield* projectCategoriesByProjectId({ projectId });
-    const categoryIds = categories.map((category) => category.id);
-    if (categoryIds.length === 0) return 0;
+    const sections = yield* projectSectionsByProjectId({ projectId });
+    const projectSectionIds = sections.map((section) => section.id);
+    if (projectSectionIds.length === 0) return 0;
 
-    const stats = yield* selectFrom(
-      projectCategoryTaskStatsTable,
-      "byId",
-    ).where((q) => categoryIds.map((id) => q.eq("id", id)));
+    const stats = yield* selectFrom(projectSectionTaskStatsTable, "byId").where(
+      (q) => projectSectionIds.map((id) => q.eq("id", id)),
+    );
 
     return stats.reduce((count, stat) => count + stat.todo, 0);
   },
@@ -293,31 +284,31 @@ export const projectsWithTaskStats = selector({
     const projects = yield* selectFrom(projectsTable, "byOrderToken");
     if (projects.length === 0) return [];
 
-    const categories = yield* selectFrom(
-      projectCategoriesTable,
+    const sections = yield* selectFrom(
+      projectSectionsTable,
       "byProjectIdOrderToken",
     ).where((q) => projects.map((project) => q.eq("projectId", project.id)));
-    const categoryIds = categories.map((category) => category.id);
+    const projectSectionIds = sections.map((section) => section.id);
 
     const stats =
-      categoryIds.length > 0
-        ? yield* selectFrom(projectCategoryTaskStatsTable, "byId").where((q) =>
-            categoryIds.map((id) => q.eq("id", id)),
+      projectSectionIds.length > 0
+        ? yield* selectFrom(projectSectionTaskStatsTable, "byId").where((q) =>
+            projectSectionIds.map((id) => q.eq("id", id)),
           )
         : [];
-    const statsByCategoryId = new Map(stats.map((stat) => [stat.id, stat]));
+    const statsBySectionId = new Map(stats.map((stat) => [stat.id, stat]));
 
     const notDoneCountByProjectId = new Map<string, number>();
-    for (const category of categories) {
-      const count = statsByCategoryId.get(category.id)?.todo ?? 0;
+    for (const section of sections) {
+      const count = statsBySectionId.get(section.id)?.todo ?? 0;
       notDoneCountByProjectId.set(
-        category.projectId,
-        (notDoneCountByProjectId.get(category.projectId) ?? 0) + count,
+        section.projectId,
+        (notDoneCountByProjectId.get(section.projectId) ?? 0) + count,
       );
     }
 
-    const categoryById = new Map(
-      categories.map((category) => [category.id, category]),
+    const sectionById = new Map(
+      sections.map((section) => [section.id, section]),
     );
     const overdueScheduledTasks = yield* selectFrom(
       scheduledTodoTasksTable,
@@ -325,12 +316,12 @@ export const projectsWithTaskStats = selector({
     ).where((q) => q.lt("scheduledAt", currentDate));
     const overdueCountByProjectId = new Map<string, number>();
     for (const scheduledTask of overdueScheduledTasks) {
-      const category = categoryById.get(scheduledTask.projectCategoryId);
-      if (!category) continue;
+      const section = sectionById.get(scheduledTask.projectSectionId);
+      if (!section) continue;
 
       overdueCountByProjectId.set(
-        category.projectId,
-        (overdueCountByProjectId.get(category.projectId) ?? 0) + 1,
+        section.projectId,
+        (overdueCountByProjectId.get(section.projectId) ?? 0) + 1,
       );
     }
 
@@ -344,50 +335,50 @@ export const projectsWithTaskStats = selector({
 
 export function installProjectTaskStatsHooks(db: SubscribableDB) {
   db.afterChange(
-    function* updateProjectCategoryTaskStats(_db, table, _traits, ops) {
+    function* updateProjectSectionTaskStats(_db, table, _traits, ops) {
       if (ops.length === 0) return;
-      if (table !== tasksTable && table !== projectCategoriesTable) return;
+      if (table !== tasksTable && table !== projectSectionsTable) return;
 
-      if (table === projectCategoriesTable) {
-        const deletedCategoryIds = ops
+      if (table === projectSectionsTable) {
+        const deletedSectionIds = ops
           .filter((op) => op.type === "delete")
-          .map((op) => (op.oldValue as ProjectCategory).id);
+          .map((op) => (op.oldValue as ProjectSection).id);
 
-        if (deletedCategoryIds.length > 0) {
-          yield* deleteRows(projectCategoryTaskStatsTable, deletedCategoryIds);
+        if (deletedSectionIds.length > 0) {
+          yield* deleteRows(projectSectionTaskStatsTable, deletedSectionIds);
         }
         return;
       }
 
-      const changedCategoryIds = new Set<string>();
+      const changedSectionIds = new Set<string>();
       for (const op of ops) {
         if (op.type === "insert") {
-          changedCategoryIds.add((op.newValue as Task).projectCategoryId);
+          changedSectionIds.add((op.newValue as Task).projectSectionId);
         } else if (op.type === "upsert") {
           if (op.oldValue) {
-            changedCategoryIds.add((op.oldValue as Task).projectCategoryId);
+            changedSectionIds.add((op.oldValue as Task).projectSectionId);
           }
-          changedCategoryIds.add((op.newValue as Task).projectCategoryId);
+          changedSectionIds.add((op.newValue as Task).projectSectionId);
         } else {
-          changedCategoryIds.add((op.oldValue as Task).projectCategoryId);
+          changedSectionIds.add((op.oldValue as Task).projectSectionId);
         }
       }
 
-      if (changedCategoryIds.size === 0) return;
+      if (changedSectionIds.size === 0) return;
 
       const existingStats = yield* selectFrom(
-        projectCategoryTaskStatsTable,
+        projectSectionTaskStatsTable,
         "byId",
-      ).where((q) => [...changedCategoryIds].map((id) => q.eq("id", id)));
-      const statsByCategoryId = new Map(
+      ).where((q) => [...changedSectionIds].map((id) => q.eq("id", id)));
+      const statsBySectionId = new Map(
         existingStats.map((stats) => [stats.id, stats]),
       );
 
-      for (const categoryId of changedCategoryIds) {
-        if (!statsByCategoryId.has(categoryId)) {
-          statsByCategoryId.set(
-            categoryId,
-            emptyProjectCategoryTaskStats(categoryId),
+      for (const projectSectionId of changedSectionIds) {
+        if (!statsBySectionId.has(projectSectionId)) {
+          statsBySectionId.set(
+            projectSectionId,
+            emptyProjectSectionTaskStats(projectSectionId),
           );
         }
       }
@@ -395,42 +386,42 @@ export function installProjectTaskStatsHooks(db: SubscribableDB) {
       for (const op of ops) {
         if (op.type === "insert") {
           const task = op.newValue as Task;
-          const stats = statsByCategoryId.get(task.projectCategoryId)!;
-          statsByCategoryId.set(
-            task.projectCategoryId,
+          const stats = statsBySectionId.get(task.projectSectionId)!;
+          statsBySectionId.set(
+            task.projectSectionId,
             applyTaskDelta(stats, task, 1),
           );
         } else if (op.type === "upsert") {
           if (op.oldValue) {
             const oldTask = op.oldValue as Task;
-            const stats = statsByCategoryId.get(oldTask.projectCategoryId)!;
-            statsByCategoryId.set(
-              oldTask.projectCategoryId,
+            const stats = statsBySectionId.get(oldTask.projectSectionId)!;
+            statsBySectionId.set(
+              oldTask.projectSectionId,
               applyTaskDelta(stats, oldTask, -1),
             );
           }
 
           const newTask = op.newValue as Task;
-          const stats = statsByCategoryId.get(newTask.projectCategoryId)!;
-          statsByCategoryId.set(
-            newTask.projectCategoryId,
+          const stats = statsBySectionId.get(newTask.projectSectionId)!;
+          statsBySectionId.set(
+            newTask.projectSectionId,
             applyTaskDelta(stats, newTask, 1),
           );
         } else {
           const task = op.oldValue as Task;
-          const stats = statsByCategoryId.get(task.projectCategoryId)!;
-          statsByCategoryId.set(
-            task.projectCategoryId,
+          const stats = statsBySectionId.get(task.projectSectionId)!;
+          statsBySectionId.set(
+            task.projectSectionId,
             applyTaskDelta(stats, task, -1),
           );
         }
       }
 
-      const nextStats: ProjectCategoryTaskStats[] = [];
+      const nextStats: ProjectSectionTaskStats[] = [];
       const emptyStatsIds: string[] = [];
 
-      for (const stats of statsByCategoryId.values()) {
-        const normalizedStats = normalizeProjectCategoryTaskStats(stats);
+      for (const stats of statsBySectionId.values()) {
+        const normalizedStats = normalizeProjectSectionTaskStats(stats);
         if (normalizedStats.total <= 0) {
           emptyStatsIds.push(normalizedStats.id);
         } else {
@@ -439,10 +430,10 @@ export function installProjectTaskStatsHooks(db: SubscribableDB) {
       }
 
       if (nextStats.length > 0) {
-        yield* upsert(projectCategoryTaskStatsTable, nextStats);
+        yield* upsert(projectSectionTaskStatsTable, nextStats);
       }
       if (emptyStatsIds.length > 0) {
-        yield* deleteRows(projectCategoryTaskStatsTable, emptyStatsIds);
+        yield* deleteRows(projectSectionTaskStatsTable, emptyStatsIds);
       }
     },
   );
@@ -451,25 +442,25 @@ export function installProjectTaskStatsHooks(db: SubscribableDB) {
     if (ops.length === 0) return;
     if (
       table !== tasksTable &&
-      table !== taskProjectionsTable &&
+      table !== dailyEntriesTable &&
       table !== dailyListsTable &&
-      table !== projectCategoriesTable
+      table !== projectSectionsTable
     ) {
       return;
     }
 
-    if (table === projectCategoriesTable) {
-      const deletedCategoryIds = ops
+    if (table === projectSectionsTable) {
+      const deletedSectionIds = ops
         .filter((op) => op.type === "delete")
-        .map((op) => (op.oldValue as ProjectCategory).id);
-      if (deletedCategoryIds.length === 0) return;
+        .map((op) => (op.oldValue as ProjectSection).id);
+      if (deletedSectionIds.length === 0) return;
 
       const staleRows = yield* selectFrom(
         scheduledTodoTasksTable,
-        "byProjectCategoryId",
+        "byProjectSectionId",
       ).where((q) =>
-        deletedCategoryIds.map((categoryId) =>
-          q.eq("projectCategoryId", categoryId),
+        deletedSectionIds.map((projectSectionId) =>
+          q.eq("projectSectionId", projectSectionId),
         ),
       );
       if (staleRows.length > 0) {
@@ -503,14 +494,14 @@ export function installProjectTaskStatsHooks(db: SubscribableDB) {
     const changedTaskIds = new Set<string>();
     for (const op of ops) {
       if (op.type === "insert") {
-        changedTaskIds.add((op.newValue as Task | TaskProjection).id);
+        changedTaskIds.add((op.newValue as Task | DailyEntry).id);
       } else if (op.type === "upsert") {
         if (op.oldValue) {
-          changedTaskIds.add((op.oldValue as Task | TaskProjection).id);
+          changedTaskIds.add((op.oldValue as Task | DailyEntry).id);
         }
-        changedTaskIds.add((op.newValue as Task | TaskProjection).id);
+        changedTaskIds.add((op.newValue as Task | DailyEntry).id);
       } else {
-        changedTaskIds.add((op.oldValue as Task | TaskProjection).id);
+        changedTaskIds.add((op.oldValue as Task | DailyEntry).id);
       }
     }
 

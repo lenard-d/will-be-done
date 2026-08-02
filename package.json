@@ -16,12 +16,15 @@
     "lint": "pnpm --filter @will-be-done/web lint && pnpm --filter @will-be-done/slices lint && pnpm --filter @will-be-done/api lint",
     "test": "pnpm --filter @will-be-done/slices test && pnpm --filter @will-be-done/web test && pnpm --filter @will-be-done/api test",
     "test:e2e": "pnpm --filter @will-be-done/web test:e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "all": "tsx scripts/dev-all.ts",
     "release:desktop": "bash scripts/release"
   },
   "devDependencies": {
     "@types/blessed": "^0.1.27",
     "blessed": "^0.1.81",
+    "prettier": "^3.8.4",
     "tsx": "^4.21.0"
   }
 }

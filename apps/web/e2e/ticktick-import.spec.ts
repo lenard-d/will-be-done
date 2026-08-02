@@ -2,11 +2,11 @@ import { expect, test } from "playwright/test";
 
 import {
   createSpace,
-  dailyTaskCard,
+  dailyTaskItem,
   openSpace,
   openSpaceSettings,
   projectSidebarLink,
-  projectTaskCard,
+  projectTaskItem,
   signupUser,
   uniqueE2EName,
 } from "./helpers";
@@ -54,18 +54,18 @@ test("imports a TickTick CSV through settings", async ({ page }) => {
   await settings.getByRole("button", { name: "Close settings" }).click();
 
   await expect(projectSidebarLink(page, projectTitle, 1)).toBeVisible();
-  await expect(dailyTaskCard(page, taskTitle)).toBeVisible();
+  await expect(dailyTaskItem(page, taskTitle)).toBeVisible();
 
   await projectSidebarLink(page, projectTitle, 1).click();
   await expect(page.getByRole("heading", { name: projectTitle })).toBeVisible();
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
 
   await page.reload();
   await expect(projectSidebarLink(page, projectTitle, 1)).toBeVisible();
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
 
   await page.getByRole("link", { name: /today/i }).click();
-  await expect(dailyTaskCard(page, taskTitle)).toBeVisible();
+  await expect(dailyTaskItem(page, taskTitle)).toBeVisible();
 });
 
 function createTinyTickTickCSV({

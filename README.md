@@ -33,6 +33,15 @@ Will Be Done is for people who want a fast, private task manager that is built f
 - **Desktop app:** [download the latest release](https://github.com/will-be-done/will-be-done/releases) for Windows, macOS, or Linux.
 - **Mobile:** install the web app as a PWA. Native mobile clients are planned.
 
+## HTTP API
+
+Will Be Done provides a HTTP API for integrating with your tasks,
+projects, schedules, and other data.
+
+- **Will Be Done Cloud:** [read the API documentation](https://app.will-be-done.app/api/docs).
+- **Self-hosted with Docker:** open `/api/docs` on your server, for example
+  [http://localhost:3000/api/docs](http://localhost:3000/api/docs).
+
 ## Self-Host With Docker
 
 Run the server:
@@ -107,8 +116,8 @@ The Docker server hosts the web app, stores server-side data under `/var/lib/wil
 **Projects and planning**
 
 - Organize tasks into projects.
-- Split projects into ordered categories or columns.
-- Drag tasks between projects, categories, daily lists, and stash.
+- Split projects into ordered sections or columns.
+- Drag tasks between projects, sections, daily lists, and stash.
 - Use multiple spaces to separate work, personal tasks, and side projects.
 - Keep an inbox project for quick capture.
 - Use Stash as a persistent focus list available from every page.
@@ -133,7 +142,7 @@ The Docker server hosts the web app, stores server-side data under `/var/lib/wil
 **Keyboard and workflow**
 
 - Vim keybindings for navigation and task actions.
-- Drag and drop for tasks, days, projects, and categories.
+- Drag and drop for tasks, days, projects, and sections.
 - Desktop app with global quick add.
 - Mobile-ready PWA for planning away from the desktop.
 
@@ -146,6 +155,59 @@ The Docker server hosts the web app, stores server-side data under `/var/lib/wil
 - TickTick import from CSV export.
 
 ## Keyboard Shortcuts
+
+### Global quick add on Wayland
+
+Electron's global shortcut portal may report a successful registration on some Wayland
+compositors without delivering shortcut events. In that case, let the compositor handle
+`Ctrl+Shift+A` and invoke the installed Will Be Done application with
+`--show-quick-add`.
+
+Use the command that matches the installed package:
+
+- deb, rpm, or snap: `will-be-done --show-quick-add`
+- Flatpak (optimized): `flatpak run --command=will-be-done-quick-add app.willbedone.WillBeDone`
+- AppImage: `/absolute/path/to/will-be-done.AppImage --show-quick-add`
+
+To quickly open or focus the main window from a Flatpak installation:
+
+```bash
+flatpak run --command=will-be-done-show app.willbedone.WillBeDone
+```
+
+For example, with a deb, rpm, or snap installation, add this entry to the `binds`
+section of the niri configuration:
+
+```kdl
+Ctrl+Shift+A {
+    spawn "will-be-done" "--show-quick-add";
+}
+```
+
+Validate the niri configuration after editing it:
+
+```bash
+niri validate
+```
+
+Niri reloads valid configuration changes automatically.
+
+For Hyprland using Lua configuration:
+
+```lua
+hl.bind(
+    "CTRL + SHIFT + A",
+    hl.dsp.exec_cmd("will-be-done --show-quick-add")
+)
+```
+
+Replace the command portion of either compositor example when using Flatpak or AppImage.
+The command starts Will Be Done when necessary. If it is already running, the request is
+forwarded to the existing process. Starting with `--show-quick-add` keeps the main window
+hidden. Closing the main window also keeps Will Be Done running in the system tray, where
+you can reopen the app, show Quick Add, or quit it completely.
+
+### In app shortcuts
 
 Global:
 
@@ -194,7 +256,7 @@ Planned for v1.0:
 - [x] Checklists inside tasks
 - [x] Todoist / TickTick migration
 - [x] Desktop app with global quick add
-- [ ] OpenAPI integration
+- [x] OpenAPI integration
 - [ ] CLI app
 - [ ] Undo / redo
 
@@ -266,11 +328,11 @@ This table captures the feature set I was optimizing for while building Will Be 
 | Drag and drop for tasks and projects    | ✅           | ✅                 | 🟥       | 🟥     | ✅      | ✅        |
 | Real-time refresh without manual reload | ✅           | ✅ with SuperSync  | ✅       | 🟥     | 🟥      | 🟥        |
 | Multi-tab support                       | ✅           | 🟥                 | ✅       | 🟨     | 🟨      | 🟨        |
-| API                                     | 🟨 WIP       | ✅ with SuperSync  | ✅       | ✅     | ✅      | ✅        |
+| API                                     | ✅           | ✅ with SuperSync  | ✅       | ✅     | ✅      | ✅        |
 | Mobile version                          | ✅           | ✅                 | ✅       | ✅     | ✅      | ✅        |
 | Keyboard shortcuts / Vim bindings       | ✅           | ✅                 | ✅       | ✅     | ✅      | 🟨        |
 | Weekly planner                          | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
-| Categories or columns inside projects   | ✅           | ✅                 | 🟥       | 🟥     | ✅      | ✅        |
+| Sections or columns inside projects     | ✅           | ✅                 | 🟥       | 🟥     | ✅      | ✅        |
 | Desktop app with global quick add       | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
 | Local-first architecture                | ✅           | ✅                 | 🟥       | 🟥     | 🟥      | 🟥        |
 

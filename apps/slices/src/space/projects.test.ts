@@ -10,8 +10,8 @@ import {
 import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
 import { dbIdTrait } from "../traits";
 import { appCanDrop, appHandleDrop } from "./app";
-import { addToDailyList } from "./dailyListsProjections";
-import { addToStash, stashProjectionById } from "./stashProjections";
+import { addToDailyList } from "./dailyEntries";
+import { addToStash, stashEntryById } from "./stashEntries";
 import { createDailyList } from "./dailyLists";
 import {
   createProject as createProjectAction,
@@ -22,34 +22,34 @@ import {
 } from "./projects";
 import {
   installProjectTaskStatsHooks,
-  migrateProjectCategoryTaskStats,
+  migrateProjectSectionTaskStats,
   migrateScheduledTodoTasks,
   projectTasksCount,
   projectsWithTaskStats,
-  rebuildProjectCategoryTaskStats,
+  rebuildProjectSectionTaskStats,
   rebuildScheduledTodoTasks,
 } from "./taskStats";
 import {
-  createCategory,
-  createProjectCategoryTask,
-  projectCategoriesByProjectId,
-} from "./projectsCategories";
-import { projectCategoryCardIds } from "./projectsCategoriesCards";
-import { taskById, updateTask } from "./cardsTasks";
+  createProjectSection,
+  createTaskInSection,
+  projectSectionsByProjectId,
+} from "./projectSections";
+import { projectSectionItemIds } from "./projectSectionItems";
+import { taskById, updateTask } from "./tasks";
 import {
   DailyList,
   dailyListsTable,
   Project,
-  projectCategoriesTable,
-  projectCategoryTaskStatsTable,
-  ProjectCategory,
+  projectSectionsTable,
+  projectSectionTaskStatsTable,
+  ProjectSection,
   projectsTable,
   scheduledTodoTasksTable,
   spaceMigrationsTable,
-  stashProjectionType,
-  stashProjectionsTable,
+  stashEntryType,
+  stashEntriesTable,
   Task,
-  taskProjectionsTable,
+  dailyEntriesTable,
   tasksTable,
   taskTemplatesTable,
 } from "./tables";
@@ -77,13 +77,13 @@ function createDB() {
   execSync(
     db.loadTables([
       dailyListsTable,
-      projectCategoriesTable,
-      projectCategoryTaskStatsTable,
+      projectSectionsTable,
+      projectSectionTaskStatsTable,
       projectsTable,
       scheduledTodoTasksTable,
       spaceMigrationsTable,
-      stashProjectionsTable,
-      taskProjectionsTable,
+      stashEntriesTable,
+      dailyEntriesTable,
       taskTemplatesTable,
       tasksTable,
     ]),
@@ -114,24 +114,28 @@ function createProject(
     }),
   ) as Project;
 
-  const category = runSelector<ProjectCategory>(
+  const section = runSelector<ProjectSection>(
     db,
     function* () {
-      return (yield* projectCategoriesByProjectId({
+      return (yield* projectSectionsByProjectId({
         projectId: project.id,
       }))[0];
     },
     [],
   );
 
-  return { project, category };
+  return { project, section };
 }
 
-function createTask(db: DB | SubscribableDB, categoryId: string, id: string) {
+function createTask(
+  db: DB | SubscribableDB,
+  projectSectionId: string,
+  id: string,
+) {
   return syncDispatch(
     db,
-    createProjectCategoryTask({
-      categoryId,
+    createTaskInSection({
+      projectSectionId,
       position: "append",
       taskAttrs: { id },
     }),
@@ -141,9 +145,9 @@ function createTask(db: DB | SubscribableDB, categoryId: string, id: string) {
 describe("project task stats cache", () => {
   it("updates cached project counts from task changes", () => {
     const db = createDBWithTaskStatsHooks();
-    const { project, category } = createProject(db);
+    const { project, section } = createProject(db);
 
-    const task = createTask(db, category.id, "cached-task");
+    const task = createTask(db, section.id, "cached-task");
 
     const insertedCount = runSelector<number>(
       db,
@@ -168,20 +172,16 @@ describe("project task stats cache", () => {
 
   it("rebuilds cached project counts from existing tasks", () => {
     const db = createDB();
-    const { project, category } = createProject(db);
+    const { project, section } = createProject(db);
 
-    createTask(db, category.id, "existing-task");
-    const completedTask = createTask(
-      db,
-      category.id,
-      "completed-existing-task",
-    );
+    createTask(db, section.id, "existing-task");
+    const completedTask = createTask(db, section.id, "completed-existing-task");
     syncDispatch(
       db,
       updateTask({ id: completedTask.id, task: { state: "done" } }),
     );
 
-    syncDispatch(db, rebuildProjectCategoryTaskStats({}));
+    syncDispatch(db, rebuildProjectSectionTaskStats({}));
 
     const count = runSelector<number>(
       db,
@@ -195,12 +195,12 @@ describe("project task stats cache", () => {
 
   it("migrates cached project counts once from existing tasks", () => {
     const db = createDB();
-    const { project, category } = createProject(db);
+    const { project, section } = createProject(db);
 
-    createTask(db, category.id, "migration-existing-task");
+    createTask(db, section.id, "migration-existing-task");
     const completedTask = createTask(
       db,
-      category.id,
+      section.id,
       "migration-completed-existing-task",
     );
     syncDispatch(
@@ -208,7 +208,7 @@ describe("project task stats cache", () => {
       updateTask({ id: completedTask.id, task: { state: "done" } }),
     );
 
-    syncDispatch(db, migrateProjectCategoryTaskStats({}));
+    syncDispatch(db, migrateProjectSectionTaskStats({}));
 
     const migratedCount = runSelector<number>(
       db,
@@ -219,8 +219,8 @@ describe("project task stats cache", () => {
     );
     expect(migratedCount).toBe(1);
 
-    createTask(db, category.id, "post-migration-task-without-hook");
-    syncDispatch(db, migrateProjectCategoryTaskStats({}));
+    createTask(db, section.id, "post-migration-task-without-hook");
+    syncDispatch(db, migrateProjectSectionTaskStats({}));
 
     const countAfterSecondMigration = runSelector<number>(
       db,
@@ -234,10 +234,10 @@ describe("project task stats cache", () => {
 
   it("returns all projects with cached task counts in one selector", () => {
     const db = createDBWithTaskStatsHooks();
-    const { project, category } = createProject(db);
+    const { project, section } = createProject(db);
 
-    createTask(db, category.id, "batched-visible-task");
-    const completedTask = createTask(db, category.id, "batched-completed-task");
+    createTask(db, section.id, "batched-visible-task");
+    const completedTask = createTask(db, section.id, "batched-completed-task");
     syncDispatch(
       db,
       updateTask({ id: completedTask.id, task: { state: "done" } }),
@@ -261,13 +261,13 @@ describe("project task stats cache", () => {
 
   it("returns overdue project counts in the bulk stats selector", () => {
     const db = createDBWithTaskStatsHooks();
-    const { project, category } = createProject(db);
+    const { project, section } = createProject(db);
 
-    const overdueTask = createTask(db, category.id, "bulk-overdue-task");
-    const todayTask = createTask(db, category.id, "bulk-today-task");
+    const overdueTask = createTask(db, section.id, "bulk-overdue-task");
+    const todayTask = createTask(db, section.id, "bulk-today-task");
     const completedOverdueTask = createTask(
       db,
-      category.id,
+      section.id,
       "bulk-completed-overdue-task",
     );
     syncDispatch(
@@ -337,14 +337,14 @@ describe("project task stats cache", () => {
     expect(projectWithStatsAfterDone?.overdueCount).toBe(0);
   });
 
-  it("rebuilds scheduled todo cache from existing projections", () => {
+  it("rebuilds scheduled todo cache from existing entries", () => {
     const db = createDB();
-    const { project, category } = createProject(db);
+    const { project, section } = createProject(db);
 
-    const overdueTask = createTask(db, category.id, "rebuild-overdue-task");
+    const overdueTask = createTask(db, section.id, "rebuild-overdue-task");
     const doneOverdueTask = createTask(
       db,
-      category.id,
+      section.id,
       "rebuild-done-overdue-task",
     );
     syncDispatch(
@@ -386,11 +386,11 @@ describe("project task stats cache", () => {
     expect(projectWithStats?.overdueCount).toBe(1);
   });
 
-  it("migrates scheduled todo cache once from existing projections", () => {
+  it("migrates scheduled todo cache once from existing entries", () => {
     const db = createDB();
-    const { project, category } = createProject(db);
+    const { project, section } = createProject(db);
 
-    const overdueTask = createTask(db, category.id, "migration-overdue-task");
+    const overdueTask = createTask(db, section.id, "migration-overdue-task");
     const overdueList = syncDispatch(
       db,
       createDailyList({ dailyList: { date: "2026-04-18" } }),
@@ -421,11 +421,7 @@ describe("project task stats cache", () => {
 
     expect(migratedProjectWithStats?.overdueCount).toBe(1);
 
-    const laterTask = createTask(
-      db,
-      category.id,
-      "post-migration-overdue-task",
-    );
+    const laterTask = createTask(db, section.id, "post-migration-overdue-task");
     syncDispatch(
       db,
       addToDailyList({
@@ -454,11 +450,11 @@ describe("project task stats cache", () => {
 });
 
 describe("moving stashed tasks through app drops", () => {
-  it("treats a stash projection dropped on a project task as its task and removes it from stash", () => {
+  it("treats a stash entry dropped on a project task as its task and removes it from stash", () => {
     const db = createDB();
-    const { category } = createProject(db);
-    const targetTask = createTask(db, category.id, "target-task");
-    const stashedTask = createTask(db, category.id, "stashed-drop-on-task");
+    const { section } = createProject(db);
+    const targetTask = createTask(db, section.id, "target-task");
+    const stashedTask = createTask(db, section.id, "stashed-drop-on-task");
 
     syncDispatch(
       db,
@@ -475,7 +471,7 @@ describe("moving stashed tasks through app drops", () => {
           id: targetTask.id,
           modelType: targetTask.type,
           dropId: stashedTask.id,
-          dropModelType: stashProjectionType,
+          dropModelType: stashEntryType,
         });
       },
       [],
@@ -488,7 +484,7 @@ describe("moving stashed tasks through app drops", () => {
         id: targetTask.id,
         modelType: targetTask.type,
         dropId: stashedTask.id,
-        dropModelType: stashProjectionType,
+        dropModelType: stashEntryType,
         edge: "top",
       }),
     );
@@ -496,16 +492,16 @@ describe("moving stashed tasks through app drops", () => {
     const taskIds = runSelector<string[]>(
       db,
       function* () {
-        return yield* projectCategoryCardIds({
-          projectCategoryId: category.id,
+        return yield* projectSectionItemIds({
+          projectSectionId: section.id,
         });
       },
       [],
     );
-    const stashProjection = runSelector(
+    const stashEntry = runSelector(
       db,
       function* () {
-        return yield* stashProjectionById({ id: stashedTask.id });
+        return yield* stashEntryById({ id: stashedTask.id });
       },
       [],
     );
@@ -515,23 +511,23 @@ describe("moving stashed tasks through app drops", () => {
     expect(taskIds.indexOf(stashedTask.id)).toBeLessThan(
       taskIds.indexOf(targetTask.id),
     );
-    expect(stashProjection).toBeUndefined();
+    expect(stashEntry).toBeUndefined();
   });
 
-  it("treats a stash projection dropped on a project category as its task and removes it from stash", () => {
+  it("treats a stash entry dropped on a project section as its task and removes it from stash", () => {
     const db = createDB();
-    const { project, category } = createProject(db);
-    const targetCategory = syncDispatch(
+    const { project, section } = createProject(db);
+    const targetSection = syncDispatch(
       db,
-      createCategory({
-        categoryDraft: {
+      createProjectSection({
+        sectionDraft: {
           projectId: project.id,
           title: "Target",
         },
         position: "append",
       }),
-    ) as ProjectCategory;
-    const stashedTask = createTask(db, category.id, "stashed-drop-task");
+    ) as ProjectSection;
+    const stashedTask = createTask(db, section.id, "stashed-drop-task");
 
     syncDispatch(
       db,
@@ -545,10 +541,10 @@ describe("moving stashed tasks through app drops", () => {
       db,
       function* () {
         return yield* appCanDrop({
-          id: targetCategory.id,
-          modelType: targetCategory.type,
+          id: targetSection.id,
+          modelType: targetSection.type,
           dropId: stashedTask.id,
-          dropModelType: stashProjectionType,
+          dropModelType: stashEntryType,
         });
       },
       [],
@@ -558,10 +554,10 @@ describe("moving stashed tasks through app drops", () => {
     syncDispatch(
       db,
       appHandleDrop({
-        id: targetCategory.id,
-        modelType: targetCategory.type,
+        id: targetSection.id,
+        modelType: targetSection.type,
         dropId: stashedTask.id,
-        dropModelType: stashProjectionType,
+        dropModelType: stashEntryType,
         edge: "bottom",
       }),
     );
@@ -573,29 +569,38 @@ describe("moving stashed tasks through app drops", () => {
       },
       [],
     );
-    const stashProjection = runSelector(
+    const stashEntry = runSelector(
       db,
       function* () {
-        return yield* stashProjectionById({ id: stashedTask.id });
+        return yield* stashEntryById({ id: stashedTask.id });
       },
       [],
     );
 
-    expect(movedTask?.projectCategoryId).toBe(targetCategory.id);
-    expect(stashProjection).toBeUndefined();
+    expect(movedTask?.projectSectionId).toBe(targetSection.id);
+    expect(stashEntry).toBeUndefined();
   });
 
-  it("treats a stash projection dropped on a project as its task and removes it from stash", () => {
+  it("treats a stash entry dropped on a project as its task and removes it from stash", () => {
     const db = createDB();
-    const { category } = createProject(db);
-    const { project: targetProject, category: targetCategory } = createProject(
+    const { section } = createProject(db);
+    const { project: targetProject, section: targetSection } = createProject(
       db,
       {
         id: "project-2",
         title: "Target project",
       },
     );
-    const stashedTask = createTask(db, category.id, "stashed-drop-on-project");
+    const targetTask = createTask(
+      db,
+      targetSection.id,
+      "target-project-existing-task",
+    );
+    const stashedTask = createTask(db, section.id, "stashed-drop-on-project");
+    syncDispatch(
+      db,
+      updateTask({ id: stashedTask.id, task: { orderToken: "0" } }),
+    );
 
     syncDispatch(
       db,
@@ -612,7 +617,7 @@ describe("moving stashed tasks through app drops", () => {
           id: targetProject.id,
           modelType: targetProject.type,
           dropId: stashedTask.id,
-          dropModelType: stashProjectionType,
+          dropModelType: stashEntryType,
         });
       },
       [],
@@ -625,7 +630,7 @@ describe("moving stashed tasks through app drops", () => {
         id: targetProject.id,
         modelType: targetProject.type,
         dropId: stashedTask.id,
-        dropModelType: stashProjectionType,
+        dropModelType: stashEntryType,
         edge: "bottom",
       }),
     );
@@ -637,28 +642,38 @@ describe("moving stashed tasks through app drops", () => {
       },
       [],
     );
-    const stashProjection = runSelector(
+    const stashEntry = runSelector(
       db,
       function* () {
-        return yield* stashProjectionById({ id: stashedTask.id });
+        return yield* stashEntryById({ id: stashedTask.id });
+      },
+      [],
+    );
+    const targetTaskIds = runSelector<string[]>(
+      db,
+      function* () {
+        return yield* projectSectionItemIds({
+          projectSectionId: targetSection.id,
+        });
       },
       [],
     );
 
-    expect(movedTask?.projectCategoryId).toBe(targetCategory.id);
-    expect(stashProjection).toBeUndefined();
+    expect(movedTask?.projectSectionId).toBe(targetSection.id);
+    expect(targetTaskIds).toEqual([targetTask.id, stashedTask.id]);
+    expect(stashEntry).toBeUndefined();
   });
 });
 
 describe("project stash-aware timeline counts", () => {
   it("excludes stashed tasks from the stash-aware not-done count only", () => {
     const db = createDB();
-    const { project, category } = createProject(db);
+    const { project, section } = createProject(db);
 
-    createTask(db, category.id, "visible-task");
-    const stashedTask = createTask(db, category.id, "stashed-task");
-    const dailyTask = createTask(db, category.id, "daily-task");
-    const completedTask = createTask(db, category.id, "completed-task");
+    createTask(db, section.id, "visible-task");
+    const stashedTask = createTask(db, section.id, "stashed-task");
+    const dailyTask = createTask(db, section.id, "daily-task");
+    const completedTask = createTask(db, section.id, "completed-task");
     syncDispatch(
       db,
       updateTask({ id: completedTask.id, task: { state: "done" } }),
@@ -711,19 +726,15 @@ describe("project stash-aware timeline counts", () => {
 
   it("excludes stashed tasks from the stash-aware overdue count only", () => {
     const db = createDB();
-    const { project, category } = createProject(db);
+    const { project, section } = createProject(db);
 
-    const overdueTask = createTask(db, category.id, "overdue-task");
+    const overdueTask = createTask(db, section.id, "overdue-task");
     const stashedOverdueTask = createTask(
       db,
-      category.id,
+      section.id,
       "stashed-overdue-task",
     );
-    const excludedDailyTask = createTask(
-      db,
-      category.id,
-      "excluded-daily-task",
-    );
+    const excludedDailyTask = createTask(db, section.id, "excluded-daily-task");
 
     const overdueList = syncDispatch(
       db,

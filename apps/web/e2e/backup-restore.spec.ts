@@ -2,12 +2,12 @@ import { expect, test } from "playwright/test";
 
 import {
   createSpace,
-  dailyTaskCard,
+  dailyTaskItem,
   openSpace,
   openSpaceSettings,
   openTaskDetails,
   projectSidebarLink,
-  projectTaskCard,
+  projectTaskItem,
   signupUser,
   uniqueE2EName,
 } from "./helpers";
@@ -56,24 +56,24 @@ test("restores a JSON backup through settings", async ({ page }) => {
   await settings.getByRole("button", { name: "Close settings" }).click();
 
   await expect(projectSidebarLink(page, projectTitle, 1)).toBeVisible();
-  await expect(dailyTaskCard(page, taskTitle)).toBeVisible();
+  await expect(dailyTaskItem(page, taskTitle)).toBeVisible();
 
   const details = await openTaskDetails(page, taskTitle);
   await expect(details.description).toHaveValue(taskDescription);
   await expect(
-    dailyTaskCard(page, taskTitle).getByText(checklistItem),
+    dailyTaskItem(page, taskTitle).getByText(checklistItem),
   ).toBeVisible();
 
   await projectSidebarLink(page, projectTitle, 1).click();
   await expect(page.getByRole("heading", { name: projectTitle })).toBeVisible();
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
 
   await page.reload();
   await expect(projectSidebarLink(page, projectTitle, 1)).toBeVisible();
-  await expect(projectTaskCard(page, taskTitle)).toBeVisible();
+  await expect(projectTaskItem(page, taskTitle)).toBeVisible();
 
   await page.getByRole("link", { name: /today/i }).click();
-  await expect(dailyTaskCard(page, taskTitle)).toBeVisible();
+  await expect(dailyTaskItem(page, taskTitle)).toBeVisible();
 });
 
 function createTinyBackup({
@@ -110,16 +110,16 @@ function createTinyBackup({
         createdAt,
       },
     ],
-    projectCategories: [
+    projectSections: [
       {
-        id: "e2e-inbox-category",
+        id: "e2e-inbox-section",
         title: "Miscellaneous",
         projectId: "e2e-inbox-project",
         orderToken: "a",
         createdAt,
       },
       {
-        id: "e2e-restored-category",
+        id: "e2e-restored-section",
         title: "Restored",
         projectId: "e2e-restored-project",
         orderToken: "a",
@@ -132,7 +132,7 @@ function createTinyBackup({
         title: taskTitle,
         content: taskDescription,
         state: "todo",
-        projectCategoryId: "e2e-restored-category",
+        projectSectionId: "e2e-restored-section",
         orderToken: "a",
         lastToggledAt: 0,
         createdAt,

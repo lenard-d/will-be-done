@@ -1,24 +1,24 @@
 @import "tailwindcss";
 
 @font-face {
-  font-family: 'InterVariable';
+  font-family: "InterVariable";
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url('/fonts/InterVariable.woff2') format('woff2');
+  src: url("/fonts/InterVariable.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: 'InterVariable';
+  font-family: "InterVariable";
   font-style: italic;
   font-weight: 100 900;
   font-display: swap;
-  src: url('/fonts/InterVariable-Italic.woff2') format('woff2');
+  src: url("/fonts/InterVariable-Italic.woff2") format("woff2");
 }
 
 @theme {
   --font-sans: InterVariable, sans-serif;
-  --font-sans--font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+  --font-sans--font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
 
   /* Panel colors - used by FloatingTaskCard */
   --color-panel: oklch(37.2% 0.045 257 / 0.8);
@@ -46,6 +46,7 @@
   --color-accent: var(--color-blue-500);
 }
 
-html, body {
+html,
+body {
   background-color: #0a0a0f;
 }
