@@ -30,12 +30,10 @@ const mondayStart = (date: Date) => {
 
 export function buildHabitHeatmap(
   completions: HabitCompletion[],
-  habitCreatedAt: number,
   now = new Date(),
   weekCount = 16,
 ): HabitHeatmapWeek[] {
   const today = startOfDay(now);
-  const created = startOfDay(new Date(habitCreatedAt));
   const lastWeekStart = mondayStart(today);
   const firstWeekStart = subWeeks(lastWeekStart, Math.max(1, weekCount) - 1);
   const completedDays = new Set(
@@ -52,7 +50,7 @@ export function buildHabitHeatmap(
         date: dayKey(date),
         completedAt: date.getTime(),
         checked: completedDays.has(dayKey(date)),
-        disabled: dateStart < created || dateStart > today,
+        disabled: dateStart > today,
         isToday: isSameDay(date, today),
       };
     });

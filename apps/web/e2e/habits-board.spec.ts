@@ -100,6 +100,10 @@ test("uses the shared board, details, move, and DnD workflows for habits", async
   await expect(todayCell).toHaveAttribute("aria-checked", "false");
   await todayCell.click();
   await expect(todayCell).toHaveAttribute("aria-checked", "true");
+  const oldestVisibleCell = heatmap.locator('[role="checkbox"]').first();
+  await expect(oldestVisibleCell).toBeEnabled();
+  await oldestVisibleCell.click();
+  await expect(oldestVisibleCell).toHaveAttribute("aria-checked", "true");
 
   const detailsTitle = details.getByLabel("Edit habit title in details");
   await detailsTitle.fill("Drink water daily");

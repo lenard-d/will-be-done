@@ -249,7 +249,6 @@ export function HabitBody({
 
       <HabitHeatmap
         habitId={habit.id}
-        habitCreatedAt={habit.createdAt}
         completions={completions}
       />
 

@@ -14,7 +14,6 @@ describe("buildHabitHeatmap", () => {
           completedAt,
         },
       ],
-      new Date(2027, 1, 1, 12).getTime(),
       now,
       3,
     );
@@ -34,21 +33,21 @@ describe("buildHabitHeatmap", () => {
     expect(weeks.at(-1)?.days.at(6)).toMatchObject({ disabled: true });
   });
 
-  it("disables dates before the habit was created", () => {
+  it("allows backfilling dates before the habit was created", () => {
     const weeks = buildHabitHeatmap(
       [],
-      new Date(2027, 2, 10, 12).getTime(),
       new Date(2027, 2, 10, 12),
       1,
     );
 
     expect(weeks[0]?.days[0]).toMatchObject({
       date: "2027-03-08",
-      disabled: true,
+      disabled: false,
     });
     expect(weeks[0]?.days[2]).toMatchObject({
       date: "2027-03-10",
       disabled: false,
     });
+    expect(weeks[0]?.days[6]).toMatchObject({ disabled: true });
   });
 });

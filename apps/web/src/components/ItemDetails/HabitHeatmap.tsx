@@ -10,18 +10,16 @@ import { buildHabitHeatmap } from "./habitHeatmapData";
 
 export function HabitHeatmap({
   habitId,
-  habitCreatedAt,
   completions,
 }: {
   habitId: string;
-  habitCreatedAt: number;
   completions: HabitCompletion[];
 }) {
   const dispatch = useAsyncDispatch();
   const scrollRef = useRef<HTMLDivElement>(null);
   const weeks = useMemo(
-    () => buildHabitHeatmap(completions, habitCreatedAt),
-    [completions, habitCreatedAt],
+    () => buildHabitHeatmap(completions),
+    [completions],
   );
 
   useEffect(() => {
