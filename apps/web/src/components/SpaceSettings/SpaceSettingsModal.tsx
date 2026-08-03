@@ -1,12 +1,27 @@
 import { useState } from "react";
-import { Dialog, DialogPanel } from "@headlessui/react";
-import { HardDrive, X, ArrowDownToLine, SlidersHorizontal } from "lucide-react";
+import {
+  Dialog,
+  DialogPanel,
+  Tab,
+  TabGroup,
+  TabList,
+  TabPanel,
+  TabPanels,
+} from "@headlessui/react";
+import {
+  ArrowDownToLine,
+  HardDrive,
+  Keyboard,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BackupSection } from "./BackupSection";
 import { GeneralSection } from "./GeneralSection";
 import { ImportSection } from "./ImportSection";
+import { ShortcutsSection } from "./ShortcutsSection";
 
-type Section = "general" | "data" | "import";
+type Section = "general" | "data" | "import" | "shortcuts";
 
 const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
   {
@@ -24,6 +39,11 @@ const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
     label: "Import",
     icon: <ArrowDownToLine className="h-5 w-5" />,
   },
+  {
+    id: "shortcuts",
+    label: "Shortcuts",
+    icon: <Keyboard className="h-5 w-5" />,
+  },
 ];
 
 interface Props {
@@ -33,7 +53,7 @@ interface Props {
 }
 
 export function SpaceSettingsModal({ open, onClose, spaceName }: Props) {
-  const [activeSection, setActiveSection] = useState<Section>("general");
+  const [activeSectionIndex, setActiveSectionIndex] = useState(0);
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
@@ -65,38 +85,72 @@ export function SpaceSettingsModal({ open, onClose, spaceName }: Props) {
             </button>
           </div>
 
-          {/* Top tab nav */}
-          <div className="flex gap-1 overflow-x-auto px-4 pt-4 pb-0 scrollbar-none flex-shrink-0">
-            {SECTIONS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setActiveSection(s.id)}
-                className={cn(
-                  "flex flex-col items-center gap-1.5 px-5 py-3 rounded-xl cursor-pointer transition-colors min-w-[72px] flex-shrink-0",
-                  activeSection === s.id
-                    ? "bg-dialog-item-active text-content"
-                    : "text-content-tinted/60 hover:text-content-tinted hover:bg-white/5",
-                )}
-              >
-                {s.icon}
-                <span className="text-[11px] font-medium leading-none">
-                  {s.label}
-                </span>
-              </button>
-            ))}
-          </div>
+          <TabGroup
+            className="contents"
+            selectedIndex={activeSectionIndex}
+            onChange={setActiveSectionIndex}
+          >
+            {/* Top tab nav */}
+            <TabList
+              aria-label="Settings sections"
+              className="flex gap-1 overflow-x-auto px-4 pt-4 pb-0 scrollbar-none flex-shrink-0"
+            >
+              {SECTIONS.map((section) => (
+                <Tab
+                  key={section.id}
+                  id={`settings-tab-${section.id}`}
+                  className={({ selected }) =>
+                    cn(
+                      "flex flex-col items-center gap-1.5 px-5 py-3 rounded-xl cursor-pointer transition-colors min-w-[72px] flex-shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
+                      selected
+                        ? "bg-dialog-item-active text-content"
+                        : "text-content-tinted/60 hover:text-content-tinted hover:bg-white/5",
+                    )
+                  }
+                >
+                  {section.icon}
+                  <span className="text-[11px] font-medium leading-none">
+                    {section.label}
+                  </span>
+                </Tab>
+              ))}
+            </TabList>
 
-          {/* Divider */}
-          <div className="mx-0 mt-3 h-px bg-dialog-border flex-shrink-0" />
+            {/* Divider */}
+            <div className="mx-0 mt-3 h-px bg-dialog-border flex-shrink-0" />
 
-          {/* Content — fills remaining height, scrollable */}
-          <div className="flex-1 overflow-y-auto min-h-0">
-            {activeSection === "general" && <GeneralSection />}
-            {activeSection === "data" && <BackupSection />}
-            {activeSection === "import" && <ImportSection />}
-          </div>
+            {/* Content — fills remaining height, with each panel scrollable */}
+            <TabPanels className="flex min-h-0 flex-1">
+              <SettingsTabPanel section="general">
+                <GeneralSection />
+              </SettingsTabPanel>
+              <SettingsTabPanel section="data">
+                <BackupSection />
+              </SettingsTabPanel>
+              <SettingsTabPanel section="import">
+                <ImportSection />
+              </SettingsTabPanel>
+              <SettingsTabPanel section="shortcuts">
+                <ShortcutsSection />
+              </SettingsTabPanel>
+            </TabPanels>
+          </TabGroup>
         </DialogPanel>
       </div>
     </Dialog>
+  );
+}
+
+function SettingsTabPanel({
+  section,
+  children,
+}: React.PropsWithChildren<{ section: Section }>) {
+  return (
+    <TabPanel
+      id={`settings-panel-${section}`}
+      className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
+    >
+      {children}
+    </TabPanel>
   );
 }
