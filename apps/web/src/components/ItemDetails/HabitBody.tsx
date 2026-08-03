@@ -34,6 +34,7 @@ import { buildHabitStats } from "@/components/Habits/habitStats";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice";
 import { useTitleEditing } from "./hooks";
 import { DetailRow, EditableTitle } from "./shared";
+import { HabitHeatmap } from "./HabitHeatmap";
 
 export function HabitBody({
   habit,
@@ -245,6 +246,12 @@ export function HabitBody({
             : "Never"}
         </DetailRow>
       </div>
+
+      <HabitHeatmap
+        habitId={habit.id}
+        habitCreatedAt={habit.createdAt}
+        completions={completions}
+      />
 
       <div className="grid grid-cols-2 gap-2 pt-1">
         <button

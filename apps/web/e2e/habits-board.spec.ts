@@ -90,6 +90,16 @@ test("uses the shared board, details, move, and DnD workflows for habits", async
   const details = page.getByTestId("item-details-panel");
   await expect(details).toBeVisible();
   await expect(details).toContainText("Item Details");
+  const heatmap = details.getByLabel("Habit completion heatmap");
+  await expect(heatmap).toBeVisible();
+  await expect(
+    heatmap.locator('[role="checkbox"][aria-checked="true"]'),
+  ).toHaveCount(1);
+  const todayCell = heatmap.locator('[role="checkbox"]:not(:disabled)').last();
+  await todayCell.click();
+  await expect(todayCell).toHaveAttribute("aria-checked", "false");
+  await todayCell.click();
+  await expect(todayCell).toHaveAttribute("aria-checked", "true");
 
   const detailsTitle = details.getByLabel("Edit habit title in details");
   await detailsTitle.fill("Drink water daily");
@@ -109,6 +119,26 @@ test("uses the shared board, details, move, and DnD workflows for habits", async
 
   const eveningCard = habitCard(page, "Drink water daily");
   await eveningCard.focus();
+  await page.keyboard.press("KeyV");
+  await expect(details).toHaveAttribute("aria-hidden", "true");
+
+  // A second habit must get its own empty heatmap, not the first habit's data.
+  const eveningHeading = page.getByText("EVENING", { exact: true });
+  await eveningHeading.hover();
+  await page.getByRole("button", { name: "Add habit to EVENING" }).click();
+  const secondTitle = page.getByLabel("Edit habit title", { exact: true });
+  await secondTitle.fill("Read");
+  await secondTitle.press("Enter");
+  const secondCard = habitCard(page, "Read");
+  await secondCard.focus();
+  await page.keyboard.press("KeyV");
+  await expect(details.getByLabel("Habit completion heatmap")).toBeVisible();
+  await expect(
+    details.locator(
+      '[aria-label="Habit completion heatmap"] [role="checkbox"][aria-checked="true"]',
+    ),
+  ).toHaveCount(0);
+  await secondCard.focus();
   await page.keyboard.press("KeyV");
   await expect(details).toHaveAttribute("aria-hidden", "true");
 

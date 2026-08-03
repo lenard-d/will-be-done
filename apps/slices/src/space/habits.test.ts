@@ -20,6 +20,7 @@ import {
   habitCompletionsByHabitId,
   moveHabit,
   moveRoutine,
+  toggleHabitCompletionAt,
   toggleHabitToday,
   UNASSIGNED_ROUTINE_ID,
   updateHabit,
@@ -310,6 +311,55 @@ describe("persistent habit actions", () => {
       selectSync(db, {
         selector: habitCompletionsByHabitId,
         args: { habitId: "habit-1" },
+      }),
+    ).toEqual([]);
+  });
+
+  it("toggles a completion for an explicit historical local calendar day", () => {
+    const db = createDB();
+    syncDispatch(
+      db,
+      createHabit({ habit: { id: "habit-history", title: "Walk" }, now: 100 }),
+    );
+    const historicalMorning = new Date(2027, 2, 3, 8).getTime();
+    const historicalEvening = new Date(2027, 2, 3, 20).getTime();
+
+    expect(
+      syncDispatch(
+        db,
+        toggleHabitCompletionAt({
+          habitId: "habit-history",
+          completionId: "historical-completion",
+          completedAt: historicalMorning,
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      selectSync(db, {
+        selector: habitCompletionsByHabitId,
+        args: { habitId: "habit-history" },
+      }),
+    ).toMatchObject([
+      {
+        id: "historical-completion",
+        habitId: "habit-history",
+        completedAt: historicalMorning,
+      },
+    ]);
+
+    expect(
+      syncDispatch(
+        db,
+        toggleHabitCompletionAt({
+          habitId: "habit-history",
+          completedAt: historicalEvening,
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      selectSync(db, {
+        selector: habitCompletionsByHabitId,
+        args: { habitId: "habit-history" },
       }),
     ).toEqual([]);
   });

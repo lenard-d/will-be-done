@@ -452,6 +452,53 @@ export const deleteHabitCompletions = action({
   },
 });
 
+export const toggleHabitCompletionAt = action({
+  name: "toggleHabitCompletionAt",
+  args: {
+    habitId: v.string(),
+    completedAt: v.number(),
+    completionId: v.optional(v.string()),
+  },
+  handler: function* toggleHabitCompletionAt({
+    habitId,
+    completedAt,
+    completionId,
+  }) {
+    if (!(yield* habitById({ id: habitId }))) {
+      throw new Error("Habit not found");
+    }
+
+    const start = new Date(completedAt);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    const completions = yield* habitCompletionsByHabitId({ habitId });
+    const matchingDay = completions.filter(
+      (completion) =>
+        completion.completedAt >= start.getTime() &&
+        completion.completedAt < end.getTime(),
+    );
+
+    if (matchingDay.length > 0) {
+      yield* deleteRows(
+        habitCompletionsTable,
+        matchingDay.map((completion) => completion.id),
+      );
+      return false;
+    }
+
+    yield* insert(habitCompletionsTable, [
+      {
+        type: habitCompletionType,
+        id: completionId ?? uuidv7(),
+        habitId,
+        completedAt,
+      },
+    ]);
+    return true;
+  },
+});
+
 export const toggleHabitToday = action({
   name: "toggleHabitToday",
   args: {
@@ -460,35 +507,12 @@ export const toggleHabitToday = action({
     now: v.optional(v.number()),
   },
   handler: function* toggleHabitToday({ habitId, completionId, now }) {
-    if (!(yield* habitById({ id: habitId })))
-      throw new Error("Habit not found");
     const timestamp = now ?? Date.now();
-    const start = new Date(timestamp);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    const completions = yield* habitCompletionsByHabitId({ habitId });
-    const today = completions.filter(
-      (completion) =>
-        completion.completedAt >= start.getTime() &&
-        completion.completedAt < end.getTime(),
-    );
-    if (today.length > 0) {
-      yield* deleteRows(
-        habitCompletionsTable,
-        today.map((completion) => completion.id),
-      );
-      return false;
-    }
-    yield* insert(habitCompletionsTable, [
-      {
-        type: habitCompletionType,
-        id: completionId ?? uuidv7(),
-        habitId,
-        completedAt: timestamp,
-      },
-    ]);
-    return true;
+    return yield* toggleHabitCompletionAt({
+      habitId,
+      completedAt: timestamp,
+      completionId,
+    });
   },
 });
 
