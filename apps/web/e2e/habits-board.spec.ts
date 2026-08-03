@@ -26,7 +26,10 @@ test("uses the shared board, details, move, and DnD workflows for habits", async
   expect(spaceId).toBeTruthy();
   await page.goto(`/spaces/${spaceId}/habits`);
 
-  await expect(page.getByText("HABITS", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Habits" }),
+  ).toBeVisible();
+  await expect(columnWithTitle(page, "HABITS")).toHaveCount(0);
 
   // The empty board keeps routine creation on the standard vertical rail.
   await page.getByRole("button", { name: "ROUTINES" }).click();
@@ -36,7 +39,7 @@ test("uses the shared board, details, move, and DnD workflows for habits", async
 
   const morningHeading = page.getByText("MORNING", { exact: true });
   await expect(morningHeading).toBeVisible();
-  await expect(page.getByText("HABITS", { exact: true })).toHaveCount(0);
+  await expect(columnWithTitle(page, "HABITS")).toHaveCount(0);
   await morningHeading.hover();
   await page.getByRole("button", { name: "Add habit to MORNING" }).click();
 
@@ -100,7 +103,7 @@ test("uses the shared board, details, move, and DnD workflows for habits", async
   await details.getByLabel("Habit target time").press("Enter");
   await details.getByLabel("Habit routine").selectOption({ label: "Evening" });
 
-  await expect(page.getByText("HABITS", { exact: true })).toHaveCount(0);
+  await expect(columnWithTitle(page, "HABITS")).toHaveCount(0);
   await expect(eveningColumn).toContainText("Drink water daily");
   await expect(eveningColumn).toContainText("08:30");
 
@@ -125,7 +128,7 @@ test("uses the shared board, details, move, and DnD workflows for habits", async
   await expect(columnWithTitle(page, "MORNING")).toContainText(
     "Drink water daily",
   );
-  await expect(page.getByText("HABITS", { exact: true })).toHaveCount(0);
+  await expect(columnWithTitle(page, "HABITS")).toHaveCount(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(

@@ -371,36 +371,46 @@ export const HabitsView = () => {
   }, [dispatch]);
 
   return (
-    <div className="h-full min-h-0">
-      <TasksColumnGrid columnsCount={Math.max(columns.length, 1)}>
-        {columns.length === 0 ? (
-          <TasksColumn
-            isHidden
-            onHideClick={addRoutine}
-            columnModelId="virtual:habit-routine:create"
-            columnModelType={routineType}
-            onAddClick={addRoutine}
-            addButtonLabel="Add routine"
-            canDrop={() => false}
-            header={
-              <div className="uppercase text-content text-xl font-bold">
-                ROUTINES
-              </div>
-            }
-          >
-            {null}
-          </TasksColumn>
-        ) : (
-          columns.map((column) => (
-            <RoutineColumnView
-              key={column.id}
-              column={column}
-              columns={columns}
-              routineIds={routineIds}
-            />
-          ))
-        )}
-      </TasksColumnGrid>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <header className="w-full flex-shrink-0 pt-11 sm:pt-5 mb-6">
+        <div className="max-w-lg mx-auto px-4">
+          <h1 className="text-3xl font-bold uppercase text-content leading-tight">
+            Habits
+          </h1>
+        </div>
+      </header>
+
+      <div className="flex-1 min-h-0">
+        <TasksColumnGrid columnsCount={Math.max(columns.length, 1)}>
+          {columns.length === 0 ? (
+            <TasksColumn
+              isHidden
+              onHideClick={addRoutine}
+              columnModelId="virtual:habit-routine:create"
+              columnModelType={routineType}
+              onAddClick={addRoutine}
+              addButtonLabel="Add routine"
+              canDrop={() => false}
+              header={
+                <div className="uppercase text-content text-xl font-bold">
+                  ROUTINES
+                </div>
+              }
+            >
+              {null}
+            </TasksColumn>
+          ) : (
+            columns.map((column) => (
+              <RoutineColumnView
+                key={column.id}
+                column={column}
+                columns={columns}
+                routineIds={routineIds}
+              />
+            ))
+          )}
+        </TasksColumnGrid>
+      </div>
     </div>
   );
 };
