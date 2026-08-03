@@ -46,16 +46,19 @@ export function buildRoutineColumns(
       .sort(byOrder),
   }));
 
-  columns.push({
-    id: "unassigned",
-    title: "HABITS",
-    routine: null,
-    habits: habits
-      .filter(
-        (habit) =>
-          habit.routineId === null || !routineIds.has(habit.routineId),
-      )
-      .sort(byOrder),
-  });
+  const unassignedHabits = habits
+    .filter(
+      (habit) =>
+        habit.routineId === null || !routineIds.has(habit.routineId),
+    )
+    .sort(byOrder);
+  if (unassignedHabits.length > 0) {
+    columns.push({
+      id: "unassigned",
+      title: "HABITS",
+      routine: null,
+      habits: unassignedHabits,
+    });
+  }
   return columns;
 }

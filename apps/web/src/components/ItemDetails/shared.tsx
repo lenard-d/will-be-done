@@ -14,6 +14,7 @@ export function EditableTitle({
   textareaRef,
   saveTitle,
   setIsEditingTitle,
+  ariaLabel,
 }: {
   icon: React.ReactNode;
   isEditing: boolean;
@@ -24,6 +25,7 @@ export function EditableTitle({
   textareaRef: (el: HTMLTextAreaElement | null) => void;
   saveTitle: () => void;
   setIsEditingTitle: (v: boolean) => void;
+  ariaLabel?: string;
 }) {
   return (
     <div className="flex items-start gap-2 whitespace-break-spaces [overflow-wrap:anywhere] ">
@@ -42,6 +44,7 @@ export function EditableTitle({
         data-gramm="false"
         data-gramm_editor="false"
         data-enable-grammarly="false"
+        aria-label={ariaLabel}
         className={cn(
           "flex-1 resize-none bg-transparent text-sm font-medium leading-snug focus:outline-none placeholder:italic placeholder:text-content-tinted",
           titleClassName ?? "text-content",

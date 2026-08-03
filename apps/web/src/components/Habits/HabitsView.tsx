@@ -1,349 +1,341 @@
-import { useMemo, useState } from "react";
-import { formatDistanceToNow } from "date-fns";
-import { Flame, Trash2 } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import {
+  Archive,
+  ArrowLeft,
+  ArrowRight,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import {
   activeHabits,
   activeRoutines,
   allHabitCompletions,
-  archiveHabit,
   archiveRoutine,
   createHabit,
   createRoutine,
-  deleteHabits,
   deleteRoutines,
-  toggleHabitToday,
-  updateHabit,
+  habitType,
+  moveRoutine,
+  routineType,
+  UNASSIGNED_ROUTINE_ID,
   updateRoutine,
 } from "@will-be-done/slices/space";
 import {
   useAsyncDispatch,
   useAsyncSelector,
 } from "@will-be-done/hyperdb/react";
-import { cn } from "@/lib/utils.ts";
-import { buildHabitStats } from "./habitStats";
 import {
-  buildRoutineColumns,
-  type HabitMetricWithRoutine,
-  type RoutineColumn,
-} from "./habitLayout";
+  TasksColumn,
+  TasksColumnAction,
+  TasksColumnGrid,
+} from "@/components/TasksGrid/TasksGrid";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AddLeftIcon,
+  AddRightIcon,
+  MoveLeftIcon,
+  MoveRightIcon,
+  PencilIcon,
+  TrashIcon,
+} from "@/components/ui/icons";
+import { promptDialog } from "@/components/ui/prompt-dialog-service";
+import type { DndModelData } from "@/lib/dnd/models";
+import { buildFocusKey, useFocusStore } from "@/store/focusSlice";
+import { HabitCard } from "./HabitCard";
+import { buildRoutineColumns, type RoutineColumn } from "./habitLayout";
+import { getRoutineMoveTarget } from "./habitInteractions";
+import { buildHabitStats } from "./habitStats";
 
-type SelectedTarget =
-  | { type: "habit"; id: string }
-  | { type: "routine"; id: string }
-  | null;
+const canDropHabit = (data: DndModelData) => data.modelType === habitType;
 
-const AddInline = ({
-  placeholder,
-  onAdd,
+const RoutineActionsMenu = ({
+  column,
+  canMoveLeft,
+  canMoveRight,
+  onAddHabit,
+  onAddRoutine,
+  onMove,
+  onEdit,
+  onArchive,
+  onDelete,
 }: {
-  placeholder: string;
-  onAdd: (title: string) => void;
-}) => {
-  const [title, setTitle] = useState("");
-  return (
-    <form
-      className="flex items-center gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!title.trim()) return;
-        onAdd(title);
-        setTitle("");
-      }}
-    >
-      <input
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-        placeholder={placeholder}
-        className="min-w-0 flex-1 bg-transparent py-1 text-sm text-content placeholder:text-content-tinted/35 focus:outline-none"
-      />
-      <button
-        type="submit"
-        disabled={!title.trim()}
-        className="text-xs font-medium uppercase tracking-[0.12em] text-accent disabled:text-content-tinted/35"
-      >
-        add
-      </button>
-    </form>
-  );
-};
-
-const HabitLine = ({
-  habit,
-  selected,
-  onSelect,
-}: {
-  habit: HabitMetricWithRoutine;
-  selected: boolean;
-  onSelect: () => void;
-}) => {
-  const dispatch = useAsyncDispatch();
-  return (
-    <div
-      className={cn(
-        "group flex items-center gap-3 rounded-lg px-2 py-2 text-sm ring-1 transition-colors",
-        selected
-          ? "bg-panel-tinted ring-accent/60"
-          : "ring-transparent hover:bg-panel-tinted/60 hover:ring-ring/50",
-      )}
-      onClick={onSelect}
-    >
+  column: RoutineColumn;
+  canMoveLeft: boolean;
+  canMoveRight: boolean;
+  onAddHabit: () => void;
+  onAddRoutine: (edge: "top" | "bottom") => void;
+  onMove: (direction: "left" | "right") => void;
+  onEdit: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+}) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
       <button
         type="button"
-        aria-label={habit.isDoneToday ? "Uncheck habit" : "Check habit"}
-        onClick={(event) => {
-          event.stopPropagation();
-          void dispatch(toggleHabitToday({ habitId: habit.id }));
-        }}
-        className={cn(
-          "h-4 w-4 shrink-0 rounded border transition-colors",
-          habit.isDoneToday
-            ? "border-accent bg-accent"
-            : "border-content-tinted/35 hover:border-accent",
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <div
-          className={cn(
-            "truncate text-content",
-            habit.isDoneToday && "text-content-tinted line-through",
-          )}
-        >
-          {habit.title}
-        </div>
-        <div className="mt-0.5 text-[11px] text-content-tinted/60">
-          {habit.targetTime ? `${habit.targetTime} · ` : ""}
-          {habit.lastCompletedAt
-            ? formatDistanceToNow(habit.lastCompletedAt, { addSuffix: true })
-            : "never"}
-        </div>
-      </div>
-      <div className="flex items-center gap-1 text-[11px] tabular-nums text-content-tinted">
-        <Flame
-          className={cn(
-            "h-3.5 w-3.5",
-            habit.currentStreak > 0 && "fill-accent text-accent",
-          )}
-        />
-        {habit.currentStreak}
-      </div>
-    </div>
-  );
-};
+        className="mb-2 cursor-pointer text-white lg:hidden"
+        title={`${column.title} actions`}
+        aria-label={`${column.title} actions`}
+      >
+        <MoreHorizontal className="size-4 rotate-180" />
+      </button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="start" className="min-w-52">
+      <DropdownMenuItem onSelect={onAddHabit}>
+        <Plus /> Add habit
+      </DropdownMenuItem>
+      {column.routine && (
+        <>
+          <DropdownMenuGroup>
+            <DropdownMenuItem onSelect={() => onAddRoutine("top")}>
+              <ArrowLeft /> Add routine left
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onAddRoutine("bottom")}>
+              <ArrowRight /> Add routine right
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!canMoveLeft}
+              onSelect={() => onMove("left")}
+            >
+              <ArrowLeft /> Move routine left
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!canMoveRight}
+              onSelect={() => onMove("right")}
+            >
+              <ArrowRight /> Move routine right
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onEdit}>
+              <Pencil /> Edit routine
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onArchive}>
+            <Archive /> Archive routine
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+            <Trash2 /> Delete routine
+          </DropdownMenuItem>
+        </>
+      )}
+      {!column.routine && (
+        <DropdownMenuItem onSelect={() => onAddRoutine("top")}>
+          <Plus /> Add routine
+        </DropdownMenuItem>
+      )}
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
 
 const RoutineColumnView = ({
   column,
-  selected,
-  onSelect,
+  columns,
+  routineIds,
 }: {
   column: RoutineColumn;
-  selected: SelectedTarget;
-  onSelect: (target: SelectedTarget) => void;
-}) => {
-  const dispatch = useAsyncDispatch();
-  return (
-    <section className="flex min-w-[280px] flex-1 flex-col">
-      <button
-        type="button"
-        className="mb-5 text-left"
-        onClick={() =>
-          column.routine &&
-          onSelect({ type: "routine", id: column.routine.id })
-        }
-      >
-        <div className="text-xs text-subheader">
-          {column.habits.length} habits
-        </div>
-        <h2 className="text-3xl font-bold uppercase tracking-tight text-content">
-          {column.title}
-        </h2>
-      </button>
-      <div className="flex flex-col gap-2">
-        {column.habits.map((habit) => (
-          <HabitLine
-            key={habit.id}
-            habit={habit}
-            selected={selected?.type === "habit" && selected.id === habit.id}
-            onSelect={() => onSelect({ type: "habit", id: habit.id })}
-          />
-        ))}
-        <div className="mt-2 rounded-lg border border-dashed border-ring/70 px-3 py-2">
-          <AddInline
-            placeholder="Add habit..."
-            onAdd={(title) =>
-              void dispatch(
-                createHabit({
-                  habit: { title, routineId: column.routine?.id ?? null },
-                }),
-              )
-            }
-          />
-        </div>
-      </div>
-    </section>
-  );
-};
-
-const DetailPane = ({
-  selected,
-  habits,
-  columns,
-  onClear,
-}: {
-  selected: SelectedTarget;
-  habits: HabitMetricWithRoutine[];
   columns: RoutineColumn[];
-  onClear: () => void;
+  routineIds: string[];
 }) => {
   const dispatch = useAsyncDispatch();
-  const selectedHabit =
-    selected?.type === "habit"
-      ? habits.find((habit) => habit.id === selected.id)
-      : undefined;
-  const selectedRoutine =
-    selected?.type === "routine"
-      ? columns.find((column) => column.routine?.id === selected.id)?.routine
-      : undefined;
+  const [isHidden, setIsHidden] = useState(false);
+  const routineIndex = column.routine
+    ? routineIds.indexOf(column.routine.id)
+    : -1;
 
-  if (!selectedHabit && !selectedRoutine) {
-    return (
-      <aside className="hidden w-72 shrink-0 border-l border-ring/50 px-5 py-8 xl:block">
-        <div className="text-xs uppercase tracking-widest text-content-tinted">
-          Select a habit or routine to edit it.
-        </div>
-      </aside>
-    );
-  }
+  const addHabit = useCallback(() => {
+    void (async () => {
+      const habit = await dispatch(
+        createHabit({
+          habit: {
+            title: "New habit",
+            routineId: column.routine?.id ?? null,
+          },
+        }),
+      );
+      setIsHidden(false);
+      useFocusStore.getState().editByKey(buildFocusKey(habit.id, habitType));
+    })();
+  }, [column.routine?.id, dispatch]);
 
-  if (selectedHabit) {
-    return (
-      <aside className="hidden w-72 shrink-0 border-l border-ring/50 px-5 py-8 xl:block">
-        <label className="text-xs uppercase tracking-widest text-content-tinted">
-          Habit title
-          <input
-            defaultValue={selectedHabit.title}
-            key={selectedHabit.id}
-            onBlur={(event) =>
-              void dispatch(
-                updateHabit({
-                  id: selectedHabit.id,
-                  habit: { title: event.target.value },
-                }),
-              )
-            }
-            className="mt-2 w-full rounded-md bg-panel-tinted px-3 py-2 text-content ring-1 ring-ring"
-          />
-        </label>
-        <label className="mt-5 block text-xs uppercase tracking-widest text-content-tinted">
-          Time
-          <input
-            type="time"
-            value={selectedHabit.targetTime ?? ""}
-            onChange={(event) =>
-              void dispatch(
-                updateHabit({
-                  id: selectedHabit.id,
-                  habit: { targetTime: event.target.value || null },
-                }),
-              )
-            }
-            className="mt-2 w-full rounded-md bg-panel-tinted px-3 py-2 text-content ring-1 ring-ring"
-          />
-        </label>
-        <label className="mt-5 block text-xs uppercase tracking-widest text-content-tinted">
-          Routine
-          <select
-            value={selectedHabit.routineId ?? ""}
-            onChange={(event) =>
-              void dispatch(
-                updateHabit({
-                  id: selectedHabit.id,
-                  habit: { routineId: event.target.value || null },
-                }),
-              )
-            }
-            className="mt-2 w-full rounded-md bg-panel-tinted px-3 py-2 text-content ring-1 ring-ring"
-          >
-            <option value="">HABITS</option>
-            {columns
-              .filter((column) => column.routine)
-              .map((column) => (
-                <option key={column.id} value={column.id}>
-                  {column.title}
-                </option>
-              ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          className="mt-8 w-full rounded-md bg-panel-tinted px-3 py-2 text-left text-xs uppercase tracking-widest text-content-tinted hover:text-content"
-          onClick={() => {
-            void dispatch(archiveHabit({ id: selectedHabit.id }));
-            onClear();
-          }}
-        >
-          Archive habit
-        </button>
-        <button
-          type="button"
-          className="mt-2 w-full rounded-md bg-panel-tinted px-3 py-2 text-left text-xs uppercase tracking-widest text-red-400"
-          onClick={() => {
-            if (!confirm("Permanently delete this habit and its history?")) return;
-            void dispatch(deleteHabits({ ids: [selectedHabit.id] }));
-            onClear();
-          }}
-        >
-          <Trash2 className="mr-2 inline h-3 w-3" /> Delete permanently
-        </button>
-      </aside>
-    );
-  }
+  const addRoutine = useCallback(
+    (edge: "top" | "bottom") => {
+      void (async () => {
+        const title = await promptDialog("Routine name");
+        if (!title?.trim()) return;
+        const routine = await dispatch(createRoutine({ routine: { title } }));
+        if (column.routine) {
+          await dispatch(
+            moveRoutine({
+              id: routine.id,
+              targetId: column.routine.id,
+              edge,
+            }),
+          );
+        }
+      })();
+    },
+    [column.routine, dispatch],
+  );
+
+  const move = useCallback(
+    (direction: "left" | "right") => {
+      if (!column.routine) return;
+      const target = getRoutineMoveTarget(
+        routineIds,
+        column.routine.id,
+        direction,
+      );
+      if (target) {
+        void dispatch(moveRoutine({ id: column.routine.id, ...target }));
+      }
+    },
+    [column.routine, dispatch, routineIds],
+  );
+
+  const edit = useCallback(() => {
+    if (!column.routine) return;
+    void (async () => {
+      const title = await promptDialog("Routine name", column.routine!.title);
+      if (!title?.trim()) return;
+      await dispatch(
+        updateRoutine({
+          id: column.routine!.id,
+          routine: { title },
+        }),
+      );
+    })();
+  }, [column.routine, dispatch]);
+
+  const archive = useCallback(() => {
+    if (
+      !column.routine ||
+      !window.confirm(`Archive "${column.routine.title}"?`)
+    ) {
+      return;
+    }
+    void dispatch(archiveRoutine({ id: column.routine.id }));
+  }, [column.routine, dispatch]);
+
+  const remove = useCallback(() => {
+    if (
+      !column.routine ||
+      !window.confirm(
+        `Permanently delete "${column.routine.title}"? Its habits will move to HABITS.`,
+      )
+    ) {
+      return;
+    }
+    void dispatch(deleteRoutines({ ids: [column.routine.id] }));
+  }, [column.routine, dispatch]);
+
+  const actionsMenu = (
+    <RoutineActionsMenu
+      column={column}
+      canMoveLeft={routineIndex > 0}
+      canMoveRight={routineIndex !== -1 && routineIndex < routineIds.length - 1}
+      onAddHabit={addHabit}
+      onAddRoutine={addRoutine}
+      onMove={move}
+      onEdit={edit}
+      onArchive={archive}
+      onDelete={remove}
+    />
+  );
 
   return (
-    <aside className="hidden w-72 shrink-0 border-l border-ring/50 px-5 py-8 xl:block">
-      <label className="text-xs uppercase tracking-widest text-content-tinted">
-        Routine title
-        <input
-          defaultValue={selectedRoutine!.title}
-          key={selectedRoutine!.id}
-          onBlur={(event) =>
-            void dispatch(
-              updateRoutine({
-                id: selectedRoutine!.id,
-                routine: { title: event.target.value },
-              }),
-            )
-          }
-          className="mt-2 w-full rounded-md bg-panel-tinted px-3 py-2 text-content ring-1 ring-ring"
-        />
-      </label>
-      <button
-        type="button"
-        className="mt-8 w-full rounded-md bg-panel-tinted px-3 py-2 text-left text-xs uppercase tracking-widest text-content-tinted"
-        onClick={() => {
-          void dispatch(archiveRoutine({ id: selectedRoutine!.id }));
-          onClear();
-        }}
-      >
-        Archive routine
-      </button>
-      <button
-        type="button"
-        className="mt-2 w-full rounded-md bg-panel-tinted px-3 py-2 text-left text-xs uppercase tracking-widest text-red-400"
-        onClick={() => {
-          if (!confirm("Permanently delete this routine?")) return;
-          void dispatch(deleteRoutines({ ids: [selectedRoutine!.id] }));
-          onClear();
-        }}
-      >
-        Delete permanently
-      </button>
-    </aside>
+    <TasksColumn
+      isHidden={isHidden}
+      onHideClick={() => setIsHidden((hidden) => !hidden)}
+      columnModelId={column.routine?.id ?? UNASSIGNED_ROUTINE_ID}
+      columnModelType={routineType}
+      onAddClick={addHabit}
+      addButtonLabel={`Add habit to ${column.title}`}
+      canDrop={canDropHabit}
+      header={
+        <div className="uppercase text-content text-xl font-bold">
+          {column.title}
+        </div>
+      }
+      actions={
+        <>
+          {actionsMenu}
+          {column.routine && (
+            <>
+              <TasksColumnAction
+                label="Add routine to the left"
+                onClick={() => addRoutine("top")}
+              >
+                <AddLeftIcon />
+              </TasksColumnAction>
+              <TasksColumnAction
+                label="Add routine to the right"
+                onClick={() => addRoutine("bottom")}
+              >
+                <AddRightIcon />
+              </TasksColumnAction>
+              <TasksColumnAction
+                label="Move routine left"
+                disabled={routineIndex <= 0}
+                onClick={() => move("left")}
+              >
+                <MoveLeftIcon className="rotate-180" />
+              </TasksColumnAction>
+              <TasksColumnAction
+                label="Move routine right"
+                disabled={
+                  routineIndex === -1 || routineIndex >= routineIds.length - 1
+                }
+                onClick={() => move("right")}
+              >
+                <MoveRightIcon className="rotate-180" />
+              </TasksColumnAction>
+              <TasksColumnAction label="Archive routine" onClick={archive}>
+                <Archive className="size-4 rotate-180" />
+              </TasksColumnAction>
+              <TasksColumnAction label="Delete routine" onClick={remove}>
+                <TrashIcon className="rotate-180" />
+              </TasksColumnAction>
+              <TasksColumnAction
+                className="mb-6"
+                label="Edit routine"
+                onClick={edit}
+              >
+                <PencilIcon className="rotate-180" />
+              </TasksColumnAction>
+            </>
+          )}
+          {!column.routine && (
+            <TasksColumnAction
+              className="mb-6"
+              label="Add routine"
+              onClick={() => addRoutine("top")}
+            >
+              <AddLeftIcon />
+            </TasksColumnAction>
+          )}
+        </>
+      }
+    >
+      <div className="flex w-full flex-col gap-4 py-4">
+        {column.habits.map((habit) => (
+          <HabitCard key={habit.id} habit={habit} columns={columns} />
+        ))}
+      </div>
+    </TasksColumn>
   );
 };
 
 export const HabitsView = () => {
   const dispatch = useAsyncDispatch();
-  const [selected, setSelected] = useState<SelectedTarget>(null);
   const { data: habits = [] } = useAsyncSelector({
     selector: activeHabits,
     args: {},
@@ -364,45 +356,51 @@ export const HabitsView = () => {
     () => buildRoutineColumns(routines, metrics),
     [routines, metrics],
   );
+  const routineIds = useMemo(
+    () =>
+      columns.flatMap((column) => (column.routine ? [column.routine.id] : [])),
+    [columns],
+  );
+
+  const addRoutine = useCallback(() => {
+    void (async () => {
+      const title = await promptDialog("Routine name");
+      if (!title?.trim()) return;
+      await dispatch(createRoutine({ routine: { title } }));
+    })();
+  }, [dispatch]);
 
   return (
-    <div className="flex h-full min-h-0 bg-surface">
-      <main className="min-w-0 flex-1 overflow-auto px-6 py-10">
-        <header className="mb-8 flex items-end justify-between gap-6">
-          <div>
-            <div className="text-xs uppercase tracking-[0.22em] text-accent/75">
-              routines
-            </div>
-            <h1 className="mt-2 text-4xl font-bold uppercase text-content">
-              habits
-            </h1>
-          </div>
-          <div className="w-72 rounded-lg border border-dashed border-ring px-3 py-2">
-            <AddInline
-              placeholder="Add routine..."
-              onAdd={(title) =>
-                void dispatch(createRoutine({ routine: { title } }))
-              }
-            />
-          </div>
-        </header>
-        <div className="flex min-w-max gap-8 pb-8">
-          {columns.map((column) => (
+    <div className="h-full min-h-0">
+      <TasksColumnGrid columnsCount={Math.max(columns.length, 1)}>
+        {columns.length === 0 ? (
+          <TasksColumn
+            isHidden
+            onHideClick={addRoutine}
+            columnModelId="virtual:habit-routine:create"
+            columnModelType={routineType}
+            onAddClick={addRoutine}
+            addButtonLabel="Add routine"
+            canDrop={() => false}
+            header={
+              <div className="uppercase text-content text-xl font-bold">
+                ROUTINES
+              </div>
+            }
+          >
+            {null}
+          </TasksColumn>
+        ) : (
+          columns.map((column) => (
             <RoutineColumnView
               key={column.id}
               column={column}
-              selected={selected}
-              onSelect={setSelected}
+              columns={columns}
+              routineIds={routineIds}
             />
-          ))}
-        </div>
-      </main>
-      <DetailPane
-        selected={selected}
-        habits={metrics}
-        columns={columns}
-        onClear={() => setSelected(null)}
-      />
+          ))
+        )}
+      </TasksColumnGrid>
     </div>
   );
 };

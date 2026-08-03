@@ -5,7 +5,10 @@ import {
   upsert,
   v,
 } from "@will-be-done/hyperdb";
-import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
+import {
+  generateJitteredKeyBetween,
+  generateNJitteredKeysBetween,
+} from "fractional-indexing-jittered";
 import { uuidv7 } from "uuidv7";
 import { action, selector } from "../builders";
 import { registerModelSlice } from "./maps";
@@ -27,6 +30,59 @@ export const normalizeHabit = (habit: HabitRecord): Habit => ({
   routineId: habit.routineId ?? null,
   targetTime: habit.targetTime ?? null,
 });
+
+export const UNASSIGNED_ROUTINE_ID = "virtual:habit-routine:unassigned";
+
+const movePosition = v.union(
+  v.literal("prepend"),
+  v.literal("append"),
+  v.object({
+    targetId: v.string(),
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  }),
+);
+
+type MovePosition =
+  | "prepend"
+  | "append"
+  | { targetId: string; edge: "top" | "bottom" };
+
+const insertAtPosition = <T extends { id: string }>(
+  items: T[],
+  item: T,
+  position: MovePosition,
+) => {
+  const withoutItem = items.filter((candidate) => candidate.id !== item.id);
+  if (position === "prepend") return [item, ...withoutItem];
+  if (position === "append") return [...withoutItem, item];
+
+  const targetIndex = withoutItem.findIndex(
+    (candidate) => candidate.id === position.targetId,
+  );
+  if (targetIndex === -1) throw new Error("Move target not found");
+  const insertIndex = targetIndex + (position.edge === "bottom" ? 1 : 0);
+  return [
+    ...withoutItem.slice(0, insertIndex),
+    item,
+    ...withoutItem.slice(insertIndex),
+  ];
+};
+
+const tokenAt = <T extends { orderToken: string }>(
+  items: T[],
+  index: number,
+) => {
+  try {
+    return generateJitteredKeyBetween(
+      items[index - 1]?.orderToken ?? null,
+      items[index + 1]?.orderToken ?? null,
+    );
+  } catch {
+    // Legacy releases used timestamp strings, which are not valid fractional
+    // keys. Callers re-key the affected ordered list in this case.
+    return null;
+  }
+};
 
 export const habitById = selector({
   name: "habitById",
@@ -128,10 +184,7 @@ const nextHabitOrderToken = selector({
     if (previousToken !== null && /^\d+$/.test(previousToken)) {
       return generateJitteredKeyBetween(null, null);
     }
-    return generateJitteredKeyBetween(
-      previousToken,
-      null,
-    );
+    return generateJitteredKeyBetween(previousToken, null);
   },
 });
 
@@ -144,10 +197,7 @@ const nextRoutineOrderToken = selector({
     if (previousToken !== null && /^\d+$/.test(previousToken)) {
       return generateJitteredKeyBetween(null, null);
     }
-    return generateJitteredKeyBetween(
-      previousToken,
-      null,
-    );
+    return generateJitteredKeyBetween(previousToken, null);
   },
 });
 
@@ -257,6 +307,87 @@ export const updateRoutine = action({
   },
 });
 
+export const moveHabit = action({
+  name: "moveHabit",
+  args: {
+    id: v.string(),
+    routineId: v.union(v.string(), v.null()),
+    position: movePosition,
+  },
+  handler: function* moveHabit({ id, routineId, position }) {
+    const current = yield* habitById({ id });
+    if (!current) throw new Error("Habit not found");
+
+    const activeRoutineIds = new Set(
+      (yield* activeRoutines({})).map((routine) => routine.id),
+    );
+    const normalizedRoutineId =
+      routineId !== null && activeRoutineIds.has(routineId) ? routineId : null;
+    const targetHabits = (yield* allHabits({}))
+      .filter(
+        (habit) =>
+          habit.archivedAt === null &&
+          (normalizedRoutineId === null
+            ? habit.routineId === null || !activeRoutineIds.has(habit.routineId)
+            : habit.routineId === normalizedRoutineId),
+      )
+      .sort((left, right) => left.orderToken.localeCompare(right.orderToken));
+    const moved = { ...current, routineId: normalizedRoutineId };
+    const ordered = insertAtPosition(targetHabits, moved, position);
+    const movedIndex = ordered.findIndex((habit) => habit.id === id);
+    const orderToken = tokenAt(ordered, movedIndex);
+
+    if (orderToken !== null) {
+      const updated = { ...moved, orderToken };
+      yield* upsert(habitsTable, [updated]);
+      return updated;
+    }
+
+    const tokens = generateNJitteredKeysBetween(null, null, ordered.length);
+    const rekeyed = ordered.map((habit, index) => ({
+      ...habit,
+      orderToken: tokens[index]!,
+    }));
+    yield* upsert(habitsTable, rekeyed);
+    return rekeyed[movedIndex]!;
+  },
+});
+
+export const moveRoutine = action({
+  name: "moveRoutine",
+  args: {
+    id: v.string(),
+    targetId: v.string(),
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* moveRoutine({ id, targetId, edge }) {
+    const current = yield* routineById({ id });
+    if (!current) throw new Error("Routine not found");
+    if (id === targetId) return current;
+
+    const routines = (yield* activeRoutines({})).sort((left, right) =>
+      left.orderToken.localeCompare(right.orderToken),
+    );
+    const ordered = insertAtPosition(routines, current, { targetId, edge });
+    const movedIndex = ordered.findIndex((routine) => routine.id === id);
+    const orderToken = tokenAt(ordered, movedIndex);
+
+    if (orderToken !== null) {
+      const updated = { ...current, orderToken };
+      yield* upsert(routinesTable, [updated]);
+      return updated;
+    }
+
+    const tokens = generateNJitteredKeysBetween(null, null, ordered.length);
+    const rekeyed = ordered.map((routine, index) => ({
+      ...routine,
+      orderToken: tokens[index]!,
+    }));
+    yield* upsert(routinesTable, rekeyed);
+    return rekeyed[movedIndex]!;
+  },
+});
+
 export const archiveHabit = action({
   name: "archiveHabit",
   args: { id: v.string(), now: v.optional(v.number()) },
@@ -329,7 +460,8 @@ export const toggleHabitToday = action({
     now: v.optional(v.number()),
   },
   handler: function* toggleHabitToday({ habitId, completionId, now }) {
-    if (!(yield* habitById({ id: habitId }))) throw new Error("Habit not found");
+    if (!(yield* habitById({ id: habitId })))
+      throw new Error("Habit not found");
     const timestamp = now ?? Date.now();
     const start = new Date(timestamp);
     start.setHours(0, 0, 0, 0);
@@ -360,8 +492,73 @@ export const toggleHabitToday = action({
   },
 });
 
+const habitCanDrop = selector({
+  name: "habitCanDrop",
+  args: {
+    id: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+  },
+  handler: function* habitCanDrop({ id, dropId, dropModelType }) {
+    return dropModelType === habitType && id !== dropId;
+  },
+});
+
+const habitHandleDrop = action({
+  name: "habitHandleDrop",
+  args: {
+    id: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* habitHandleDrop({ id, dropId, dropModelType, edge }) {
+    if (dropModelType !== habitType || id === dropId) return;
+    const target = yield* habitById({ id });
+    if (!target) return;
+    const targetRoutine = target.routineId
+      ? yield* routineById({ id: target.routineId })
+      : undefined;
+    yield* moveHabit({
+      id: dropId,
+      routineId: targetRoutine?.archivedAt === null ? targetRoutine.id : null,
+      position: { targetId: target.id, edge },
+    });
+  },
+});
+
+const routineCanDrop = selector({
+  name: "routineCanDrop",
+  args: {
+    id: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+  },
+  handler: function* routineCanDrop({ dropModelType }) {
+    return dropModelType === habitType;
+  },
+});
+
+const routineHandleDrop = action({
+  name: "routineHandleDrop",
+  args: {
+    id: v.string(),
+    dropId: v.string(),
+    dropModelType: possibleModelType,
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* routineHandleDrop({ id, dropId, dropModelType }) {
+    if (dropModelType !== habitType) return;
+    yield* moveHabit({
+      id: dropId,
+      routineId: id === UNASSIGNED_ROUTINE_ID ? null : id,
+      position: "append",
+    });
+  },
+});
+
 const cannotDrop = selector({
-  name: "habitCannotDrop",
+  name: "habitCompletionCannotDrop",
   args: {
     id: v.string(),
     dropId: v.string(),
@@ -373,7 +570,7 @@ const cannotDrop = selector({
 });
 
 const noDrop = action({
-  name: "habitNoDrop",
+  name: "habitCompletionNoDrop",
   args: {
     id: v.string(),
     dropId: v.string(),
@@ -387,8 +584,8 @@ registerModelSlice(
   {
     byId: habitById,
     delete: deleteHabits,
-    canDrop: cannotDrop,
-    handleDrop: noDrop,
+    canDrop: habitCanDrop,
+    handleDrop: habitHandleDrop,
   },
   habitsTable,
   habitType,
@@ -397,8 +594,8 @@ registerModelSlice(
   {
     byId: routineById,
     delete: deleteRoutines,
-    canDrop: cannotDrop,
-    handleDrop: noDrop,
+    canDrop: routineCanDrop,
+    handleDrop: routineHandleDrop,
   },
   routinesTable,
   routineType,

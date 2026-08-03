@@ -48,9 +48,11 @@ import { focusChecklistItem } from "./focus";
 export function CheckboxComp({
   checked,
   onChange,
+  ariaLabel,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
+  ariaLabel?: string;
 }) {
   return (
     <Checkbox.Root
@@ -59,6 +61,7 @@ export function CheckboxComp({
       tabIndex={-1}
       checked={checked}
       onCheckedChange={onChange}
+      aria-label={ariaLabel}
     >
       <Checkbox.Indicator className="flex text-white data-[unchecked]:hidden">
         <CheckIcon className="size-2.5" />

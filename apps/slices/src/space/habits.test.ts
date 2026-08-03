@@ -7,6 +7,7 @@ import {
   syncDispatch,
 } from "@will-be-done/hyperdb";
 import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
+import { appHandleDrop } from "./app";
 import {
   activeHabits,
   allHabits,
@@ -17,22 +18,25 @@ import {
   deleteHabits,
   habitById,
   habitCompletionsByHabitId,
+  moveHabit,
+  moveRoutine,
   toggleHabitToday,
+  UNASSIGNED_ROUTINE_ID,
   updateHabit,
 } from "./habits";
 import {
   habitCompletionsTable,
+  habitType,
   habitsTable,
   isHabit,
   isHabitRecord,
+  routineType,
   routinesTable,
 } from "./tables";
 
 function createDB() {
   const db = new DB(new BptreeInmemDriver());
-  execSync(
-    db.loadTables([habitsTable, routinesTable, habitCompletionsTable]),
-  );
+  execSync(db.loadTables([habitsTable, routinesTable, habitCompletionsTable]));
   return db;
 }
 
@@ -78,10 +82,7 @@ describe("persistent habit actions", () => {
     const primary = new DB(new BptreeInmemDriver(), {
       runtimeRowsValidation: true,
     });
-    const db = new HybridDB(
-      primary,
-      new DB(new BptreeInmemDriver()),
-    );
+    const db = new HybridDB(primary, new DB(new BptreeInmemDriver()));
     execSync(
       db.loadTables([habitsTable, routinesTable, habitCompletionsTable]),
     );
@@ -346,5 +347,187 @@ describe("persistent habit actions", () => {
         args: { habitId: "habit-1" },
       }),
     ).toEqual([]);
+  });
+
+  it("moves habits within and between routines with persistent ordering", () => {
+    const db = createDB();
+    for (const [id, title] of [
+      ["morning", "Morning"],
+      ["evening", "Evening"],
+    ] as const) {
+      syncDispatch(db, createRoutine({ routine: { id, title }, now: 1 }));
+    }
+    for (const [id, title, routineId] of [
+      ["water", "Water", "morning"],
+      ["walk", "Walk", "morning"],
+      ["journal", "Journal", "evening"],
+    ] as const) {
+      syncDispatch(
+        db,
+        createHabit({ habit: { id, title, routineId }, now: 2 }),
+      );
+    }
+
+    syncDispatch(
+      db,
+      moveHabit({
+        id: "walk",
+        routineId: "morning",
+        position: { targetId: "water", edge: "top" },
+      }),
+    );
+    syncDispatch(
+      db,
+      moveHabit({ id: "water", routineId: "evening", position: "prepend" }),
+    );
+
+    const habits = selectSync(db, { selector: allHabits, args: {} });
+    const titlesIn = (routineId: string) =>
+      habits
+        .filter((habit) => habit.routineId === routineId)
+        .sort((left, right) => left.orderToken.localeCompare(right.orderToken))
+        .map((habit) => habit.title);
+    expect(titlesIn("morning")).toEqual(["Walk"]);
+    expect(titlesIn("evening")).toEqual(["Water", "Journal"]);
+  });
+
+  it("reorders routines around a target", () => {
+    const db = createDB();
+    for (const [id, title] of [
+      ["morning", "Morning"],
+      ["afternoon", "Afternoon"],
+      ["evening", "Evening"],
+    ] as const) {
+      syncDispatch(db, createRoutine({ routine: { id, title }, now: 1 }));
+    }
+
+    syncDispatch(
+      db,
+      moveRoutine({ id: "evening", targetId: "morning", edge: "top" }),
+    );
+
+    expect(
+      selectSync(db, { selector: allRoutines, args: {} }).map(
+        (routine) => routine.id,
+      ),
+    ).toEqual(["evening", "morning", "afternoon"]);
+  });
+
+  it("persists card and column drops through the generic DnD actions", () => {
+    const db = createDB();
+    for (const id of ["morning", "evening"] as const) {
+      syncDispatch(db, createRoutine({ routine: { id, title: id }, now: 1 }));
+    }
+    syncDispatch(
+      db,
+      createHabit({
+        habit: { id: "water", title: "Water", routineId: "morning" },
+        now: 2,
+      }),
+    );
+    syncDispatch(
+      db,
+      createHabit({
+        habit: { id: "journal", title: "Journal", routineId: "evening" },
+        now: 2,
+      }),
+    );
+
+    syncDispatch(
+      db,
+      appHandleDrop({
+        id: "journal",
+        modelType: habitType,
+        dropId: "water",
+        dropModelType: habitType,
+        edge: "top",
+      }),
+    );
+    expect(
+      selectSync(db, { selector: habitById, args: { id: "water" } })?.routineId,
+    ).toBe("evening");
+
+    syncDispatch(
+      db,
+      appHandleDrop({
+        id: UNASSIGNED_ROUTINE_ID,
+        modelType: routineType,
+        dropId: "water",
+        dropModelType: habitType,
+        edge: "top",
+      }),
+    );
+    expect(
+      selectSync(db, { selector: habitById, args: { id: "water" } })?.routineId,
+    ).toBeNull();
+  });
+
+  it("keeps dangling-reference habits in the unassigned order when dropping", () => {
+    const db = createDB();
+    syncDispatch(
+      db,
+      createHabit({
+        habit: {
+          id: "dangling",
+          title: "Dangling",
+          routineId: "missing-routine",
+        },
+        now: 1,
+      }),
+    );
+    syncDispatch(
+      db,
+      createHabit({
+        habit: { id: "unassigned", title: "Unassigned", routineId: null },
+        now: 2,
+      }),
+    );
+
+    syncDispatch(
+      db,
+      appHandleDrop({
+        id: "dangling",
+        modelType: habitType,
+        dropId: "unassigned",
+        dropModelType: habitType,
+        edge: "top",
+      }),
+    );
+
+    const habits = selectSync(db, { selector: allHabits, args: {} });
+    expect(habits.map((habit) => habit.id)).toEqual(["unassigned", "dangling"]);
+    expect(habits.find((habit) => habit.id === "unassigned")?.routineId).toBeNull();
+    expect(habits.find((habit) => habit.id === "dangling")?.routineId).toBe(
+      "missing-routine",
+    );
+  });
+
+  it("normalizes legacy numeric tokens when a habit is reordered", () => {
+    const db = createDB();
+    for (const [id, orderToken] of [
+      ["first", "1700000000000"],
+      ["second", "1700000000001"],
+    ] as const) {
+      syncDispatch(
+        db,
+        createHabit({
+          habit: { id, title: id, orderToken, routineId: null },
+          now: 1,
+        }),
+      );
+    }
+
+    syncDispatch(
+      db,
+      moveHabit({
+        id: "second",
+        routineId: null,
+        position: { targetId: "first", edge: "top" },
+      }),
+    );
+
+    const habits = selectSync(db, { selector: allHabits, args: {} });
+    expect(habits.map((habit) => habit.id)).toEqual(["second", "first"]);
+    expect(habits.every((habit) => !/^\d+$/.test(habit.orderToken))).toBe(true);
   });
 });
