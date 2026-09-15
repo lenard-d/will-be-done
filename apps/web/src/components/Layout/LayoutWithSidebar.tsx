@@ -1,12 +1,27 @@
+import { useEffect } from "react";
 import { useSidebarStore } from "@/store/sidebarStore.ts";
 import { AppSidebar } from "@/components/Sidebar/AppSidebar.tsx";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar.tsx";
 import { useSpaceSettingsStore } from "@/components/SpaceSettings/spaceSettingsStore.ts";
 import { SpaceSettingsModal } from "@/components/SpaceSettings/SpaceSettingsModal.tsx";
+import { TOGGLE_SIDEBAR_EVENT } from "@/components/CommandPalette/CommandPalette.tsx";
+
+function SidebarCommandBridge() {
+  const { toggleSidebar } = useSidebar();
+
+  useEffect(() => {
+    window.addEventListener(TOGGLE_SIDEBAR_EVENT, toggleSidebar);
+    return () =>
+      window.removeEventListener(TOGGLE_SIDEBAR_EVENT, toggleSidebar);
+  }, [toggleSidebar]);
+
+  return null;
+}
 
 export const LayoutWithSidebar = ({
   children,
@@ -25,6 +40,7 @@ export const LayoutWithSidebar = ({
         width={sidebarWidth}
         onWidthChange={setSidebarWidth}
       >
+        <SidebarCommandBridge />
         <AppSidebar />
         <SidebarInset className="min-h-0 bg-transparent">
           <div className="relative h-full">
