@@ -25,7 +25,9 @@ import { updateTemplate } from "./taskTemplates";
 import { registerModelSlice } from "./maps";
 import {
   taskType,
+  checklistItemsTable,
   dailyEntriesTable,
+  stashEntriesTable,
   tasksTable,
   taskTemplatesTable,
   possibleModelType,
@@ -121,6 +123,141 @@ export const allTasks = selector({
       "byProjectSectionIdOrderStates",
     );
     return tasks;
+  },
+});
+
+const taskUndoSnapshotSchema = v.object({
+  tasks: v.array(tasksTable.v()),
+  checklistItems: v.array(checklistItemsTable.v()),
+  dailyEntries: v.array(dailyEntriesTable.v()),
+  stashEntries: v.array(stashEntriesTable.v()),
+});
+
+export const taskUndoSnapshot = selector({
+  name: "taskUndoSnapshot",
+  args: { ids: v.array(v.string()) },
+  handler: function* taskUndoSnapshot({ ids }) {
+    if (ids.length === 0) {
+      return {
+        tasks: [],
+        checklistItems: [],
+        dailyEntries: [],
+        stashEntries: [],
+      };
+    }
+
+    const tasks = yield* selectFrom(tasksTable, "byId").where((q) =>
+      ids.map((id) => q.eq("id", id)),
+    );
+    const checklistItems = yield* selectFrom(
+      checklistItemsTable,
+      "byParentOrder",
+    ).where((q) =>
+      ids.map((id) => q.eq("parentType", taskType).eq("parentId", id)),
+    );
+    const dailyEntries = yield* selectFrom(dailyEntriesTable, "byId").where(
+      (q) => ids.map((id) => q.eq("id", id)),
+    );
+    const stashEntries = yield* selectFrom(stashEntriesTable, "byId").where(
+      (q) => ids.map((id) => q.eq("id", id)),
+    );
+
+    return { tasks, checklistItems, dailyEntries, stashEntries };
+  },
+});
+
+function rowsMatch<T>(left: T | undefined, right: T | undefined) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export const undoTaskCommand = action({
+  name: "undoTaskCommand",
+  args: {
+    before: taskUndoSnapshotSchema,
+    after: taskUndoSnapshotSchema,
+  },
+  handler: function* undoTaskCommand({ before, after }) {
+    const beforeTasks = new Map(before.tasks.map((task) => [task.id, task]));
+    const afterTasks = new Map(after.tasks.map((task) => [task.id, task]));
+    const taskIds = new Set([...beforeTasks.keys(), ...afterTasks.keys()]);
+
+    for (const id of taskIds) {
+      const previous = beforeTasks.get(id);
+      const changed = afterTasks.get(id);
+      const current = yield* taskById({ id });
+
+      if (!changed) {
+        if (previous && !current) yield* upsert(tasksTable, [previous]);
+        continue;
+      }
+
+      if (!previous) {
+        if (rowsMatch(current, changed)) yield* deleteRows(tasksTable, [id]);
+        continue;
+      }
+
+      if (!current) continue;
+
+      yield* upsert(tasksTable, [
+        {
+          ...current,
+          title:
+            current.title === changed.title ? previous.title : current.title,
+          content:
+            current.content === changed.content
+              ? previous.content
+              : current.content,
+          state:
+            current.state === changed.state ? previous.state : current.state,
+          projectSectionId:
+            current.projectSectionId === changed.projectSectionId
+              ? previous.projectSectionId
+              : current.projectSectionId,
+          orderToken:
+            current.orderToken === changed.orderToken
+              ? previous.orderToken
+              : current.orderToken,
+          lastToggledAt:
+            current.lastToggledAt === changed.lastToggledAt
+              ? previous.lastToggledAt
+              : current.lastToggledAt,
+          nature:
+            current.nature === changed.nature
+              ? previous.nature
+              : current.nature,
+          templateId:
+            current.templateId === changed.templateId
+              ? previous.templateId
+              : current.templateId,
+          templateDate:
+            current.templateDate === changed.templateDate
+              ? previous.templateDate
+              : current.templateDate,
+        },
+      ]);
+    }
+
+    for (const tableSnapshots of [
+      [dailyEntriesTable, before.dailyEntries, after.dailyEntries],
+      [stashEntriesTable, before.stashEntries, after.stashEntries],
+      [checklistItemsTable, before.checklistItems, after.checklistItems],
+    ] as const) {
+      const [table, previousRows, changedRows] = tableSnapshots;
+      const previousById = new Map(previousRows.map((row) => [row.id, row]));
+      const changedById = new Map(changedRows.map((row) => [row.id, row]));
+      const rowIds = new Set([...previousById.keys(), ...changedById.keys()]);
+
+      for (const id of rowIds) {
+        const current = yield* selectFrom(table, "byId")
+          .where((q) => q.eq("id", id))
+          .first();
+        if (!rowsMatch(current, changedById.get(id))) continue;
+
+        const previous = previousById.get(id);
+        if (previous) yield* upsert(table, [previous]);
+        else yield* deleteRows(table, [id]);
+      }
+    }
   },
 });
 

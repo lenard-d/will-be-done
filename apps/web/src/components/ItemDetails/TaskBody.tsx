@@ -38,6 +38,7 @@ import {
   EditableDescription,
 } from "./shared.tsx";
 import { useOpenProject } from "@/hooks/useOpenProject.ts";
+import { useTaskCommandHistory } from "@/hooks/useTaskCommandHistory.ts";
 
 export function TaskBody({
   task,
@@ -55,6 +56,7 @@ export function TaskBody({
   onItemIdChange?: (itemId: string) => void;
 }) {
   const dispatch = useAsyncDispatch();
+  const { executeTaskCommand } = useTaskCommandHistory();
   const taskId = task.id;
   const openProject = useOpenProject();
 
@@ -101,8 +103,10 @@ export function TaskBody({
     setIsEditingTitle,
     onSave: useCallback(
       (trimmed: string) =>
-        void dispatch(updateTask({ id: taskId, task: { title: trimmed } })),
-      [dispatch, taskId],
+        void executeTaskCommand([taskId], () =>
+          dispatch(updateTask({ id: taskId, task: { title: trimmed } })),
+        ),
+      [dispatch, executeTaskCommand, taskId],
     ),
   });
 
@@ -118,8 +122,10 @@ export function TaskBody({
     setIsEditingDescription,
     onSave: useCallback(
       (content: string) =>
-        void dispatch(updateTask({ id: taskId, task: { content } })),
-      [dispatch, taskId],
+        void executeTaskCommand([taskId], () =>
+          dispatch(updateTask({ id: taskId, task: { content } })),
+        ),
+      [dispatch, executeTaskCommand, taskId],
     ),
   });
 
@@ -176,7 +182,11 @@ export function TaskBody({
         icon={
           <CheckboxComp
             checked={task.state === "done"}
-            onChange={() => void dispatch(toggleTaskState({ taskId: taskId }))}
+            onChange={() =>
+              void executeTaskCommand([taskId], () =>
+                dispatch(toggleTaskState({ taskId })),
+              )
+            }
           />
         }
         isEditing={isEditingTitle}
@@ -204,13 +214,15 @@ export function TaskBody({
           projectSectionId={task.projectSectionId}
           projectSections={projectSections}
           onChange={(projectSectionId) =>
-            void dispatch(
-              updateTask({
-                id: taskId,
-                task: {
-                  projectSectionId: projectSectionId,
-                },
-              }),
+            void executeTaskCommand([taskId], () =>
+              dispatch(
+                updateTask({
+                  id: taskId,
+                  task: {
+                    projectSectionId: projectSectionId,
+                  },
+                }),
+              ),
             )
           }
         />
@@ -310,8 +322,8 @@ export function TaskBody({
         <MoveModal
           setIsOpen={setIsMoveProjectModalOpen}
           handleMove={(projectId) => {
-            void dispatch(
-              moveTaskToProject({ taskId: taskId, projectId: projectId }),
+            void executeTaskCommand([taskId], () =>
+              dispatch(moveTaskToProject({ taskId, projectId })),
             );
             setIsMoveProjectModalOpen(false);
           }}
