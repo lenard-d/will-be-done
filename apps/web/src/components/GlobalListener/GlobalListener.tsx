@@ -31,12 +31,16 @@ import {
 } from "@/components/Focus/domNavigation.ts";
 import { selectAsync } from "@will-be-done/hyperdb";
 import { useTaskCommandHistory } from "@/hooks/useTaskCommandHistory.ts";
-import { shouldHandleTaskUndo } from "@/store/taskCommandHistory.ts";
+import {
+  shouldHandleTaskRedo,
+  shouldHandleTaskUndo,
+} from "@/store/taskCommandHistory.ts";
 
 export function GlobalListener() {
   const dispatch = useAsyncDispatch();
   const db = useDB();
-  const { executeTaskCommand, undoTaskCommand } = useTaskCommandHistory();
+  const { executeTaskCommand, redoTaskCommand, undoTaskCommand } =
+    useTaskCommandHistory();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -62,6 +66,12 @@ export function GlobalListener() {
         return;
       }
 
+      if (shouldHandleTaskRedo(e)) {
+        e.preventDefault();
+        void redoTaskCommand();
+        return;
+      }
+
       if (e.code === "Escape" && !isSomethingFocused) {
         useFocusStore.getState().resetFocus();
 
@@ -71,7 +81,7 @@ export function GlobalListener() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [undoTaskCommand]);
+  }, [redoTaskCommand, undoTaskCommand]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

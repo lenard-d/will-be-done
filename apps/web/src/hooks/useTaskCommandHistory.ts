@@ -37,14 +37,22 @@ export function useTaskCommandHistory() {
           selector: taskUndoSnapshot,
           args: { ids: taskIds },
         });
-        return async () => {
-          await dispatch(undoTaskMutation({ before: snapshot, after }));
+        return {
+          undo: async () => {
+            await dispatch(undoTaskMutation({ before: snapshot, after }));
+          },
+          redo: async () => {
+            await dispatch(
+              undoTaskMutation({ before: after, after: snapshot }),
+            );
+          },
         };
       }),
     [db, dispatch, history],
   );
 
   const undoTaskCommand = useCallback(() => history.undo(), [history]);
+  const redoTaskCommand = useCallback(() => history.redo(), [history]);
 
-  return { executeTaskCommand, undoTaskCommand };
+  return { executeTaskCommand, undoTaskCommand, redoTaskCommand };
 }

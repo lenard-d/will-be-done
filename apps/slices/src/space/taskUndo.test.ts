@@ -180,6 +180,19 @@ describe("task undo snapshots", () => {
     expect(snapshot(db)).toEqual(before);
   });
 
+  it("reapplies a deletion from reversed snapshots", () => {
+    const db = createDB();
+    const before = snapshot(db);
+
+    syncDispatch(db, deleteTasks({ ids: [task.id] }));
+    const after = snapshot(db);
+    syncDispatch(db, undoTaskCommand({ before, after }));
+    syncDispatch(db, undoTaskCommand({ before: after, after: before }));
+
+    expect(restoredTask(db)).toBeUndefined();
+    expect(snapshot(db)).toEqual(after);
+  });
+
   it("removes a task created by the command", () => {
     const db = createEmptyDB();
     const before = snapshot(db);
