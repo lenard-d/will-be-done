@@ -530,6 +530,21 @@ const lwwMerge = (
   for (const key of allKeys) {
     const changeTimestampA = aChange[key];
     const changeTimestampB = bChange[key];
+    const valueA = primitiveARow[key];
+    const valueB = primitiveBRow[key];
+
+    if (valueA === undefined) {
+      if (valueB !== undefined) {
+        mergedChanges[key] = changeTimestampB ?? changeTimestampA!;
+        mergedRow[key] = valueB;
+      }
+      continue;
+    }
+    if (valueB === undefined) {
+      mergedChanges[key] = changeTimestampA ?? changeTimestampB!;
+      mergedRow[key] = valueA;
+      continue;
+    }
 
     let winningTimestamp: string;
     let winningValue: string | number | boolean | null;
@@ -540,21 +555,21 @@ const lwwMerge = (
       if (changeTimestampA > changeTimestampB) {
         // A is the winner
         winningTimestamp = changeTimestampA;
-        winningValue = primitiveARow[key]!;
+        winningValue = valueA;
       } else {
         // B is the winner (or they are equal, B wins the tie)
         winningTimestamp = changeTimestampB;
-        winningValue = primitiveBRow[key]!;
+        winningValue = valueB;
       }
     } else if (changeTimestampA !== undefined) {
       // --- Key was only changed in A ---
       winningTimestamp = changeTimestampA;
-      winningValue = primitiveARow[key]!;
+      winningValue = valueA;
     } else {
       // --- Key was only changed in B ---
       // We can assert changeTimestampB is not undefined here.
       winningTimestamp = changeTimestampB!;
-      winningValue = primitiveBRow[key]!;
+      winningValue = valueB;
     }
 
     // Update the merged results with the winning data

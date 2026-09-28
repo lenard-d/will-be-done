@@ -705,6 +705,70 @@ describe("first-creator-wins merge", () => {
     expect(change!.clientId).toBe("remote");
   });
 
+  it("keeps a valid local field when an incoming update omits its value", () => {
+    resetClock();
+    const db = createDB();
+    const entityId = "incomplete-update";
+    const createdAtClock = "0000000010-0001-client1";
+    localCreate(
+      db,
+      {
+        type: "task",
+        id: entityId,
+        title: "original",
+        orderToken: "a",
+        createdAt: 100,
+      },
+      createdAtClock,
+    );
+
+    syncDispatch(
+      db,
+      mergeChanges({
+        input: [
+          {
+            tableName: "testItems",
+            data: [
+              {
+                row: {
+                  id: entityId,
+                  title: "updated-by-remote",
+                  orderToken: "a",
+                  createdAt: 100,
+                },
+                change: {
+                  id: `testItems:${entityId}`,
+                  entityId,
+                  tableName: "testItems",
+                  createdAt: createdAtClock,
+                  updatedAt: "0000000020-0001-client1",
+                  deletedAt: null,
+                  clientId: "client1",
+                  changes: {
+                    type: createdAtClock,
+                    id: createdAtClock,
+                    title: "0000000020-0001-client1",
+                    orderToken: createdAtClock,
+                    createdAt: createdAtClock,
+                  },
+                },
+              },
+            ],
+          },
+        ],
+        nextClock: makeClockFn("0000000030")(),
+        clientId: "local",
+        registeredSyncableTableNameMap: registeredTables,
+      }),
+    );
+
+    expect(getRow(db, entityId)).toMatchObject({
+      type: "task",
+      title: "updated-by-remote",
+    });
+    expect(getChange(db, entityId)?.changes.type).toBe(createdAtClock);
+  });
+
   it("normal update sync is not blocked by FCW guard (same createdAt)", () => {
     resetClock();
     const db = createDB();
