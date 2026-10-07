@@ -26,7 +26,7 @@ import {
 } from "@/components/TaskSorting/taskSorting";
 import { PreloadedTaskComp } from "@/components/Task/Task";
 import {
-  PlusIcon,
+  AddRightIcon,
   MoveLeftIcon,
   MoveRightIcon,
   PencilIcon,
@@ -215,11 +215,13 @@ export function AllTasksColumnView({
         isHidden={isHidden}
         onHideClick={() => setIsHidden((hidden) => !hidden)}
         header={
-          <span className="text-xl uppercase text-content">{column.title}</span>
+          <div className="whitespace-nowrap uppercase text-content text-xl font-bold">
+            {column.title}
+          </div>
         }
         columnModelId={column.id}
         columnModelType={column.type}
-        panelWidth={isMobile ? "calc(100vw - 2rem)" : 420}
+        panelWidth={isMobile ? "calc(100vw - 2rem)" : 400}
         canDrop={() => false}
         onAddClick={addTask}
         addButtonLabel="Add task"
@@ -228,7 +230,7 @@ export function AllTasksColumnView({
             <TaskOptionsMenu
               viewKey="all-tasks"
               activeFilterCount={countTaskFilters(filters)}
-              triggerClassName="mb-2 rotate-180 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 sm:focus:opacity-100 sm:border-0"
+              triggerClassName="mb-2 size-4 sm:size-4 self-center rotate-180 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 sm:focus:opacity-100 sm:data-[state=open]:opacity-100 border-0 sm:border-0 [&>svg]:size-4"
             >
               <TaskFilterFields
                 filters={filters}
@@ -239,13 +241,11 @@ export function AllTasksColumnView({
             </TaskOptionsMenu>
             <TasksColumnAction
               label="Add column to the right"
-              className="visible sm:invisible"
               onClick={() => onAddColumn(column.id)}
             >
-              <PlusIcon className="rotate-180" />
+              <AddRightIcon />
             </TasksColumnAction>
             <TasksColumnAction
-              className="visible sm:invisible"
               label="Move column left"
               disabled={index === 0}
               onClick={() =>
@@ -256,10 +256,9 @@ export function AllTasksColumnView({
                 )
               }
             >
-              <MoveLeftIcon />
+              <MoveLeftIcon className="rotate-180" />
             </TasksColumnAction>
             <TasksColumnAction
-              className="visible sm:invisible"
               label="Move column right"
               disabled={index === columnCount - 1}
               onClick={() =>
@@ -270,31 +269,30 @@ export function AllTasksColumnView({
                 )
               }
             >
-              <MoveRightIcon />
-            </TasksColumnAction>
-            <TasksColumnAction
-              label="Edit column name"
-              className="visible sm:invisible"
-              onClick={() => void rename()}
-            >
-              <PencilIcon />
+              <MoveRightIcon className="rotate-180" />
             </TasksColumnAction>
             <TasksColumnAction
               label="Delete column"
               disabled={columnCount === 1}
-              className="visible sm:invisible"
               onClick={() =>
                 void runChange(() =>
                   dispatch(deleteAllTasksColumn({ id: column.id })),
                 )
               }
             >
-              <TrashIcon />
+              <TrashIcon className="rotate-180" />
+            </TasksColumnAction>
+            <TasksColumnAction
+              label="Edit column name"
+              className="mb-6"
+              onClick={() => void rename()}
+            >
+              <PencilIcon className="rotate-180" />
             </TasksColumnAction>
           </>
         }
       >
-        <div className="flex flex-col gap-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-4">
+        <div className="flex flex-col gap-4 w-full py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-4">
           <p role="status" className="text-xs text-content-tinted">
             {filtered.length} of {items.length} tasks
           </p>
