@@ -4,14 +4,21 @@ import { isTaskSortMode } from "./taskSorting";
 export function sortedTaskDrop({
   sourceId,
   sourceDailyListId,
+  sourceFocusScope,
   target,
   edge,
 }: {
   sourceId: string;
   sourceDailyListId?: unknown;
+  sourceFocusScope?: unknown;
   target: Record<string | symbol, unknown>;
   edge: "top" | "bottom";
 }) {
+  if (
+    typeof target.taskSortFocusScope === "string" &&
+    target.taskSortFocusScope !== sourceFocusScope
+  )
+    return { handled: true };
   if (!isTaskSortMode(target.taskSortMode)) return { handled: false };
   if (target.taskSortMode === "manual")
     return { handled: target.blockManualTaskSort === true };
