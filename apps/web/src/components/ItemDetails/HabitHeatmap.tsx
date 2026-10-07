@@ -17,10 +17,7 @@ export function HabitHeatmap({
 }) {
   const dispatch = useAsyncDispatch();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const weeks = useMemo(
-    () => buildHabitHeatmap(completions),
-    [completions],
-  );
+  const weeks = useMemo(() => buildHabitHeatmap(completions), [completions]);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -33,11 +30,16 @@ export function HabitHeatmap({
         <h3 className="text-[10px] font-medium uppercase tracking-[0.18em] text-content-tinted/70">
           Activity
         </h3>
-        <span className="text-[10px] text-content-tinted/55">Last 16 weeks</span>
+        <span className="text-[10px] text-content-tinted/55">
+          Last 16 weeks
+        </span>
       </div>
 
       <div className="flex min-w-0 gap-1.5">
-        <div className="grid shrink-0 grid-rows-[repeat(7,1.5rem)] pt-4 text-[9px] leading-6 text-content-tinted/55" aria-hidden="true">
+        <div
+          className="grid shrink-0 grid-rows-[repeat(7,1.5rem)] pt-4 text-[9px] leading-6 text-content-tinted/55"
+          aria-hidden="true"
+        >
           <span>M</span>
           <span />
           <span>W</span>

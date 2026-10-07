@@ -8,9 +8,7 @@ const columnWithTitle = (page: import("playwright/test").Page, title: string) =>
   });
 
 const habitCard = (page: import("playwright/test").Page, title: string) =>
-  page
-    .locator('[data-focusable-key^="habit^^"]')
-    .filter({ hasText: title });
+  page.locator('[data-focusable-key^="habit^^"]').filter({ hasText: title });
 
 test("uses the shared board, details, move, and DnD workflows for habits", async ({
   page,

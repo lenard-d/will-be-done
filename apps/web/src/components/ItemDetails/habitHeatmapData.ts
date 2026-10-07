@@ -1,10 +1,4 @@
-import {
-  addDays,
-  format,
-  isSameDay,
-  startOfDay,
-  subWeeks,
-} from "date-fns";
+import { addDays, format, isSameDay, startOfDay, subWeeks } from "date-fns";
 import type { HabitCompletion } from "@will-be-done/slices/space";
 
 export type HabitHeatmapDay = {

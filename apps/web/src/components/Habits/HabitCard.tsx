@@ -253,13 +253,13 @@ const HabitActionsMenu = ({
               {columns.map((column) => {
                 const routine = column.routine;
                 return routine ? (
-                <DropdownMenuItem
-                  key={column.id}
-                  disabled={habit.routineId === routine.id}
-                  onSelect={() => onMoveRoutine(routine.id)}
-                >
-                  {column.title}
-                </DropdownMenuItem>
+                  <DropdownMenuItem
+                    key={column.id}
+                    disabled={habit.routineId === routine.id}
+                    onSelect={() => onMoveRoutine(routine.id)}
+                  >
+                    {column.title}
+                  </DropdownMenuItem>
                 ) : null;
               })}
             </DropdownMenuSubContent>
@@ -484,8 +484,7 @@ export const HabitCard = ({
       if (shortcut === "toggle") toggle();
       else if (shortcut === "edit") beginEdit();
       else if (shortcut === "actions") setActionsOpen(true);
-      else if (shortcut === "details")
-        useItemDetailsOpen.getState().toggle();
+      else if (shortcut === "details") useItemDetailsOpen.getState().toggle();
       else if (shortcut === "move-routine") openMoveRoutineModal();
       else if (shortcut === "add-after") addAdjacent("bottom");
       else if (shortcut === "add-before") addAdjacent("top");
