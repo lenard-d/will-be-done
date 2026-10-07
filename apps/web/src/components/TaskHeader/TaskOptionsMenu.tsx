@@ -1,5 +1,5 @@
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useRef, type ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import {
   Popover,
@@ -21,6 +21,7 @@ export function TaskOptionsMenu({
   activeFilterCount?: number;
 }) {
   const isMobile = useIsMobile();
+  const stateDescriptionId = useId();
   const contentRef = useRef<HTMLDivElement>(null);
   const controlRef = useRef<HTMLButtonElement>(null);
   const { sortMode } = useTaskSorting(viewKey);
@@ -32,6 +33,7 @@ export function TaskOptionsMenu({
           ref={controlRef}
           type="button"
           aria-label="Filters and sorting"
+          aria-describedby={stateDescriptionId}
           title={`Sort: ${taskSortLabels[sortMode]}`}
           className="relative flex size-11 shrink-0 cursor-pointer items-center justify-center rounded text-content hover:bg-panel-hover outline-none focus-visible:ring-2 focus-visible:ring-accent sm:size-9 sm:border sm:border-content-tinted/20"
         >
@@ -39,9 +41,9 @@ export function TaskOptionsMenu({
           {activeFilterCount > 0 && (
             <span className="absolute right-1 top-1 size-2 rounded-full bg-accent" />
           )}
-          <span className="sr-only">
+          <span id={stateDescriptionId} className="sr-only">
             {activeFilterCount > 0
-              ? `${activeFilterCount} active filters. `
+              ? `${activeFilterCount} active filter${activeFilterCount === 1 ? "" : "s"}. `
               : ""}
             Sort: {taskSortLabels[sortMode]}
           </span>

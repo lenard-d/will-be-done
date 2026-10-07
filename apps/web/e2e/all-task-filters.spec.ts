@@ -50,6 +50,9 @@ test("combines state, project, column and planned day, and keeps filters per spa
   await expect(rows(page)).toHaveCount(3);
   await chooseFilter(page, "state", "To do");
   await expect(rows(page)).toHaveCount(2);
+  await expect(
+    page.getByRole("button", { name: "Filters and sorting", exact: true }),
+  ).toHaveAccessibleDescription("1 active filter. Sort: Planned day");
   await chooseFilter(page, "project", "Research");
   await expect(rows(page)).toHaveText([/Research unscheduled/]);
   await chooseFilter(page, "column", "Research / Week");

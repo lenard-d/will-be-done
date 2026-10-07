@@ -266,4 +266,11 @@ test("cycles All tasks sorting while its options menu is closed", async ({
     ),
   ).toHaveText([/Alpha closed menu/, /Zulu closed menu/]);
   await expect(options).toHaveAttribute("data-state", "closed");
+  await options.click();
+  await page.keyboard.press("Escape");
+  await expect(options).toBeFocused();
+  await page.keyboard.press("KeyQ");
+  await expect(options).toHaveAttribute("title", "Sort: Manual");
+  await expect(options).toHaveAccessibleDescription("Sort: Manual");
+  await expect(options).toHaveAttribute("data-state", "closed");
 });

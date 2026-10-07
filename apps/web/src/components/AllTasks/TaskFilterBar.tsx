@@ -106,7 +106,9 @@ export function TaskFilterBar({
       className="mx-auto w-full max-w-3xl"
       role="region"
       aria-label="Task filters"
-      onKeyDown={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        if (event.code !== "KeyQ") event.stopPropagation();
+      }}
     >
       {isMobile ? (
         <MobileTaskHeader
