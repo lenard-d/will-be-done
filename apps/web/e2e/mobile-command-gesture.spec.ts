@@ -89,7 +89,10 @@ test.describe("mobile command palette swipe", () => {
       {
         path: inboxPath,
         region: () =>
-          page.locator("[data-command-palette-swipe-region], header").first(),
+          page
+            .locator("[data-command-palette-swipe-region], header")
+            .filter({ visible: true })
+            .first(),
       },
       {
         path: `${spacePath}/timeline/2026-10-05?projectId=inbox`,
@@ -171,7 +174,7 @@ test.describe("mobile command palette swipe", () => {
       await expect(palette).toBeHidden();
     }
     const control = await titlePoint(
-      page.getByRole("button", { name: "Sort tasks" }),
+      page.getByRole("button", { name: "Toggle Sidebar" }),
     );
     await swipe(page, {
       from: control,
