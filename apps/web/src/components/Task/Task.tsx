@@ -104,6 +104,7 @@ import {
   useItemDetailsOpen,
 } from "@/components/ItemDetails/ItemDetailsStore.ts";
 import { useOpenProject } from "@/hooks/useOpenProject.ts";
+import { useTaskCommandHistory } from "@/hooks/useTaskCommandHistory.ts";
 import { useTaskSortContext } from "@/components/TaskSorting/TaskSortContext";
 import { reorderDailyEntry } from "@will-be-done/slices/space";
 
@@ -207,6 +208,7 @@ export const PreloadedTaskComp = ({
     (s) => !s.isFocusDisabled && s.editItemKey === focusableItemKey,
   );
   const select = useSelectAsync();
+  const { executeTaskCommand } = useTaskCommandHistory();
   const openProject = useOpenProject();
 
   const persistTaskTitle = useCallback(
@@ -222,13 +224,15 @@ export const PreloadedTaskComp = ({
             return;
           }
 
-          await dispatch(
-            updateTask({
-              id: taskId,
-              task: {
-                title,
-              },
-            }),
+          await executeTaskCommand([taskId], () =>
+            dispatch(
+              updateTask({
+                id: taskId,
+                task: {
+                  title,
+                },
+              }),
+            ),
           );
           return;
         }
@@ -254,7 +258,7 @@ export const PreloadedTaskComp = ({
         }
       })();
     },
-    [item, dispatch, select, taskId],
+    [item, dispatch, executeTaskCommand, select, taskId],
   );
 
   const {
@@ -273,7 +277,9 @@ export const PreloadedTaskComp = ({
       const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
       const taskState = item.state;
-      await dispatch(toggleTaskState({ taskId: taskId }));
+      await executeTaskCommand([taskId], () =>
+        dispatch(toggleTaskState({ taskId })),
+      );
 
       if (!isFocused) return;
 
@@ -311,15 +317,27 @@ export const PreloadedTaskComp = ({
         useFocusStore.getState().focusByKey(upKey!);
       }
     })();
-  }, [dispatch, focusableItemKey, isFocused, item, select, taskId]);
+  }, [
+    dispatch,
+    executeTaskCommand,
+    focusableItemKey,
+    isFocused,
+    item,
+    select,
+    taskId,
+  ]);
 
   const handleDelete = useCallback(() => {
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
     flushEditedTitle();
-    void dispatch(
-      appDeleteModel({ id: listItem.id, modelType: listItem.type }),
-    );
+    const deleteItem = () =>
+      dispatch(appDeleteModel({ id: listItem.id, modelType: listItem.type }));
+    if (isTask(item)) {
+      void executeTaskCommand([taskId], deleteItem);
+    } else {
+      void deleteItem();
+    }
 
     if (downKey) {
       useFocusStore.getState().focusByKey(downKey);
@@ -332,8 +350,11 @@ export const PreloadedTaskComp = ({
     listItem.id,
     listItem.type,
     dispatch,
+    executeTaskCommand,
     flushEditedTitle,
     focusableItemKey,
+    item,
+    taskId,
   ]);
 
   const handleMoveColumn = useCallback(
@@ -353,15 +374,21 @@ export const PreloadedTaskComp = ({
       );
       const { id, type } = parseColumnKey(dropTarget.targetKey);
 
-      void dispatch(
-        appHandleDrop({
-          id: id,
-          modelType: type as AnyModelType,
-          dropId: listItem.id,
-          dropModelType: listItem.type,
-          edge: dropTarget.edge,
-        }),
-      );
+      const moveItem = () =>
+        dispatch(
+          appHandleDrop({
+            id: id,
+            modelType: type as AnyModelType,
+            dropId: listItem.id,
+            dropModelType: listItem.type,
+            edge: dropTarget.edge,
+          }),
+        );
+      if (isTask(item)) {
+        void executeTaskCommand([taskId], moveItem);
+      } else {
+        void moveItem();
+      }
 
       setTimeout(() => {
         if (targetFocusKey !== focusableItemKey) {
@@ -382,7 +409,15 @@ export const PreloadedTaskComp = ({
         }
       }, 0);
     },
-    [listItem.id, listItem.type, dispatch, focusableItemKey],
+    [
+      listItem.id,
+      listItem.type,
+      dispatch,
+      executeTaskCommand,
+      focusableItemKey,
+      item,
+      taskId,
+    ],
   );
 
   const handleMoveStacked = useCallback(
@@ -394,12 +429,14 @@ export const PreloadedTaskComp = ({
             ? taskSorting.previousTaskId
             : taskSorting.nextTaskId;
         if (targetTaskId) {
-          void dispatch(
-            reorderDailyEntry({
-              taskId,
-              targetTaskId,
-              edge: direction === "up" ? "top" : "bottom",
-            }),
+          void executeTaskCommand([taskId], () =>
+            dispatch(
+              reorderDailyEntry({
+                taskId,
+                targetTaskId,
+                edge: direction === "up" ? "top" : "bottom",
+              }),
+            ),
           );
         }
         return;
@@ -439,15 +476,21 @@ export const PreloadedTaskComp = ({
           ? "top"
           : "bottom";
 
-      void dispatch(
-        appHandleDrop({
-          id: id,
-          modelType: type,
-          dropId: listItem.id,
-          dropModelType: listItem.type,
-          edge: edge,
-        }),
-      );
+      const moveItem = () =>
+        dispatch(
+          appHandleDrop({
+            id: id,
+            modelType: type,
+            dropId: listItem.id,
+            dropModelType: listItem.type,
+            edge: edge,
+          }),
+        );
+      if (isTask(item)) {
+        void executeTaskCommand([taskId], moveItem);
+      } else {
+        void moveItem();
+      }
 
       setTimeout(() => {
         const el = document.querySelector<HTMLElement>(
@@ -467,7 +510,9 @@ export const PreloadedTaskComp = ({
       listItem.id,
       listItem.type,
       dispatch,
+      executeTaskCommand,
       focusableItemKey,
+      item,
       taskSorting,
       taskId,
     ],
@@ -542,26 +587,27 @@ export const PreloadedTaskComp = ({
   const handleScheduleToday = useCallback(() => {
     if (!isTask(item)) return;
 
-    void (async () => {
+    void executeTaskCommand([taskId], async () => {
       const dailyList = await dispatch(
         createDailyListIfNotPresent({ date: getDMY(date) }),
       );
-
       await dispatch(
         addToDailyList({
-          taskId: taskId,
+          taskId,
           dailyListId: dailyList.id,
           position: "append",
         }),
       );
-    })();
-  }, [item, date, dispatch, taskId]);
+    });
+  }, [item, date, dispatch, executeTaskCommand, taskId]);
 
   const handleResetSchedule = useCallback(() => {
     if (!isTask(item)) return;
 
-    void dispatch(removeFromDailyList({ taskId: taskId }));
-  }, [item, dispatch, taskId]);
+    void executeTaskCommand([taskId], () =>
+      dispatch(removeFromDailyList({ taskId })),
+    );
+  }, [item, dispatch, executeTaskCommand, taskId]);
 
   const handleStashTask = useCallback(() => {
     if (
@@ -574,14 +620,16 @@ export const PreloadedTaskComp = ({
 
     const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
-    void dispatch(
-      appHandleDrop({
-        id: STASH_ID,
-        modelType: stashType,
-        dropId: listItem.id,
-        dropModelType: listItem.type,
-        edge: "top",
-      }),
+    void executeTaskCommand([taskId], () =>
+      dispatch(
+        appHandleDrop({
+          id: STASH_ID,
+          modelType: stashType,
+          dropId: listItem.id,
+          dropModelType: listItem.type,
+          edge: "top",
+        }),
+      ),
     );
 
     if (downKey) {
@@ -591,7 +639,15 @@ export const PreloadedTaskComp = ({
     } else {
       useFocusStore.getState().resetFocus();
     }
-  }, [item, listItem.id, listItem.type, dispatch, focusableItemKey]);
+  }, [
+    item,
+    listItem.id,
+    listItem.type,
+    dispatch,
+    executeTaskCommand,
+    focusableItemKey,
+    taskId,
+  ]);
 
   const handleConvertToTemplate = useCallback(() => {
     if (!isTask(item) || item.templateId) return;
@@ -721,7 +777,9 @@ export const PreloadedTaskComp = ({
       if (e.code === "Digit1" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(item)) {
-            void dispatch(updateTask({ id: taskId, task: { nature: "red" } }));
+            void executeTaskCommand([taskId], () =>
+              dispatch(updateTask({ id: taskId, task: { nature: "red" } })),
+            );
           } else if (isTaskTemplate(item)) {
             void dispatch(
               updateTemplate({
@@ -736,8 +794,8 @@ export const PreloadedTaskComp = ({
       } else if (e.code === "Digit2" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(item)) {
-            void dispatch(
-              updateTask({ id: taskId, task: { nature: "green" } }),
+            void executeTaskCommand([taskId], () =>
+              dispatch(updateTask({ id: taskId, task: { nature: "green" } })),
             );
           } else if (isTaskTemplate(item)) {
             void dispatch(
@@ -753,8 +811,8 @@ export const PreloadedTaskComp = ({
       } else if (e.code === "Digit3" && noModifiers) {
         return runShortcutAction(() => {
           if (isTask(item)) {
-            void dispatch(
-              updateTask({ id: taskId, task: { nature: "unknown" } }),
+            void executeTaskCommand([taskId], () =>
+              dispatch(updateTask({ id: taskId, task: { nature: "unknown" } })),
             );
           } else if (isTaskTemplate(item)) {
             void dispatch(
@@ -771,7 +829,9 @@ export const PreloadedTaskComp = ({
         return runShortcutAction(() => {
           const [upKey, downKey] = getDOMSiblings(focusableItemKey);
 
-          void dispatch(deleteTasks({ ids: [taskId] }));
+          void executeTaskCommand([taskId], () =>
+            dispatch(deleteTasks({ ids: [taskId] })),
+          );
 
           if (downKey) {
             useFocusStore.getState().focusByKey(downKey);
@@ -860,6 +920,7 @@ export const PreloadedTaskComp = ({
       listItem.id,
       listItem.type,
       dispatch,
+      executeTaskCommand,
       focusableItemKey,
       handleAddChecklistItem,
       handleAddSiblingTask,
@@ -931,8 +992,8 @@ export const PreloadedTaskComp = ({
     setIsMoveModalOpen(false);
 
     if (isTask(item)) {
-      void dispatch(
-        moveTaskToProject({ taskId: taskId, projectId: projectId }),
+      void executeTaskCommand([taskId], () =>
+        dispatch(moveTaskToProject({ taskId, projectId })),
       );
     } else if (isTaskTemplate(item)) {
       void dispatch(

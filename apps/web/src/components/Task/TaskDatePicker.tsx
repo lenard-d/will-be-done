@@ -15,6 +15,7 @@ import {
   getDMY,
   removeFromDailyList,
 } from "@will-be-done/slices/space";
+import { useTaskCommandHistory } from "@/hooks/useTaskCommandHistory.ts";
 
 interface TaskDatePickerProps {
   taskId: string;
@@ -39,31 +40,29 @@ export function TaskDatePicker({
   const isOpen = open ?? uncontrolledOpen;
   const setIsOpen = onOpenChange ?? setUncontrolledOpen;
   const dispatch = useAsyncDispatch();
+  const { executeTaskCommand } = useTaskCommandHistory();
 
   const handleDateSelect = (date: Date | undefined) => {
     if (!date) return;
 
-    void (async () => {
-      const dateString = getDMY(date);
-
+    void executeTaskCommand([taskId], async () => {
       const dailyList = await dispatch(
-        createDailyListIfNotPresent({ date: dateString }),
+        createDailyListIfNotPresent({ date: getDMY(date) }),
       );
-
       await dispatch(
         addToDailyList({
-          taskId: taskId,
+          taskId,
           dailyListId: dailyList.id,
           position: "append",
         }),
       );
-
-      setIsOpen(false);
-    })();
+    }).then(() => setIsOpen(false));
   };
 
   const handleClearDate = () => {
-    void dispatch(removeFromDailyList({ taskId: taskId }));
+    void executeTaskCommand([taskId], () =>
+      dispatch(removeFromDailyList({ taskId })),
+    );
     setIsOpen(false);
   };
 
