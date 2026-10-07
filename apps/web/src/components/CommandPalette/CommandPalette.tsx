@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   BarChart3,
@@ -7,6 +7,7 @@ import {
   Clock3,
   FolderKanban,
   FolderInput,
+  Keyboard,
   PanelLeft,
   Pencil,
   Plus,
@@ -18,7 +19,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { format, startOfWeek } from "date-fns";
 import {
   useAsyncDispatch,
@@ -29,6 +30,7 @@ import {
   activeRoutines,
   addToDailyList,
   allProjectsSorted,
+  allTasksForDisplay,
   allTasks,
   archiveHabit,
   createDailyListIfNotPresent,
@@ -38,8 +40,10 @@ import {
   deleteTasks,
   getDMY,
   habitType,
+  isTask,
   moveHabit,
   moveTaskToProject,
+  stashEntryType,
   taskType,
   toggleHabitToday,
   toggleTaskState,
@@ -61,11 +65,17 @@ import { useTaskCommandHistory } from "@/hooks/useTaskCommandHistory";
 import { useSpaceSettingsStore } from "@/components/SpaceSettings/spaceSettingsStore";
 import { useStashOpen } from "@/components/DaysBoard/StashStore";
 import { Route } from "@/routes/spaces.$spaceId";
+import { getShortcutLabel } from "@/components/SpaceSettings/shortcutCatalog";
 import {
   COMMAND_PALETTE_GROUPS,
   isCommandPaletteShortcut,
   type CommandPaletteGroupId,
 } from "./commandPaletteCatalog";
+
+import {
+  FocusedTaskShortcutCommands,
+  type TaskShortcutEvent,
+} from "./FocusedTaskShortcutCommands";
 
 export const TOGGLE_SIDEBAR_EVENT = "wbd:toggle-sidebar";
 
@@ -79,7 +89,11 @@ type PaletteCommandId =
   | "toggle-sidebar"
   | "toggle-stash"
   | "toggle-details"
-  | "stats-view";
+  | "stats-view"
+  | "keyboard-shortcuts"
+  | "cycle-task-sort"
+  | "undo-task"
+  | "redo-task";
 
 type PaletteCommand = {
   id: PaletteCommandId;
@@ -91,6 +105,37 @@ type PaletteCommand = {
 };
 
 const PALETTE_COMMANDS: readonly PaletteCommand[] = [
+  {
+    id: "keyboard-shortcuts",
+    group: "settings",
+    label: "Keyboard shortcuts",
+    keywords: "keys shortcuts reference help",
+    icon: Keyboard,
+  },
+  {
+    id: "cycle-task-sort",
+    group: "views",
+    label: "Cycle task sort",
+    keywords: "sort planned day alphabetical manual",
+    icon: SlidersHorizontal,
+    shortcut: getShortcutLabel("task-sort-cycle"),
+  },
+  {
+    id: "undo-task",
+    group: "actions",
+    label: "Undo task change",
+    keywords: "undo restore",
+    icon: Clock3,
+    shortcut: getShortcutLabel("task-undo"),
+  },
+  {
+    id: "redo-task",
+    group: "actions",
+    label: "Redo task change",
+    keywords: "redo repeat",
+    icon: Clock3,
+    shortcut: getShortcutLabel("task-redo"),
+  },
   {
     id: "create-project",
     group: "actions",
@@ -139,7 +184,7 @@ const PALETTE_COMMANDS: readonly PaletteCommand[] = [
     label: "Toggle main sidebar",
     keywords: "sidebar navigation panel",
     icon: PanelLeft,
-    shortcut: "⌘/Ctrl B",
+    shortcut: getShortcutLabel("sidebar-toggle"),
   },
   {
     id: "toggle-stash",
@@ -147,7 +192,7 @@ const PALETTE_COMMANDS: readonly PaletteCommand[] = [
     label: "Toggle stash",
     keywords: "stash tasks later",
     icon: WalletCards,
-    shortcut: "\\",
+    shortcut: getShortcutLabel("stash-toggle"),
   },
   {
     id: "toggle-details",
@@ -155,7 +200,7 @@ const PALETTE_COMMANDS: readonly PaletteCommand[] = [
     label: "Toggle card details",
     keywords: "details inspector card",
     icon: SlidersHorizontal,
-    shortcut: "V",
+    shortcut: getShortcutLabel("card-details-toggle"),
   },
   {
     id: "stats-view",
@@ -175,8 +220,13 @@ function getSpaceName(spaceId: string) {
 export function CommandPalette() {
   const { spaceId } = Route.useParams();
   const navigate = useNavigate();
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
   const dispatch = useAsyncDispatch();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const actionAfterClose = useRef<(() => void) | null>(null);
   const { data: projects = [] } = useAsyncSelector({
     selector: allProjectsSorted,
     args: {},
@@ -185,6 +235,19 @@ export function CommandPalette() {
     selector: allTasks,
     args: {},
   });
+  const { data: taskResults = [] } = useAsyncSelector({
+    selector: allTasksForDisplay,
+    args: {},
+  });
+  const matchingTasks = useMemo(() => {
+    const search = query.trim().toLocaleLowerCase();
+    if (!search) return [];
+    return taskResults
+      .filter(({ item, project }) =>
+        `${item.title} ${project.title}`.toLocaleLowerCase().includes(search),
+      )
+      .slice(0, 50);
+  }, [query, taskResults]);
   const { data: habits = [] } = useAsyncSelector({
     selector: activeHabits,
     args: {},
@@ -201,10 +264,12 @@ export function CommandPalette() {
   const focusedTask = useMemo(
     () =>
       focusedItem &&
-      (focusedItem.type === taskType || focusedItem.type === dailyEntryType)
+      (focusedItem.type === taskType ||
+        focusedItem.type === dailyEntryType ||
+        focusItemKey?.startsWith(`${stashEntryType}^^`))
         ? tasks.find((task) => task.id === focusedItem.id)
         : undefined,
-    [focusedItem, tasks],
+    [focusItemKey, focusedItem, tasks],
   );
   const focusedHabit = useMemo(
     () =>
@@ -213,11 +278,55 @@ export function CommandPalette() {
         : undefined,
     [focusedItem, habits],
   );
+  const focusedTaskIsScheduled = !!taskResults.find(
+    ({ item, dailyList }) => item.id === focusedTask?.id && dailyList,
+  );
   const openSettings = useSpaceSettingsStore((state) => state.openSettings);
+  const openShortcuts = useSpaceSettingsStore((state) => state.openShortcuts);
+  const isEditing = useFocusStore(
+    (state) => !!state.editItemKey || state.isFocusDisabled,
+  );
   const toggleStash = useStashOpen((state) => state.toggle);
   const toggleDetails = useItemDetailsOpen((state) => state.toggle);
   const setDetailsOpen = useItemDetailsOpen((state) => state.setOpen);
-  const { executeTaskCommand } = useTaskCommandHistory();
+  const { executeTaskCommand, undoTaskCommand, redoTaskCommand } =
+    useTaskCommandHistory();
+
+  const runShortcut = useCallback(
+    (shortcut: TaskShortcutEvent) => {
+      actionAfterClose.current = () => {
+        if (focusItemKey) {
+          document
+            .querySelector<HTMLElement>(
+              `[data-focusable-key="${focusItemKey}"]`,
+            )
+            ?.focus({ preventScroll: true });
+        } else if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            ...shortcut,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      };
+      setOpen(false);
+    },
+    [focusItemKey],
+  );
+
+  const openTaskResult = useCallback(
+    (taskId: string) => {
+      setOpen(false);
+      void navigate({
+        to: "/spaces/$spaceId/item-details/$itemId",
+        params: { spaceId, itemId: taskId },
+      });
+    },
+    [navigate, spaceId],
+  );
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -225,6 +334,7 @@ export function CommandPalette() {
 
       event.preventDefault();
       event.stopImmediatePropagation();
+      setQuery("");
       setOpen((isOpen) => !isOpen);
     };
 
@@ -267,11 +377,9 @@ export function CommandPalette() {
 
   const editFocusedItem = useCallback(() => {
     if (!focusItemKey) return;
+    actionAfterClose.current = () =>
+      useFocusStore.getState().editByKey(focusItemKey);
     setOpen(false);
-    window.setTimeout(
-      () => useFocusStore.getState().editByKey(focusItemKey),
-      0,
-    );
   }, [focusItemKey]);
 
   const openFocusedItemDetails = useCallback(() => {
@@ -373,6 +481,18 @@ export function CommandPalette() {
       setOpen(false);
 
       switch (commandId) {
+        case "keyboard-shortcuts":
+          openShortcuts(getSpaceName(spaceId));
+          break;
+        case "cycle-task-sort":
+          runShortcut({ code: "KeyQ" });
+          break;
+        case "undo-task":
+          void undoTaskCommand();
+          break;
+        case "redo-task":
+          void redoTaskCommand();
+          break;
         case "create-project":
           void createNewProject();
           break;
@@ -416,6 +536,10 @@ export function CommandPalette() {
       navigateToTasks,
       navigateToTimeline,
       openSettings,
+      openShortcuts,
+      runShortcut,
+      undoTaskCommand,
+      redoTaskCommand,
       spaceId,
       toggleDetails,
       toggleStash,
@@ -425,47 +549,112 @@ export function CommandPalette() {
   return (
     <CommandDialog
       open={open}
-      onOpenChange={setOpen}
-      title="Quick navigation"
-      description="Navigate to a view, project, setting, or action."
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setQuery("");
+      }}
+      onCloseAutoFocus={(event) => {
+        const action = actionAfterClose.current;
+        if (!action) return;
+        actionAfterClose.current = null;
+        event.preventDefault();
+        action();
+      }}
+      title="Command bar"
+      description="Search tasks, projects, views, and actions."
     >
-      <CommandInput placeholder="Search actions, views, projects..." />
+      <CommandInput
+        value={query}
+        onValueChange={setQuery}
+        placeholder="Search tasks, actions, projects..."
+      />
       <CommandList>
-        <CommandEmpty>No matching navigation found.</CommandEmpty>
+        <CommandEmpty>No matching tasks or commands.</CommandEmpty>
+        {matchingTasks.length > 0 && (
+          <CommandGroup heading="Tasks">
+            {matchingTasks.map(({ item, project, dailyList }) => (
+              <CommandItem
+                key={item.id}
+                value={`task ${item.id} ${item.title} ${project.title}`}
+                onSelect={() => openTaskResult(item.id)}
+              >
+                {isTask(item) && item.state === "done" ? (
+                  <Check />
+                ) : (
+                  <FolderKanban />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">
+                    {item.title || "Untitled task"}
+                  </span>
+                  <span className="block truncate text-xs text-content-tinted">
+                    {project.title}
+                    {dailyList ? ` · ${dailyList.date}` : ""}
+                    {isTask(item) && item.state === "done" ? " · Done" : ""}
+                  </span>
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
         {focusedTask && (
           <CommandGroup heading={`Task · ${focusedTask.title}`}>
+            <FocusedTaskShortcutCommands
+              task={focusedTask}
+              isScheduled={focusedTaskIsScheduled}
+              isStashed={!!focusItemKey?.startsWith(`${stashEntryType}^^`)}
+              isEditing={isEditing}
+              onRunShortcut={runShortcut}
+            />
             <CommandItem
-              value="task toggle done todo complete"
+              disabled={isEditing}
+              value={`${focusedTask.state === "done" ? "Mark as todo" : "Mark as done"} task toggle complete`}
               onSelect={toggleFocusedTask}
             >
               <Check />
               <span>
                 {focusedTask.state === "done" ? "Mark as todo" : "Mark as done"}
               </span>
+              <CommandShortcut>
+                {getShortcutLabel("task-toggle-state")}
+              </CommandShortcut>
             </CommandItem>
             <CommandItem
-              value="task edit title rename"
+              disabled={isEditing}
+              value="Edit task title rename"
               onSelect={editFocusedItem}
             >
               <Pencil />
               <span>Edit task title</span>
+              <CommandShortcut>
+                {getShortcutLabel("task-edit-title")}
+              </CommandShortcut>
             </CommandItem>
             <CommandItem
-              value="task details inspect open"
+              disabled={isEditing}
+              value="Open task details inspect"
               onSelect={openFocusedItemDetails}
             >
               <SlidersHorizontal />
               <span>Open task details</span>
+              <CommandShortcut>
+                {getShortcutLabel("card-details-toggle")}
+              </CommandShortcut>
             </CommandItem>
             <CommandItem
-              value="task schedule today date"
+              disabled={isEditing}
+              value="Schedule for today task date"
               onSelect={scheduleFocusedTaskToday}
             >
               <Clock3 />
               <span>Schedule for today</span>
+              <CommandShortcut>
+                {getShortcutLabel("task-schedule-today")}
+              </CommandShortcut>
             </CommandItem>
             {projects.map((project) => (
               <CommandItem
+                disabled={isEditing}
                 key={`move-task-${project.id}`}
                 value={`task move project ${project.title}`}
                 onSelect={() => moveFocusedTask(project.id)}
@@ -478,39 +667,58 @@ export function CommandPalette() {
             ))}
             <CommandItem
               className="text-red-400 data-[selected=true]:text-white"
-              value="task delete remove permanently"
+              disabled={isEditing}
+              value="Delete task remove permanently"
               onSelect={deleteFocusedTask}
             >
               <Trash2 />
               <span>Delete task</span>
+              {focusedItem?.type === dailyEntryType ? (
+                <CommandShortcut>
+                  {getShortcutLabel("task-delete-scheduled")}
+                </CommandShortcut>
+              ) : focusedItem?.type === taskType ? (
+                <CommandShortcut>
+                  {getShortcutLabel("task-remove")}
+                </CommandShortcut>
+              ) : null}
             </CommandItem>
           </CommandGroup>
         )}
         {focusedHabit && (
           <CommandGroup heading={`Habit · ${focusedHabit.title}`}>
             <CommandItem
-              value="habit toggle done todo complete today"
+              value="Toggle today’s completion habit done todo"
               onSelect={toggleFocusedHabit}
             >
               <Check />
               <span>Toggle today’s completion</span>
+              <CommandShortcut>
+                {getShortcutLabel("task-toggle-state")}
+              </CommandShortcut>
             </CommandItem>
             <CommandItem
-              value="habit edit title rename"
+              value="Edit habit title rename"
               onSelect={editFocusedItem}
             >
               <Pencil />
               <span>Edit habit title</span>
+              <CommandShortcut>
+                {getShortcutLabel("task-edit-title")}
+              </CommandShortcut>
             </CommandItem>
             <CommandItem
-              value="habit details inspect open"
+              value="Open habit details inspect"
               onSelect={openFocusedItemDetails}
             >
               <SlidersHorizontal />
               <span>Open habit details</span>
+              <CommandShortcut>
+                {getShortcutLabel("card-details-toggle")}
+              </CommandShortcut>
             </CommandItem>
             <CommandItem
-              value="habit move routine unassigned"
+              value="Move habit to unassigned routine"
               onSelect={() => moveFocusedHabit(null)}
             >
               <FolderInput />
@@ -526,17 +734,20 @@ export function CommandPalette() {
                 <span>Move habit to {routine.title}</span>
               </CommandItem>
             ))}
-            <CommandItem value="habit archive" onSelect={archiveFocusedHabit}>
+            <CommandItem value="Archive habit" onSelect={archiveFocusedHabit}>
               <Archive />
               <span>Archive habit</span>
             </CommandItem>
             <CommandItem
               className="text-red-400 data-[selected=true]:text-white"
-              value="habit delete remove permanently"
+              value="Delete habit remove permanently"
               onSelect={deleteFocusedHabit}
             >
               <Trash2 />
               <span>Delete habit</span>
+              <CommandShortcut>
+                {getShortcutLabel("task-remove")}
+              </CommandShortcut>
             </CommandItem>
           </CommandGroup>
         )}
@@ -554,6 +765,15 @@ export function CommandPalette() {
                   <CommandItem
                     key={command.id}
                     value={`${command.label} ${command.keywords}`}
+                    disabled={
+                      (command.id === "toggle-details" &&
+                        !focusedTask &&
+                        !focusedHabit) ||
+                      (command.id === "cycle-task-sort" &&
+                        !/\/(all-tasks|projects|timeline|dates)(\/|$)/.test(
+                          pathname,
+                        ))
+                    }
                     onSelect={() => runCommand(command.id)}
                   >
                     <Icon />

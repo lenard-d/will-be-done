@@ -31,6 +31,7 @@ export type ShortcutKey =
   | "R"
   | "S"
   | "T"
+  | "U"
   | "V"
   | "X"
   | "Z";
@@ -57,6 +58,24 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
     label: "Navigation",
     description: "Move focus between cards and columns without opening them.",
     shortcuts: [
+      {
+        id: "command-palette-open",
+        label: "Open command bar",
+        keys: [["Ctrl/Cmd", "K"]],
+      },
+      {
+        id: "task-undo",
+        label: "Undo task change",
+        keys: [["Ctrl/Cmd", "Z"], ["U"]],
+      },
+      {
+        id: "task-redo",
+        label: "Redo task change",
+        keys: [
+          ["Ctrl/Cmd", "Shift", "Z"],
+          ["Ctrl", "R"],
+        ],
+      },
       {
         id: "focus-previous-item",
         label: "Focus previous item",
@@ -365,3 +384,10 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
     ],
   },
 ] as const;
+
+export function getShortcutLabel(id: string): string | undefined {
+  const shortcut = SHORTCUT_GROUPS.flatMap((group) => group.shortcuts).find(
+    (entry) => entry.id === id,
+  );
+  return shortcut?.keys.map((chord) => chord.join(" + ")).join(" / ");
+}
