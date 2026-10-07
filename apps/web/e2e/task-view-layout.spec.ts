@@ -1,14 +1,16 @@
 import { expect, test } from "playwright/test";
 
 import {
+  createProject,
   createSpace,
   createTodayTask,
   openSpace,
+  projectSidebarLink,
   signupUser,
   uniqueE2EName,
 } from "./helpers";
 
-test("keeps the All tasks title and column action in an aligned desktop header", async ({
+test("keeps the All tasks title clear and adds columns from the end of the board", async ({
   page,
 }) => {
   const space = uniqueE2EName("Desktop task header");
@@ -26,9 +28,8 @@ test("keeps the All tasks title and column action in an aligned desktop header",
     const titleBounds = await heading.boundingBox();
     const addBounds = await add.boundingBox();
     if (!titleBounds || !addBounds) throw new Error("Task header is missing");
-    expect(addBounds.y + addBounds.height / 2).toBeCloseTo(
-      titleBounds.y + titleBounds.height / 2,
-    );
+    expect(addBounds.y).toBeGreaterThan(titleBounds.y + titleBounds.height);
+    await expect(add).toBeInViewport();
     await expect(
       view.locator('[data-focusable-key^="task^^"]'),
     ).toBeInViewport();
@@ -36,6 +37,73 @@ test("keeps the All tasks title and column action in an aligned desktop header",
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(width);
   }
+  await add.click();
+  const dialog = page.getByRole("dialog", { name: "Column name", exact: true });
+  await dialog.getByRole("textbox").fill("More tasks");
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "More tasks column", exact: true }),
+  ).toBeVisible();
+});
+
+test("keeps long desktop project titles on one line with usable controls", async ({
+  page,
+}) => {
+  await signupUser(page);
+  const space = uniqueE2EName("Project title layout");
+  await createSpace(page, space);
+  await openSpace(page, space);
+  const title = "Business Administration";
+  await createProject(page, title);
+  await projectSidebarLink(page, title).click();
+  const heading = page.getByRole("heading", { name: title, exact: true });
+  await expect(heading).toBeVisible();
+  for (const width of [768, 1280]) {
+    await page.setViewportSize({ width, height: 800 });
+    const dimensions = await heading.evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+      visibleWidth: element.clientWidth,
+      textWidth: element.scrollWidth,
+    }));
+    expect(dimensions.height).toBeCloseTo(dimensions.lineHeight);
+    if (width === 1280)
+      expect(dimensions.textWidth).toBeLessThanOrEqual(dimensions.visibleWidth);
+    const sort = page.getByRole("button", { name: "Sort tasks", exact: true });
+    await expect(sort).toBeInViewport();
+    await expect(
+      page.getByRole("button", { name: "Delete project", exact: true }),
+    ).toBeInViewport();
+    await sort.click();
+    await page
+      .getByRole("menuitemradio", { name: "Manual", exact: true })
+      .click();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(width);
+  }
+  await heading.click();
+  const rename = page.getByRole("dialog", { name: "Enter new project title" });
+  const longerTitle = `${title} ${"Very long project name ".repeat(10)}`.trim();
+  await rename.getByRole("textbox").fill(longerTitle);
+  await rename.getByRole("button", { name: "Confirm", exact: true }).click();
+  const longHeading = page.getByRole("heading", {
+    name: longerTitle,
+    exact: true,
+  });
+  await expect(longHeading).toBeVisible();
+  expect(
+    await longHeading.evaluate(
+      (element) => element.getBoundingClientRect().height,
+    ),
+  ).toBeCloseTo(
+    await longHeading.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).lineHeight),
+    ),
+  );
+  await expect(
+    page.getByRole("button", { name: "Delete project", exact: true }),
+  ).toBeInViewport();
 });
 
 test("keeps task details at the top while the view and sidebar remain usable", async ({

@@ -147,8 +147,8 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
         data-command-palette-swipe-region
         className="hidden w-full shrink-0 pt-5 mb-6 sm:block"
       >
-        <div className="max-w-lg mx-auto px-4">
-          <div className="flex items-start gap-3">
+        <div className="w-fit max-w-full mx-auto px-4">
+          <div className="flex items-center gap-3">
             <Popover>
               <PopoverTrigger asChild>
                 <button
@@ -181,7 +181,7 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
               onClick={() => void handleTitleClick()}
               className="flex-1 min-w-0 text-left cursor-pointer"
             >
-              <h1 className="text-3xl font-bold text-content leading-tight hover:text-primary transition-colors">
+              <h1 className="truncate text-3xl font-bold text-content leading-tight hover:text-primary transition-colors">
                 {project.title}
               </h1>
             </button>

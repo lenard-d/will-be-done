@@ -44,9 +44,6 @@ export function TaskOptionsMenu({
           )}
         >
           <SlidersHorizontal className="size-5" aria-hidden />
-          {activeFilterCount > 0 && (
-            <span className="absolute right-1 top-1 size-2 rounded-full bg-accent" />
-          )}
           <span id={stateDescriptionId} className="sr-only">
             {activeFilterCount > 0
               ? `${activeFilterCount} active filter${activeFilterCount === 1 ? "" : "s"}. `
