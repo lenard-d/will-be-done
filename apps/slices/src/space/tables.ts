@@ -80,6 +80,22 @@ registerSpaceSyncableTable(projectsTable, projectType);
 export type Project = ExtractSchema<typeof projectsTable>;
 export const isProject = isObjectType<Project>(projectType);
 
+export const allTasksColumnType = "allTasksColumn";
+export const allTasksColumnsTable = defineTable("all_tasks_columns", {
+  type: v.literal(allTasksColumnType),
+  id: v.string(),
+  title: v.string(),
+  orderToken: v.string(),
+  createdAt: v.number(),
+  filtersJson: v.string(),
+})
+  .index("byIds", ["id"])
+  .index("byOrder", ["orderToken"]);
+registerSpaceSyncableTable(allTasksColumnsTable, allTasksColumnType);
+export type AllTasksColumn = ExtractSchema<typeof allTasksColumnsTable>;
+export const isAllTasksColumn =
+  isObjectType<AllTasksColumn>(allTasksColumnType);
+
 export const dailyListType = "dailyList";
 export const dailyListsTable = defineTable("daily_lists", {
   type: v.literal(dailyListType),
@@ -304,6 +320,7 @@ export const possibleModel = v.union(
   habitsTable.v(),
   routinesTable.v(),
   habitCompletionsTable.v(),
+  allTasksColumnsTable.v(),
 );
 
 type AnyModelRecord = Infer<typeof possibleModel>;
@@ -322,7 +339,8 @@ export type AnyTable =
   | typeof checklistItemsTable
   | typeof habitsTable
   | typeof routinesTable
-  | typeof habitCompletionsTable;
+  | typeof habitCompletionsTable
+  | typeof allTasksColumnsTable;
 
 export const possibleModelType = v.union(
   v.literal(taskType),
@@ -336,5 +354,6 @@ export const possibleModelType = v.union(
   v.literal(habitType),
   v.literal(routineType),
   v.literal(habitCompletionType),
+  v.literal(allTasksColumnType),
   v.literal("stash"),
 );

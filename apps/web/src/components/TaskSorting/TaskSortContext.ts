@@ -8,6 +8,7 @@ type TaskSortContextValue = {
   nextTaskId?: string;
   calendar: boolean;
   blockManual: boolean;
+  focusScope?: string;
   keepInsertionPosition: (insertion: TaskInsertion) => void;
 };
 

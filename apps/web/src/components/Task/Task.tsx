@@ -205,7 +205,11 @@ export const PreloadedTaskComp = ({
   const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const shouldPlaceTitleCaretAtEndRef = useRef(false);
   const shouldOpenDatePickerAfterActionsCloseRef = useRef(false);
-  const focusableItemKey = buildFocusKey(listItem.id, listItem.type);
+  const focusableItemKey = buildFocusKey(
+    listItem.id,
+    listItem.type,
+    taskSorting?.focusScope,
+  );
 
   const isFocused = useFocusStore(
     (s) => !s.isFocusDisabled && s.focusItemKey === focusableItemKey,
@@ -367,6 +371,8 @@ export const PreloadedTaskComp = ({
 
   const handleMoveColumn = useCallback(
     (direction: "left" | "right") => {
+      // Saved filter columns do not define a destination for task ownership.
+      if (taskSorting?.focusScope) return;
       const dropTarget = getDOMColumnSiblingDropTarget(
         focusableItemKey,
         direction,
@@ -425,6 +431,7 @@ export const PreloadedTaskComp = ({
       focusableItemKey,
       item,
       taskId,
+      taskSorting?.focusScope,
     ],
   );
 
@@ -562,7 +569,11 @@ export const PreloadedTaskComp = ({
             taskParams: newTaskParams,
           }),
         );
-        const focusKey = buildFocusKey(newBox.id, newBox.type);
+        const focusKey = buildFocusKey(
+          newBox.id,
+          newBox.type,
+          taskSorting?.focusScope,
+        );
         unstable_batchedUpdates(() => {
           taskSorting?.keepInsertionPosition({
             taskId: newBox.id,

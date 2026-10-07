@@ -70,8 +70,9 @@ test("combines state, project, column and planned day, and keeps filters per spa
   await projectSidebarLink(page, "Research").click();
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
   await expect(rows(page)).toHaveText([/Research unscheduled/]);
+  await openTaskOptions(page);
   await page
-    .getByLabel("Search task titles")
+    .getByLabel("Filter task titles")
     .filter({ visible: true })
     .fill("no matching title");
   await expect(page.getByText("No tasks match these filters.")).toBeVisible();
@@ -114,10 +115,12 @@ test("filters an exact day and inclusive range while keeping new task editing vi
   await page.keyboard.press("Escape");
   await expect(rows(page)).toHaveText([/Scheduled 2026-10-08/]);
   await page.keyboard.press("Escape");
+  await openTaskOptions(page);
   await page
-    .getByLabel("Search task titles")
+    .getByLabel("Filter task titles")
     .filter({ visible: true })
     .fill("Scheduled");
+  await page.keyboard.press("Escape");
   await rows(page).first().click();
   await page.keyboard.press("Shift+KeyO");
   await page
@@ -127,7 +130,8 @@ test("filters an exact day and inclusive range while keeping new task editing vi
   await expect(rows(page).first()).toContainText("Oct 8");
   await page.keyboard.press("Enter");
   await expect(rows(page)).toHaveText([/Scheduled 2026-10-08/]);
-  await page.getByLabel("Search task titles").filter({ visible: true }).clear();
+  await openTaskOptions(page);
+  await page.getByLabel("Filter task titles").filter({ visible: true }).clear();
   await openTaskOptions(page);
   await page.getByRole("button", { name: "Filter by planned day" }).click();
   await page.getByRole("button", { name: "Date range", exact: true }).click();
