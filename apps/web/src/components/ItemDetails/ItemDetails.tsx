@@ -228,6 +228,7 @@ export function ItemDetailsPage({
     <div className="flex h-full min-h-0 w-full flex-col bg-task-panel/95 text-content shadow-2xl backdrop-blur-sm safari:bg-task-panel safari:backdrop-blur-none">
       <div
         className="sticky top-0 z-10 border-b border-task-panel-divider bg-task-panel/95 px-3 pb-2 backdrop-blur-sm safari:bg-task-panel safari:backdrop-blur-none"
+        data-command-palette-swipe-region
         style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}
       >
         <div className="flex h-10 items-center gap-2">
