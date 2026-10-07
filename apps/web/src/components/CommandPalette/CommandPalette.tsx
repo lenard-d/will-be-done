@@ -66,6 +66,8 @@ import { useSpaceSettingsStore } from "@/components/SpaceSettings/spaceSettingsS
 import { useStashOpen } from "@/components/DaysBoard/StashStore";
 import { Route } from "@/routes/spaces.$spaceId";
 import { getShortcutLabel } from "@/components/SpaceSettings/shortcutCatalog";
+import { OPEN_COMMAND_PALETTE_EVENT } from "./commandPaletteEvents";
+import { useCommandPaletteSwipe } from "./useCommandPaletteSwipe";
 import {
   COMMAND_PALETTE_GROUPS,
   isCommandPaletteShortcut,
@@ -286,6 +288,7 @@ export function CommandPalette() {
   const isEditing = useFocusStore(
     (state) => !!state.editItemKey || state.isFocusDisabled,
   );
+  useCommandPaletteSwipe({ disabled: open || isEditing, pathname });
   const toggleStash = useStashOpen((state) => state.toggle);
   const toggleDetails = useItemDetailsOpen((state) => state.toggle);
   const setDetailsOpen = useItemDetailsOpen((state) => state.setOpen);
@@ -329,6 +332,10 @@ export function CommandPalette() {
   );
 
   useEffect(() => {
+    const handleOpen = () => {
+      setQuery("");
+      setOpen(true);
+    };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isCommandPaletteShortcut(event)) return;
 
@@ -339,7 +346,11 @@ export function CommandPalette() {
     };
 
     window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
+    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, handleOpen);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, handleOpen);
+    };
   }, []);
 
   const navigateToTasks = useCallback(() => {
