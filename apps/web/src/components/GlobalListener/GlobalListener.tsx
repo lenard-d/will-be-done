@@ -30,12 +30,19 @@ import {
   getDOMColumnSiblingFirstItems,
 } from "@/components/Focus/domNavigation.ts";
 import { selectAsync } from "@will-be-done/hyperdb";
+import { useTaskCommandHistory } from "@/hooks/useTaskCommandHistory.ts";
+import {
+  shouldHandleTaskRedo,
+  shouldHandleTaskUndo,
+} from "@/store/taskCommandHistory.ts";
 import { sortedTaskDrop } from "@/components/TaskSorting/sortedTaskDrop";
 import { dailyEntryById } from "@will-be-done/slices/space";
 
 export function GlobalListener() {
   const dispatch = useAsyncDispatch();
   const db = useDB();
+  const { executeTaskCommand, redoTaskCommand, undoTaskCommand } =
+    useTaskCommandHistory();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -43,38 +50,27 @@ export function GlobalListener() {
       const isSomethingFocused =
         !focusState.isFocusDisabled && !!focusState.focusItemKey;
 
-      if (focusState.isFocusDisabled || e.defaultPrevented) return;
+      if (e.defaultPrevented) return;
 
       const activeElement =
         e.target instanceof Element ? e.target : document.activeElement;
 
-      // Check if the active element IS any kind of input element
       const isInput = activeElement && isInputElement(activeElement);
-
-      // If it's an input, return early
       if (isInput) return;
       if (e.target instanceof HTMLElement && e.target.shadowRoot) {
         return;
       }
+      if (focusState.isFocusDisabled) return;
 
-      // Handle undo (cmd+z/ctrl+z)
-      if (
-        ((e.metaKey || e.ctrlKey) && e.code === "KeyZ" && !e.shiftKey) ||
-        e.code === "KeyU"
-      ) {
+      if (shouldHandleTaskUndo(e)) {
         e.preventDefault();
-        // TODO: return undo support
-        // undoManager.undo();
+        void undoTaskCommand();
         return;
       }
 
-      // Handle redo (cmd+shift+z/ctrl+shift+z)
-      if (
-        ((e.metaKey || e.ctrlKey) && e.code === "KeyZ" && e.shiftKey) ||
-        (e.code === "KeyR" && e.ctrlKey)
-      ) {
+      if (shouldHandleTaskRedo(e)) {
         e.preventDefault();
-        // TODO: return undo support
+        void redoTaskCommand();
         return;
       }
 
@@ -87,7 +83,7 @@ export function GlobalListener() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [redoTaskCommand, undoTaskCommand]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -208,7 +204,12 @@ export function GlobalListener() {
                     : "top",
               });
               if (sortedDrop.handled) {
-                if (sortedDrop.action) void dispatch(sortedDrop.action);
+                const action = sortedDrop.action;
+                if (action) {
+                  void executeTaskCommand([source.data.modelId], () =>
+                    dispatch(action),
+                  );
+                }
                 return;
               }
             }
@@ -298,20 +299,33 @@ export function GlobalListener() {
               return;
             }
 
-            void dispatch(
-              appHandleDrop({
-                id: targetItemInfo[1].id,
-                modelType: targetItemInfo[1].type,
-                dropId: source.data.modelId,
-                dropModelType: source.data.modelType,
-                edge: closestEdgeOfTarget || "top",
-              }),
-            );
+            const sourceModelId = source.data.modelId;
+            const sourceModelType = source.data.modelType;
+            const moveItem = () =>
+              dispatch(
+                appHandleDrop({
+                  id: targetItemInfo[1].id,
+                  modelType: targetItemInfo[1].type,
+                  dropId: sourceModelId,
+                  dropModelType: sourceModelType,
+                  edge: closestEdgeOfTarget || "top",
+                }),
+              );
+            const sourceIsTask = [
+              taskType,
+              dailyEntryType,
+              stashEntryType,
+            ].includes(sourceModelType);
+            if (sourceIsTask) {
+              void executeTaskCommand([sourceModelId], moveItem);
+            } else {
+              void moveItem();
+            }
           })();
         },
       }),
     );
-  }, [db, dispatch]);
+  }, [db, dispatch, executeTaskCommand]);
 
   return <></>;
 }

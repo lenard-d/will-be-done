@@ -3,8 +3,13 @@ import { Trash2, Info } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useFocusStore, parseColumnKey } from "@/store/focusSlice.ts";
 import { getDOMSiblings } from "@/components/Focus/domNavigation.ts";
-import { appDeleteModel, dailyEntryType } from "@will-be-done/slices/space";
+import {
+  appDeleteModel,
+  dailyEntryType,
+  taskType,
+} from "@will-be-done/slices/space";
 import { useIsMobile } from "@/hooks/use-mobile.ts";
+import { useTaskCommandHistory } from "@/hooks/useTaskCommandHistory.ts";
 import { cn } from "@/lib/utils";
 import { Route as SpaceRoute } from "@/routes/spaces.$spaceId.tsx";
 
@@ -13,6 +18,7 @@ const ITEM_TYPES = new Set(["task", "template", dailyEntryType]);
 export const MobileTaskToolbar = () => {
   const isMobile = useIsMobile();
   const dispatch = useAsyncDispatch();
+  const { executeTaskCommand } = useTaskCommandHistory();
   const navigate = useNavigate();
   const { spaceId } = SpaceRoute.useParams();
   const focusKey = useFocusStore((s) => s.focusItemKey);
@@ -25,7 +31,13 @@ export const MobileTaskToolbar = () => {
     if (!focusKey || !parsed) return;
     if (!confirm("Delete this task?")) return;
     const [upKey, downKey] = getDOMSiblings(focusKey as string);
-    void dispatch(appDeleteModel({ id: parsed.id, modelType: parsed.type }));
+    const deleteItem = () =>
+      dispatch(appDeleteModel({ id: parsed.id, modelType: parsed.type }));
+    if (parsed.type === taskType || parsed.type === dailyEntryType) {
+      void executeTaskCommand([parsed.id], deleteItem);
+    } else {
+      void deleteItem();
+    }
     if (downKey) {
       useFocusStore.getState().focusByKey(downKey);
     } else if (upKey) {

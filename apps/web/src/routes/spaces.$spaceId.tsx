@@ -13,6 +13,7 @@ import { initDbStore } from "@/store/load.ts";
 import { authUtils, isDemoMode } from "@/lib/auth";
 import { demoSpaceDBConfig, spaceDBConfig } from "@/store/configs";
 import { useFocusStore } from "@/store/focusSlice.ts";
+import { CommandPalette } from "@/components/CommandPalette/CommandPalette.tsx";
 import { useEffect } from "react";
 
 export const Route = createFileRoute("/spaces/$spaceId")({
@@ -54,6 +55,7 @@ function RouteComponent() {
             <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-10 [app-region:drag]" />
 
             <GlobalListener />
+            <CommandPalette />
             <ResetFocusOnNavigate />
 
             <Outlet />
