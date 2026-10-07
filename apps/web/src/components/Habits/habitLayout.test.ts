@@ -77,10 +77,7 @@ describe("buildRoutineColumns", () => {
       ],
     );
 
-    expect(columns.map((column) => column.title)).toEqual([
-      "ACTIVE",
-      "HABITS",
-    ]);
+    expect(columns.map((column) => column.title)).toEqual(["ACTIVE", "HABITS"]);
     expect(columns[1]!.habits.map((item) => item.title)).toEqual([
       "Dangling",
       "Archived routine",

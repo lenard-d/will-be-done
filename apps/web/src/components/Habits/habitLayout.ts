@@ -48,8 +48,7 @@ export function buildRoutineColumns(
 
   const unassignedHabits = habits
     .filter(
-      (habit) =>
-        habit.routineId === null || !routineIds.has(habit.routineId),
+      (habit) => habit.routineId === null || !routineIds.has(habit.routineId),
     )
     .sort(byOrder);
   if (unassignedHabits.length > 0) {

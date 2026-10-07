@@ -1,12 +1,15 @@
 import { useMemo } from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import {
   activeHabits,
   allHabitCompletions,
   allTasks,
 } from "@will-be-done/slices/space";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
+import { useCurrentDate } from "@/components/DaysBoard/hooks";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils.ts";
+import { ActivityDayDetails } from "./ActivityDayDetails";
 import {
   buildHabitStats,
   type ActivityHeatmap as ActivityHeatmapData,
@@ -24,65 +27,66 @@ const intensityClass = (count: number, max: number) => {
 
 const ActivityHeatmap = ({ heatmap }: { heatmap: ActivityHeatmapData }) => {
   const max = Math.max(0, ...heatmap.days.map((day) => day.count));
+  const weekColumns = `repeat(${heatmap.days.length / 7}, minmax(0, 1fr))`;
+
   return (
-    <section>
-      <div className="text-[10px] uppercase tracking-[0.18em] text-content-tinted/55">
-        global activity
-      </div>
-      <h2 className="mt-1 text-2xl font-bold uppercase text-content">
-        {heatmap.year} year to date
-      </h2>
-      <div className="mt-6 overflow-x-auto pt-5">
-        <div className="relative inline-block min-w-full">
+    <section className="min-w-0">
+      <h2 className="text-xl font-bold text-content">Activity history</h2>
+      <p className="mt-1 text-sm text-content-tinted/75">Last 13 weeks</p>
+      <div className="mt-6 w-full max-w-sm">
+        <div
+          className="mb-2 grid gap-1 text-xs text-content-tinted/75"
+          style={{ gridTemplateColumns: weekColumns }}
+          aria-hidden="true"
+        >
           {heatmap.monthLabels.map((label) => (
-            <div
+            <span
               key={`${label.label}-${label.weekIndex}`}
-              className="absolute -top-5 text-[11px] uppercase text-content-tinted/65"
-              style={{ left: `${label.weekIndex * 20}px` }}
+              className="last:justify-self-end"
+              style={{ gridColumn: label.weekIndex + 1 }}
             >
               {label.label}
-            </div>
+            </span>
           ))}
-          <div
-            className="grid grid-flow-col grid-rows-7 gap-1.5"
-            style={{ gridAutoColumns: "14px" }}
-          >
-            {heatmap.days.map((day) => (
-              <div
+        </div>
+        <div
+          className="grid grid-flow-col grid-rows-7 gap-1"
+          style={{ gridTemplateColumns: weekColumns }}
+        >
+          {heatmap.days.map((day) =>
+            day.isPadding ? (
+              <div key={day.date} aria-hidden="true" />
+            ) : (
+              <ActivityDayDetails
                 key={day.date}
-                title={`${day.date}: ${day.count} activities`}
+                day={day}
                 className={cn(
-                  "h-3.5 w-3.5 rounded-[3px]",
-                  day.isPadding
-                    ? "opacity-0"
-                    : intensityClass(day.count, max),
+                  "aspect-square w-full rounded-[3px] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                  intensityClass(day.count, max),
                   day.isToday && "ring-1 ring-accent",
                 )}
               />
-            ))}
-          </div>
+            ),
+          )}
         </div>
       </div>
     </section>
   );
 };
 
-const DoneChart = ({ days }: { days: DayMetric[] }) => {
+const DailyActivityChart = ({ days }: { days: DayMetric[] }) => {
   const max = Math.max(1, ...days.map((day) => day.count));
+
   return (
-    <section>
-      <div className="text-[10px] uppercase tracking-[0.18em] text-content-tinted/55">
-        last 30 days
-      </div>
-      <h2 className="mt-1 text-2xl font-bold uppercase text-content">
-        activity baseline
-      </h2>
-      <div className="mt-6 flex h-44 items-end gap-1.5 rounded-lg bg-panel-tinted/60 px-3 py-3 ring-1 ring-ring/50">
+    <section className="min-w-0">
+      <h2 className="text-xl font-bold text-content">Daily activity</h2>
+      <p className="mt-1 text-sm text-content-tinted/75">Last 30 days</p>
+      <div className="mt-6 flex h-44 items-end gap-1 rounded-lg bg-panel-tinted/60 px-3 py-3 ring-1 ring-ring/50 sm:gap-1.5">
         {days.map((day) => (
-          <div
+          <ActivityDayDetails
             key={day.date}
-            title={`${format(new Date(`${day.date}T00:00:00`), "MMM d")}: ${day.count}`}
-            className="flex h-full min-w-0 flex-1 items-end"
+            day={day}
+            className="flex h-full min-w-0 flex-1 cursor-pointer items-end rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <div
               className={cn(
@@ -91,15 +95,25 @@ const DoneChart = ({ days }: { days: DayMetric[] }) => {
               )}
               style={{ height: `${Math.max(4, (day.count / max) * 100)}%` }}
             />
-          </div>
+          </ActivityDayDetails>
         ))}
+      </div>
+      <div
+        className="mt-2 flex justify-between text-xs text-content-tinted/75"
+        aria-hidden="true"
+      >
+        <span>{days[0] && format(parseISO(days[0].date), "MMM d")}</span>
+        <span>Today</span>
       </div>
     </section>
   );
 };
 
 export const StatsView = () => {
-  const { data: tasks = [] } = useAsyncSelector({ selector: allTasks, args: {} });
+  const { data: tasks = [] } = useAsyncSelector({
+    selector: allTasks,
+    args: {},
+  });
   const { data: habits = [] } = useAsyncSelector({
     selector: activeHabits,
     args: {},
@@ -108,9 +122,10 @@ export const StatsView = () => {
     selector: allHabitCompletions,
     args: {},
   });
+  const today = format(useCurrentDate(), "yyyy-MM-dd");
   const stats = useMemo(
-    () => buildHabitStats(tasks, habits, completions),
-    [tasks, habits, completions],
+    () => buildHabitStats(tasks, habits, completions, parseISO(today)),
+    [tasks, habits, completions, today],
   );
   const blocks = [
     ["tasks done", stats.totalDone, "all-time"],
@@ -122,14 +137,9 @@ export const StatsView = () => {
 
   return (
     <div className="h-full overflow-y-auto bg-surface">
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-10">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6">
         <header>
-          <div className="text-xs uppercase tracking-[0.22em] text-accent/75">
-            space stats
-          </div>
-          <h1 className="mt-2 text-4xl font-bold uppercase text-content">
-            stats
-          </h1>
+          <h1 className="text-4xl font-bold text-content">Stats</h1>
         </header>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
           {blocks.map(([label, value, helper]) => (
@@ -146,10 +156,12 @@ export const StatsView = () => {
             </div>
           ))}
         </div>
-        <div className="grid gap-10 xl:grid-cols-2">
-          <DoneChart days={stats.last30Days} />
-          <ActivityHeatmap heatmap={stats.activityHeatmap} />
-        </div>
+        <TooltipProvider delayDuration={100}>
+          <div className="grid gap-10 xl:grid-cols-2">
+            <DailyActivityChart days={stats.last30Days} />
+            <ActivityHeatmap heatmap={stats.activityHeatmap} />
+          </div>
+        </TooltipProvider>
       </main>
     </div>
   );

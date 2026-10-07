@@ -77,20 +77,21 @@ export function HabitBody({
     ),
   });
 
-  const saveTargetTime = useCallback((value: string) => {
-    const targetTime = normalizeTargetTimeInput(value);
-    if (targetTime === undefined) {
-      setTargetTimeError("Use 24-hour HH:MM format.");
-      return false;
-    }
-    setTargetTimeError(null);
-    if (targetTime !== habit.targetTime) {
-      void dispatch(
-        updateHabit({ id: habit.id, habit: { targetTime } }),
-      );
-    }
-    return true;
-  }, [dispatch, habit.id, habit.targetTime]);
+  const saveTargetTime = useCallback(
+    (value: string) => {
+      const targetTime = normalizeTargetTimeInput(value);
+      if (targetTime === undefined) {
+        setTargetTimeError("Use 24-hour HH:MM format.");
+        return false;
+      }
+      setTargetTimeError(null);
+      if (targetTime !== habit.targetTime) {
+        void dispatch(updateHabit({ id: habit.id, habit: { targetTime } }));
+      }
+      return true;
+    },
+    [dispatch, habit.id, habit.targetTime],
+  );
 
   const focusAfterRemoval = useCallback(() => {
     const focusKey = buildFocusKey(habit.id, habit.type);
@@ -239,18 +240,12 @@ export function HabitBody({
           label="Last completion"
         >
           {metric?.lastCompletedAt
-            ? format(
-                new Date(metric.lastCompletedAt),
-                "MMM d, yyyy, h:mm a",
-              )
+            ? format(new Date(metric.lastCompletedAt), "MMM d, yyyy, h:mm a")
             : "Never"}
         </DetailRow>
       </div>
 
-      <HabitHeatmap
-        habitId={habit.id}
-        completions={completions}
-      />
+      <HabitHeatmap habitId={habit.id} completions={completions} />
 
       <div className="grid grid-cols-2 gap-2 pt-1">
         <button
@@ -269,9 +264,7 @@ export function HabitBody({
           type="button"
           onClick={() => {
             if (
-              !window.confirm(
-                "Permanently delete this habit and its history?",
-              )
+              !window.confirm("Permanently delete this habit and its history?")
             ) {
               return;
             }

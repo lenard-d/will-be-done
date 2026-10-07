@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  DB,
-  execSync,
-  selectSync,
-  syncDispatch,
-} from "@will-be-done/hyperdb";
+import { DB, execSync, selectSync, syncDispatch } from "@will-be-done/hyperdb";
 import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
 import { dbIdTrait } from "../traits";
 import { getSpaceBackup, loadSpaceBackup, type Backup } from "./backup";
@@ -49,9 +44,7 @@ const populatedBackup = (): Backup => ({
 
 function createDB() {
   const db = new DB(new BptreeInmemDriver(), {
-    traits: [
-      dbIdTrait("space", "a0000000-0000-4000-8000-000000000001"),
-    ],
+    traits: [dbIdTrait("space", "a0000000-0000-4000-8000-000000000001")],
   });
   execSync(db.loadTables(registeredSpaceSyncableTables));
   return db;
@@ -141,9 +134,7 @@ describe("habit backup compatibility", () => {
 
     expect(roundtripped.habits).toEqual(exported.habits);
     expect(roundtripped.routines).toEqual(exported.routines);
-    expect(roundtripped.habitCompletions).toEqual(
-      exported.habitCompletions,
-    );
+    expect(roundtripped.habitCompletions).toEqual(exported.habitCompletions);
   });
 
   it("preserves habit tables when legacy backup sections are absent", () => {

@@ -6,11 +6,7 @@ import { allProjectSections } from "./projectSections";
 import { allProjects } from "./projectsAll";
 import { allTasks } from "./tasks";
 import { allTaskTemplates } from "./taskTemplates";
-import {
-  allHabitCompletions,
-  allHabits,
-  allRoutines,
-} from "./habits";
+import { allHabitCompletions, allHabits, allRoutines } from "./habits";
 import { dailyListAllIds, dailyListById, dailyListGetId } from "./dailyLists";
 import { dailyEntryAllIds, dailyEntryById } from "./dailyEntries";
 import { inboxProjectId as getInboxProjectId } from "./projects";
@@ -749,8 +745,7 @@ export const getSpaceBackup = selector({
     const checklistItems: ChecklistItem[] = yield* allChecklistItems({});
     const habits: Habit[] = yield* allHabits({});
     const routines: Routine[] = yield* allRoutines({});
-    const habitCompletions: HabitCompletion[] =
-      yield* allHabitCompletions({});
+    const habitCompletions: HabitCompletion[] = yield* allHabitCompletions({});
     const dailyLists: DailyList[] = [];
 
     // Get all daily lists
