@@ -35,6 +35,7 @@ import {
 import { MoveModal } from "@/components/MoveTaskModel/MoveModel";
 import { useGlobalListener } from "@/components/GlobalListener/hooks.tsx";
 import { isInputElement } from "../../utils/isInputElement";
+import { waitForLocalPersistence } from "@/store/waitForLocalPersistence";
 import { useDebouncedPersistedDraft } from "@/hooks/useDebouncedPersistedDraft";
 import {
   getDOMAdjacentStackedPlaceholder,
@@ -87,8 +88,12 @@ import {
   updateTask,
   updateTemplate,
 } from "@will-be-done/slices/space";
-import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
-import { useAsyncSelector, useSelectAsync } from "@will-be-done/hyperdb/react";
+import {
+  useAsyncDispatch,
+  useAsyncSelector,
+  useSelectAsync,
+  useDB,
+} from "@will-be-done/hyperdb/react";
 import {
   buildFocusKey,
   focusTextareaAtEnd,
@@ -212,60 +217,62 @@ export const PreloadedTaskComp = ({
   const { executeTaskCommand } = useTaskCommandHistory();
   const openProject = useOpenProject();
 
+  const db = useDB();
   const persistTaskTitle = useCallback(
-    (title: string) => {
-      void (async () => {
-        if (isTask(item)) {
-          if (
-            !(await select({
-              selector: taskById,
-              args: { id: taskId },
-            }))
-          ) {
-            return;
-          }
-
-          await executeTaskCommand([taskId], () =>
-            dispatch(
-              updateTask({
-                id: taskId,
-                task: {
-                  title,
-                },
-              }),
-            ),
-          );
+    async (title: string) => {
+      if (isTask(item)) {
+        if (
+          !(await select({
+            selector: taskById,
+            args: { id: taskId },
+          }))
+        ) {
           return;
         }
 
-        if (isTaskTemplate(item)) {
-          if (
-            !(await select({
-              selector: taskTemplateById,
-              args: { id: taskId },
-            }))
-          ) {
-            return;
-          }
-
-          await dispatch(
-            updateTemplate({
+        await executeTaskCommand([taskId], () =>
+          dispatch(
+            updateTask({
               id: taskId,
-              template: {
+              task: {
                 title,
               },
             }),
-          );
+          ),
+        );
+        await waitForLocalPersistence(db);
+        return;
+      }
+
+      if (isTaskTemplate(item)) {
+        if (
+          !(await select({
+            selector: taskTemplateById,
+            args: { id: taskId },
+          }))
+        ) {
+          return;
         }
-      })();
+
+        await dispatch(
+          updateTemplate({
+            id: taskId,
+            template: {
+              title,
+            },
+          }),
+        );
+        await waitForLocalPersistence(db);
+      }
     },
-    [item, dispatch, executeTaskCommand, select, taskId],
+    [db, item, dispatch, executeTaskCommand, select, taskId],
   );
 
   const {
     draft: editingTitle,
     setDraft: setEditingTitle,
     flush: flushEditedTitle,
+    flushAndWait: finishTitleSave,
   } = useDebouncedPersistedDraft({
     value: taskTitle,
     persist: persistTaskTitle,
@@ -1152,14 +1159,24 @@ export const PreloadedTaskComp = ({
   //   }
   // }, [isFocused]);
 
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleInputKeyDown = async (
+    e: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
     if ((e.key === "Enter" && !e.shiftKey) || e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
 
-      flushEditedTitle();
+      const textarea = e.currentTarget;
+      const submittedTitle = textarea.value;
+      await finishTitleSave();
+      if (
+        !textarea.isConnected ||
+        useFocusStore.getState().editItemKey !== focusableItemKey ||
+        textarea.value !== submittedTitle
+      )
+        return;
       useFocusStore.getState().resetEdit();
-      e.currentTarget.blur();
+      textarea.blur();
       ref.current?.focus();
     }
   };
@@ -1346,7 +1363,7 @@ export const PreloadedTaskComp = ({
                   ref={titleTextareaRef}
                   value={editingTitle}
                   onChange={(e) => setEditingTitle(e.target.value)}
-                  onKeyDown={handleInputKeyDown}
+                  onKeyDown={(event) => void handleInputKeyDown(event)}
                   onFocus={handleTitleFocus}
                   onBlur={handleTitleBlur}
                   onPointerDown={(e) => e.stopPropagation()}

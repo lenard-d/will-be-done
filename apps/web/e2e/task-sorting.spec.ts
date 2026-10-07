@@ -35,6 +35,11 @@ test("keeps a reordered day across sorting, project views, and reloads", async (
   await page.keyboard.press("Control+ArrowUp");
   await expect(allTasks).toHaveText([/Bravo task/, /Alpha task/]);
 
+  const options = page.getByRole("button", {
+    name: "Filters and sorting",
+    exact: true,
+  });
+  await options.click();
   const sortControl = page.getByRole("button", { name: "Sort tasks" });
   await sortControl.click();
   await page.getByRole("menuitemradio", { name: "Alphabetical" }).click();
@@ -43,6 +48,7 @@ test("keeps a reordered day across sorting, project views, and reloads", async (
   await page.getByRole("menuitemradio", { name: "Planned day" }).click();
   await expect(allTasks).toHaveText([/Bravo task/, /Alpha task/]);
 
+  await page.keyboard.press("Escape");
   await page.getByRole("link", { name: /^Inbox/ }).click();
   await expect(page.locator('[data-focusable-key^="task^^"]')).toHaveText([
     /Bravo task/,
@@ -200,6 +206,9 @@ test("uses the general sort default until a view saves its own choice", async ({
   await page.getByRole("button", { name: "Close settings" }).click();
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
 
+  await page
+    .getByRole("button", { name: "Filters and sorting", exact: true })
+    .click();
   const sortControl = page.getByRole("button", {
     name: "Sort tasks",
     exact: true,
@@ -213,13 +222,55 @@ test("uses the general sort default until a view saves its own choice", async ({
   await page.getByRole("menuitemradio", { name: "Planned day" }).click();
   await expect(tasks).toHaveText([/Bravo default task/, /Alpha default task/]);
 
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Space settings" }).click();
   await page
     .getByRole("combobox", { name: "Default task sort" })
     .selectOption("manual");
   await page.getByRole("button", { name: "Close settings" }).click();
+  await page
+    .getByRole("button", { name: "Filters and sorting", exact: true })
+    .click();
   await expect(sortControl).toHaveText("Planned day");
   await page.reload();
+  await page
+    .getByRole("button", { name: "Filters and sorting", exact: true })
+    .click();
   await expect(sortControl).toHaveText("Planned day");
   await expect(tasks).toHaveText([/Bravo default task/, /Alpha default task/]);
+});
+
+test("cycles All tasks sorting while its options menu is closed", async ({
+  page,
+}) => {
+  const space = uniqueE2EName("Closed sort options");
+  await signupUser(page);
+  await createSpace(page, space);
+  await openSpace(page, space);
+  await createTodayTask(page, "Zulu closed menu");
+  await createTodayTask(page, "Alpha closed menu");
+  await page.getByRole("link", { name: "Tasks", exact: true }).click();
+  const options = page.getByRole("button", {
+    name: "Filters and sorting",
+    exact: true,
+  });
+  await page
+    .locator('[data-task-sort-view="all-tasks"] [data-focusable-key^="task^^"]')
+    .first()
+    .click();
+  await page.keyboard.press("KeyQ");
+  await expect(options).toHaveAttribute("title", "Sort: Alphabetical");
+  await expect(
+    page.locator(
+      '[data-task-sort-view="all-tasks"] [data-focusable-key^="task^^"]',
+    ),
+  ).toHaveText([/Alpha closed menu/, /Zulu closed menu/]);
+  await expect(options).toHaveAttribute("data-state", "closed");
+  await options.click();
+  await page.keyboard.press("Escape");
+  await expect(options).toBeFocused();
+  await page.keyboard.press("KeyQ");
+  await expect(options).toHaveAttribute("title", "Sort: Manual");
+  await expect(options).toHaveAccessibleDescription("Sort: Manual");
+  await expect(options).toHaveAttribute("data-state", "closed");
 });

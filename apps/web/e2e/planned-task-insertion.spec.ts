@@ -63,6 +63,7 @@ test("All tasks inherits the planned day above and below the selected task", asy
     page.getByRole("heading", { name: "Unscheduled", exact: true }),
   ).toHaveCount(0);
   await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Edit task title")).toHaveCount(0);
   await insertSibling(page, anchor, {
     key: "Shift+KeyO",
     title: "Alpha inserted above",
@@ -78,6 +79,7 @@ test("All tasks inherits the planned day above and below the selected task", asy
     page.getByRole("heading", { name: "Unscheduled", exact: true }),
   ).toHaveCount(0);
   await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Edit task title")).toHaveCount(0);
 
   await page.reload();
   await expect(rows).toHaveText([
@@ -106,6 +108,7 @@ test("project Planned day insertion keeps its saved day after changing views", a
     title: "Project day sibling",
   });
   await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Edit task title")).toHaveCount(0);
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Unscheduled", exact: true }),
@@ -137,6 +140,7 @@ test("unscheduled and empty project insertion do not acquire a date", async ({
     .poll(() => taskTitles(rows))
     .toEqual(["Unscheduled sibling", "Unscheduled anchor"]);
   await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Edit task title")).toHaveCount(0);
   await page.reload();
   await expect(rows).toHaveCount(2);
   await expect(
@@ -158,6 +162,7 @@ test("alphabetical project insertion stays in place until Enter and does not inh
     .poll(() => taskTitles(rows))
     .toEqual(["Selected October task", "Alpha sibling"]);
   await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Edit task title")).toHaveCount(0);
   await expect(rows).toHaveText([/Alpha sibling/, /Selected October task/]);
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
   await expect(
