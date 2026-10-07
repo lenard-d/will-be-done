@@ -6,7 +6,7 @@ import {
   defaultDailyList,
   type ItemForDisplay,
 } from "@will-be-done/slices/space";
-import { sortTaskItems } from "./taskSorting";
+import { keepTaskInsertionPosition, sortTaskItems } from "./taskSorting";
 
 function task({
   id,
@@ -45,6 +45,42 @@ const mondayA = task({ id: "A", date: "2026-10-05", dayOrder: "a1" });
 const mondayB = task({ id: "B", date: "2026-10-05", dayOrder: "a0" });
 
 describe("task sorting", () => {
+  it.each(["before", "after"] as const)(
+    "keeps an editing task %s its selected task despite title changes",
+    (position) => {
+      const anchor = task({ id: "anchor", title: "Middle" });
+      const inserted = task({ id: "inserted", title: "Zulu" });
+      const items = sortTaskItems({
+        items: [inserted, anchor, task({ id: "first", title: "Alpha" })],
+        mode: "alphabetical",
+      });
+      expect(
+        keepTaskInsertionPosition(items, {
+          taskId: "inserted",
+          anchorTaskId: "anchor",
+          position,
+          focusKey: "task^^inserted",
+        }).map((item) => item.item.id),
+      ).toEqual(
+        position === "before"
+          ? ["first", "inserted", "anchor"]
+          : ["first", "anchor", "inserted"],
+      );
+    },
+  );
+
+  it("keeps normal sorting when the insertion anchor is removed", () => {
+    const items = [task({ id: "inserted" }), mondayA];
+    expect(
+      keepTaskInsertionPosition(items, {
+        taskId: "inserted",
+        anchorTaskId: "removed",
+        position: "before",
+        focusKey: "task^^inserted",
+      }),
+    ).toEqual(items);
+  });
+
   it("uses saved day order after switching from alphabetical to date", () => {
     const alphabetical = sortTaskItems({
       items: [mondayB, mondayA],
