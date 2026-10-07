@@ -14,6 +14,11 @@ import {
 import { useTaskSorting } from "@/components/TaskSorting/useTaskSorting";
 import { Stash } from "@/components/Stash/Stash";
 import { useStashDesktopOffset } from "@/components/Stash/useStashDesktopOffset";
+import { Route } from "@/routes/spaces.$spaceId";
+import { TaskFilterBar } from "./TaskFilterBar";
+import { useTaskFilters } from "./useTaskFilters";
+import { filterTaskItems } from "./taskFilters";
+import { parseColumnKey, useFocusStore } from "@/store/focusSlice";
 
 function TaskGroup({
   title,
@@ -70,6 +75,12 @@ function TaskGroup({
 }
 
 export function AllTasksView() {
+  const { spaceId } = Route.useParams();
+  const { filters, updateFilters, resetFilters } = useTaskFilters(spaceId);
+  const editItemKey = useFocusStore((state) => state.editItemKey);
+  const editingTaskId = editItemKey?.startsWith("task^^")
+    ? parseColumnKey(editItemKey).id
+    : undefined;
   const {
     data: items = [],
     isFetching,
@@ -80,10 +91,11 @@ export function AllTasksView() {
   });
   const { sortMode } = useTaskSorting("all-tasks");
   const stashOffset = useStashDesktopOffset();
-  const todoItems = items.filter(
+  const filteredItems = filterTaskItems(items, filters, editingTaskId);
+  const todoItems = filteredItems.filter(
     (entry) => entry.item.type === "task" && entry.item.state === "todo",
   );
-  const doneItems = items.filter(
+  const doneItems = filteredItems.filter(
     (entry) => entry.item.type === "task" && entry.item.state === "done",
   );
 
@@ -101,6 +113,13 @@ export function AllTasksView() {
           <h1 className="text-3xl font-bold text-content">All tasks</h1>
           <TaskSortControl viewKey="all-tasks" />
         </header>
+        <TaskFilterBar
+          items={items}
+          filters={filters}
+          onChange={updateFilters}
+          onReset={resetFilters}
+          resultCount={filteredItems.length}
+        />
         <div
           id="main-scrollable-area"
           data-scroll-restoration-id="all-tasks-scroll"
@@ -117,6 +136,10 @@ export function AllTasksView() {
                 {isFetching
                   ? "Loading tasks..."
                   : "Add a task in Inbox or a project."}
+              </p>
+            ) : filteredItems.length === 0 ? (
+              <p className="text-sm text-content-tinted" role="status">
+                No tasks match these filters.
               </p>
             ) : (
               <>
