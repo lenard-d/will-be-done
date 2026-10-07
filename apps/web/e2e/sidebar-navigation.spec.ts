@@ -72,7 +72,7 @@ test.describe("mobile sidebar navigation", () => {
       name: "Space navigation",
     });
     for (const name of ["Habits", "Stats", "Tasks"]) {
-      await page.locator('[data-sidebar="trigger"]').tap();
+      await page.getByRole("button", { name: "Toggle Sidebar" }).tap();
       const link = navigation.getByRole("link", { name, exact: true });
       await expect(link).toBeInViewport();
       await link.tap();
@@ -86,7 +86,7 @@ test.describe("mobile sidebar navigation", () => {
     await expect(
       page.getByRole("heading", { name: "All tasks", exact: true }),
     ).toBeVisible();
-    await page.locator('[data-sidebar="trigger"]').tap();
+    await page.getByRole("button", { name: "Toggle Sidebar" }).tap();
     await navigation.getByRole("link", { name: "Timeline", exact: true }).tap();
     await expect(page.getByRole("dialog", { name: "Sidebar" })).toBeHidden();
     await expect(
