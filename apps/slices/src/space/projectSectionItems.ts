@@ -32,6 +32,7 @@ export type ItemForDisplay = {
   listItem: ListItem;
   project: Project;
   dailyList: DailyList | undefined;
+  dailyEntry?: DailyEntry;
   dateOfTask: Date | undefined;
   lastScheduleTime: Date | undefined;
   hasChecklist: boolean;
@@ -204,6 +205,7 @@ export const projectSectionItemsForDisplay = selector({
           project,
           listItem,
           dailyList,
+          dailyEntry: entry,
           dateOfTask,
           lastScheduleTime: dateOfTask,
           hasChecklist: hasChecklistMap.get(`${item.id}:${item.type}`) ?? false,

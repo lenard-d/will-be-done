@@ -25,6 +25,7 @@ import { Route as SpacesSpaceIdTimelineDateRouteImport } from './routes/spaces.$
 import { Route as SpacesSpaceIdItemDetailsItemIdRouteImport } from './routes/spaces.$spaceId.item-details.$itemId'
 import { Route as SpacesSpaceIdWithSidebarStatsRouteImport } from './routes/spaces.$spaceId._withSidebar.stats'
 import { Route as SpacesSpaceIdWithSidebarHabitsRouteImport } from './routes/spaces.$spaceId._withSidebar.habits'
+import { Route as SpacesSpaceIdWithSidebarAllTasksRouteImport } from './routes/spaces.$spaceId._withSidebar.all-tasks'
 import { Route as SpacesSpaceIdWithSidebarProjectsProjectIdRouteImport } from './routes/spaces.$spaceId._withSidebar.projects.$projectId'
 import { Route as SpacesSpaceIdWithSidebarDatesDateRouteImport } from './routes/spaces.$spaceId._withSidebar.dates.$date'
 
@@ -114,6 +115,12 @@ const SpacesSpaceIdWithSidebarHabitsRoute =
     path: '/habits',
     getParentRoute: () => SpacesSpaceIdWithSidebarRoute,
   } as any)
+const SpacesSpaceIdWithSidebarAllTasksRoute =
+  SpacesSpaceIdWithSidebarAllTasksRouteImport.update({
+    id: '/all-tasks',
+    path: '/all-tasks',
+    getParentRoute: () => SpacesSpaceIdWithSidebarRoute,
+  } as any)
 const SpacesSpaceIdWithSidebarProjectsProjectIdRoute =
   SpacesSpaceIdWithSidebarProjectsProjectIdRouteImport.update({
     id: '/projects/$projectId',
@@ -136,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/spaces/$spaceId': typeof SpacesSpaceIdRouteWithChildren
   '/spaces/': typeof SpacesIndexRoute
   '/spaces/$spaceId/': typeof SpacesSpaceIdIndexRoute
+  '/spaces/$spaceId/all-tasks': typeof SpacesSpaceIdWithSidebarAllTasksRoute
   '/spaces/$spaceId/habits': typeof SpacesSpaceIdWithSidebarHabitsRoute
   '/spaces/$spaceId/stats': typeof SpacesSpaceIdWithSidebarStatsRoute
   '/spaces/$spaceId/item-details/$itemId': typeof SpacesSpaceIdItemDetailsItemIdRoute
@@ -153,6 +161,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/spaces': typeof SpacesIndexRoute
   '/spaces/$spaceId': typeof SpacesSpaceIdIndexRoute
+  '/spaces/$spaceId/all-tasks': typeof SpacesSpaceIdWithSidebarAllTasksRoute
   '/spaces/$spaceId/habits': typeof SpacesSpaceIdWithSidebarHabitsRoute
   '/spaces/$spaceId/stats': typeof SpacesSpaceIdWithSidebarStatsRoute
   '/spaces/$spaceId/item-details/$itemId': typeof SpacesSpaceIdItemDetailsItemIdRoute
@@ -174,6 +183,7 @@ export interface FileRoutesById {
   '/spaces/': typeof SpacesIndexRoute
   '/spaces/$spaceId/_withSidebar': typeof SpacesSpaceIdWithSidebarRouteWithChildren
   '/spaces/$spaceId/': typeof SpacesSpaceIdIndexRoute
+  '/spaces/$spaceId/_withSidebar/all-tasks': typeof SpacesSpaceIdWithSidebarAllTasksRoute
   '/spaces/$spaceId/_withSidebar/habits': typeof SpacesSpaceIdWithSidebarHabitsRoute
   '/spaces/$spaceId/_withSidebar/stats': typeof SpacesSpaceIdWithSidebarStatsRoute
   '/spaces/$spaceId/item-details/$itemId': typeof SpacesSpaceIdItemDetailsItemIdRoute
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/spaces/$spaceId'
     | '/spaces/'
     | '/spaces/$spaceId/'
+    | '/spaces/$spaceId/all-tasks'
     | '/spaces/$spaceId/habits'
     | '/spaces/$spaceId/stats'
     | '/spaces/$spaceId/item-details/$itemId'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/spaces'
     | '/spaces/$spaceId'
+    | '/spaces/$spaceId/all-tasks'
     | '/spaces/$spaceId/habits'
     | '/spaces/$spaceId/stats'
     | '/spaces/$spaceId/item-details/$itemId'
@@ -232,6 +244,7 @@ export interface FileRouteTypes {
     | '/spaces/'
     | '/spaces/$spaceId/_withSidebar'
     | '/spaces/$spaceId/'
+    | '/spaces/$spaceId/_withSidebar/all-tasks'
     | '/spaces/$spaceId/_withSidebar/habits'
     | '/spaces/$spaceId/_withSidebar/stats'
     | '/spaces/$spaceId/item-details/$itemId'
@@ -365,6 +378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SpacesSpaceIdWithSidebarHabitsRouteImport
       parentRoute: typeof SpacesSpaceIdWithSidebarRoute
     }
+    '/spaces/$spaceId/_withSidebar/all-tasks': {
+      id: '/spaces/$spaceId/_withSidebar/all-tasks'
+      path: '/all-tasks'
+      fullPath: '/spaces/$spaceId/all-tasks'
+      preLoaderRoute: typeof SpacesSpaceIdWithSidebarAllTasksRouteImport
+      parentRoute: typeof SpacesSpaceIdWithSidebarRoute
+    }
     '/spaces/$spaceId/_withSidebar/projects/$projectId': {
       id: '/spaces/$spaceId/_withSidebar/projects/$projectId'
       path: '/projects/$projectId'
@@ -383,6 +403,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface SpacesSpaceIdWithSidebarRouteChildren {
+  SpacesSpaceIdWithSidebarAllTasksRoute: typeof SpacesSpaceIdWithSidebarAllTasksRoute
   SpacesSpaceIdWithSidebarHabitsRoute: typeof SpacesSpaceIdWithSidebarHabitsRoute
   SpacesSpaceIdWithSidebarStatsRoute: typeof SpacesSpaceIdWithSidebarStatsRoute
   SpacesSpaceIdWithSidebarDatesDateRoute: typeof SpacesSpaceIdWithSidebarDatesDateRoute
@@ -391,6 +412,8 @@ interface SpacesSpaceIdWithSidebarRouteChildren {
 
 const SpacesSpaceIdWithSidebarRouteChildren: SpacesSpaceIdWithSidebarRouteChildren =
   {
+    SpacesSpaceIdWithSidebarAllTasksRoute:
+      SpacesSpaceIdWithSidebarAllTasksRoute,
     SpacesSpaceIdWithSidebarHabitsRoute: SpacesSpaceIdWithSidebarHabitsRoute,
     SpacesSpaceIdWithSidebarStatsRoute: SpacesSpaceIdWithSidebarStatsRoute,
     SpacesSpaceIdWithSidebarDatesDateRoute:

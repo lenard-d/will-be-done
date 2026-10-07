@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/popover.tsx";
 import { Calendar } from "@/components/ui/calendar.tsx";
 import { NavBar } from "../NavBar/NavBar";
+import { useCurrentDate } from "./hooks";
+import { TaskSortControl } from "@/components/TaskSorting/TaskSortControl";
 
 export const NavPanel = ({
   previousDate,
@@ -23,16 +25,28 @@ export const NavPanel = ({
 }) => {
   const spaceId = Route.useParams().spaceId;
   const navigate = useNavigate();
+  const today = useCurrentDate();
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   return (
-    <>
-      <div className="absolute left-0 top-0 [app-region:no-drag]">
+    <header
+      className="absolute inset-x-0 top-0 z-40 flex flex-wrap items-center justify-between gap-y-1 bg-surface px-1 py-1 [app-region:no-drag]"
+      data-task-sort-view="timeline"
+    >
+      <div className="flex items-center gap-2">
         <NavBar spaceId={spaceId} />
+        <Link
+          to="/spaces/$spaceId/dates/$date"
+          params={{ spaceId, date: format(today, "yyyy-MM-dd") }}
+          className="rounded px-2 py-1 text-xs text-content-tinted hover:bg-surface-elevated hover:text-content"
+        >
+          Today
+        </Link>
       </div>
 
-      <div className="top-0 fixed right-0 min-[650px]:left-0 min-[650px]:m-auto min-[650px]:max-w-60 z-40 [app-region:no-drag]">
-        <div className="bg-surface-elevated rounded-bl-lg min-[650px]:rounded-b-lg text-[13px] text-content flex items-center justify-center h-10 stroke-content ring-1 ring-ring px-3">
+      <div className="flex items-center justify-between gap-2 w-full min-[650px]:w-auto">
+        <TaskSortControl viewKey="timeline" />
+        <div className="bg-surface-elevated rounded-lg text-[12px] text-content flex items-center justify-center h-8 stroke-content ring-1 ring-ring px-2">
           <div className="flex items-center gap-2 h-full shrink-0">
             <Link
               to="/spaces/$spaceId/timeline/$date"
@@ -40,7 +54,7 @@ export const NavPanel = ({
                 date: format(previousDate, "yyyy-MM-dd"),
                 spaceId,
               }}
-              className="cursor-pointer w-6 flex items-center justify-center h-full text-content-tinted hover:text-primary transition-colors"
+              className="cursor-pointer w-5 flex items-center justify-center h-full text-content-tinted hover:text-primary transition-colors"
               aria-label="Previous day"
               search={{
                 projectId: selectedProjectId,
@@ -62,7 +76,7 @@ export const NavPanel = ({
             </Link>
             <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
               <PopoverTrigger asChild>
-                <span className="font-medium cursor-pointer hover:text-primary transition-colors select-none w-24 text-center">
+                <span className="font-medium cursor-pointer hover:text-primary transition-colors select-none w-20 text-center">
                   {format(selectedDate, "dd MMM yyyy")}
                 </span>
               </PopoverTrigger>
@@ -92,7 +106,7 @@ export const NavPanel = ({
               search={{
                 projectId: selectedProjectId,
               }}
-              className="cursor-pointer w-6 flex items-center justify-center h-full text-content-tinted hover:text-primary transition-colors"
+              className="cursor-pointer w-5 flex items-center justify-center h-full text-content-tinted hover:text-primary transition-colors"
               aria-label="Next day"
             >
               <svg
@@ -112,6 +126,6 @@ export const NavPanel = ({
           </div>
         </div>
       </div>
-    </>
+    </header>
   );
 };

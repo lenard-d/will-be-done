@@ -72,7 +72,7 @@ export const TOGGLE_SIDEBAR_EVENT = "wbd:toggle-sidebar";
 type PaletteCommandId =
   | "create-project"
   | "switch-space"
-  | "projects-tab"
+  | "tasks-tab"
   | "timeline-tab"
   | "habits-tab"
   | "space-settings"
@@ -106,10 +106,10 @@ const PALETTE_COMMANDS: readonly PaletteCommand[] = [
     icon: SquareKanban,
   },
   {
-    id: "projects-tab",
+    id: "tasks-tab",
     group: "tabs",
-    label: "Projects",
-    keywords: "projects today plan",
+    label: "Tasks",
+    keywords: "tasks projects all plan",
     icon: FolderKanban,
   },
   {
@@ -181,7 +181,10 @@ export function CommandPalette() {
     selector: allProjectsSorted,
     args: {},
   });
-  const { data: tasks = [] } = useAsyncSelector({ selector: allTasks, args: {} });
+  const { data: tasks = [] } = useAsyncSelector({
+    selector: allTasks,
+    args: {},
+  });
   const { data: habits = [] } = useAsyncSelector({
     selector: activeHabits,
     args: {},
@@ -229,10 +232,10 @@ export function CommandPalette() {
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, []);
 
-  const navigateToProjects = useCallback(() => {
+  const navigateToTasks = useCallback(() => {
     void navigate({
-      to: "/spaces/$spaceId/dates/$date",
-      params: { spaceId, date: format(new Date(), "yyyy-MM-dd") },
+      to: "/spaces/$spaceId/all-tasks",
+      params: { spaceId },
     });
   }, [navigate, spaceId]);
 
@@ -265,7 +268,10 @@ export function CommandPalette() {
   const editFocusedItem = useCallback(() => {
     if (!focusItemKey) return;
     setOpen(false);
-    window.setTimeout(() => useFocusStore.getState().editByKey(focusItemKey), 0);
+    window.setTimeout(
+      () => useFocusStore.getState().editByKey(focusItemKey),
+      0,
+    );
   }, [focusItemKey]);
 
   const openFocusedItemDetails = useCallback(() => {
@@ -373,8 +379,8 @@ export function CommandPalette() {
         case "switch-space":
           void navigate({ to: "/spaces" });
           break;
-        case "projects-tab":
-          navigateToProjects();
+        case "tasks-tab":
+          navigateToTasks();
           break;
         case "timeline-tab":
           navigateToTimeline();
@@ -407,7 +413,7 @@ export function CommandPalette() {
       createNewProject,
       navigate,
       navigateToHabits,
-      navigateToProjects,
+      navigateToTasks,
       navigateToTimeline,
       openSettings,
       spaceId,
@@ -428,19 +434,33 @@ export function CommandPalette() {
         <CommandEmpty>No matching navigation found.</CommandEmpty>
         {focusedTask && (
           <CommandGroup heading={`Task · ${focusedTask.title}`}>
-            <CommandItem value="task toggle done todo complete" onSelect={toggleFocusedTask}>
+            <CommandItem
+              value="task toggle done todo complete"
+              onSelect={toggleFocusedTask}
+            >
               <Check />
-              <span>{focusedTask.state === "done" ? "Mark as todo" : "Mark as done"}</span>
+              <span>
+                {focusedTask.state === "done" ? "Mark as todo" : "Mark as done"}
+              </span>
             </CommandItem>
-            <CommandItem value="task edit title rename" onSelect={editFocusedItem}>
+            <CommandItem
+              value="task edit title rename"
+              onSelect={editFocusedItem}
+            >
               <Pencil />
               <span>Edit task title</span>
             </CommandItem>
-            <CommandItem value="task details inspect open" onSelect={openFocusedItemDetails}>
+            <CommandItem
+              value="task details inspect open"
+              onSelect={openFocusedItemDetails}
+            >
               <SlidersHorizontal />
               <span>Open task details</span>
             </CommandItem>
-            <CommandItem value="task schedule today date" onSelect={scheduleFocusedTaskToday}>
+            <CommandItem
+              value="task schedule today date"
+              onSelect={scheduleFocusedTaskToday}
+            >
               <Clock3 />
               <span>Schedule for today</span>
             </CommandItem>
@@ -468,19 +488,31 @@ export function CommandPalette() {
         )}
         {focusedHabit && (
           <CommandGroup heading={`Habit · ${focusedHabit.title}`}>
-            <CommandItem value="habit toggle done todo complete today" onSelect={toggleFocusedHabit}>
+            <CommandItem
+              value="habit toggle done todo complete today"
+              onSelect={toggleFocusedHabit}
+            >
               <Check />
               <span>Toggle today’s completion</span>
             </CommandItem>
-            <CommandItem value="habit edit title rename" onSelect={editFocusedItem}>
+            <CommandItem
+              value="habit edit title rename"
+              onSelect={editFocusedItem}
+            >
               <Pencil />
               <span>Edit habit title</span>
             </CommandItem>
-            <CommandItem value="habit details inspect open" onSelect={openFocusedItemDetails}>
+            <CommandItem
+              value="habit details inspect open"
+              onSelect={openFocusedItemDetails}
+            >
               <SlidersHorizontal />
               <span>Open habit details</span>
             </CommandItem>
-            <CommandItem value="habit move routine unassigned" onSelect={() => moveFocusedHabit(null)}>
+            <CommandItem
+              value="habit move routine unassigned"
+              onSelect={() => moveFocusedHabit(null)}
+            >
               <FolderInput />
               <span>Move habit to unassigned</span>
             </CommandItem>

@@ -10,7 +10,7 @@ test("left edge of the sidebar trigger toggles the sidebar", async ({
   await signupUser(page);
   await createSpace(page, spaceName);
   await openSpace(page, spaceName);
-  await expect(page.getByRole("link", { name: /today/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Inbox/ })).toBeVisible();
 
   const sidebarTrigger = page.locator('[data-sidebar="trigger"]');
 

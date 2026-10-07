@@ -5,6 +5,7 @@ import {
   createSpace,
   dailyTaskItem,
   openSpace,
+  openToday,
   openTaskActions,
   projectTaskItem,
   signupUser,
@@ -32,7 +33,7 @@ test("schedules an Inbox task for Today and clears the schedule", async ({
   await openTaskActions(page, taskTitle);
   await page.getByRole("menuitem", { name: /schedule today/i }).click();
 
-  await page.getByRole("link", { name: /today/i }).click();
+  await openToday(page);
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/dates\/\d{4}-\d{2}-\d{2}$/);
   await expect(dailyTaskItem(page, taskTitle)).toBeVisible();
 
@@ -50,6 +51,6 @@ test("schedules an Inbox task for Today and clears the schedule", async ({
   await expect(projectTaskItem(page, taskTitle)).toBeVisible();
   await expect(inboxWithOneTask).toBeVisible();
 
-  await page.getByRole("link", { name: /today/i }).click();
+  await openToday(page);
   await expect(dailyTaskItem(page, taskTitle)).toHaveCount(0);
 });

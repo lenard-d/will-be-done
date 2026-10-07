@@ -1,3 +1,5 @@
+import { SortedTaskList } from "@/components/TaskSorting/SortedTaskList";
+import { useTaskSorting } from "@/components/TaskSorting/useTaskSorting";
 import { useEffect, useCallback, useRef, useState } from "react";
 import { useMemo } from "react";
 import { addDays, format, startOfDay, subDays } from "date-fns";
@@ -44,6 +46,8 @@ const ColumnView = ({
 }) => {
   const currentDate = useCurrentDMY();
   const isToday = currentDate === dailyList.date;
+
+  const { sortMode } = useTaskSorting("timeline");
 
   const { data: itemsForDisplay = [] } = useAsyncSelector({
     selector: dailyEntryChildrenForDisplay,
@@ -108,35 +112,39 @@ const ColumnView = ({
       onAddClick={handleAddClick}
     >
       <div className={cn("flex flex-col gap-4 w-full py-4")}>
-        {itemsForDisplay.map((displayData) => {
-          return (
-            <PreloadedTaskComp
-              key={displayData.listItem.id}
-              item={displayData.item}
-              section={displayData.section}
-              listItem={displayData.listItem}
-              project={displayData.project}
-              lastScheduleTime={displayData.lastScheduleTime}
-              hasCheclistItems={displayData.hasChecklist}
-              alwaysShowProject
-            />
-          );
-        })}
+        <SortedTaskList items={itemsForDisplay} mode={sortMode} calendar>
+          {(displayData) => {
+            return (
+              <PreloadedTaskComp
+                key={displayData.listItem.id}
+                item={displayData.item}
+                section={displayData.section}
+                listItem={displayData.listItem}
+                project={displayData.project}
+                lastScheduleTime={displayData.lastScheduleTime}
+                hasCheclistItems={displayData.hasChecklist}
+                alwaysShowProject
+              />
+            );
+          }}
+        </SortedTaskList>
 
-        {doneItemsForDisplay.map((displayData) => {
-          return (
-            <PreloadedTaskComp
-              key={displayData.listItem.id}
-              item={displayData.item}
-              section={displayData.section}
-              listItem={displayData.listItem}
-              project={displayData.project}
-              lastScheduleTime={displayData.lastScheduleTime}
-              hasCheclistItems={displayData.hasChecklist}
-              alwaysShowProject
-            />
-          );
-        })}
+        <SortedTaskList items={doneItemsForDisplay} mode={sortMode} calendar>
+          {(displayData) => {
+            return (
+              <PreloadedTaskComp
+                key={displayData.listItem.id}
+                item={displayData.item}
+                section={displayData.section}
+                listItem={displayData.listItem}
+                project={displayData.project}
+                lastScheduleTime={displayData.lastScheduleTime}
+                hasCheclistItems={displayData.hasChecklist}
+                alwaysShowProject
+              />
+            );
+          }}
+        </SortedTaskList>
       </div>
     </TasksColumn>
   );
@@ -318,10 +326,13 @@ const BoardView = ({
   );
 
   return (
-    <div className="flex h-full w-full">
+    <div data-task-sort-view="timeline" className="flex h-full w-full">
       <div ref={rootRef} className="flex flex-col h-full flex-1 min-w-0">
         <div
-          className={cn("overflow-y-auto pt-10", heightTransitionClass)}
+          className={cn(
+            "overflow-y-auto pt-24 min-[650px]:pt-10",
+            heightTransitionClass,
+          )}
           style={{
             height: projectsViewHidden
               ? "100%"

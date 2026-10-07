@@ -22,7 +22,7 @@ function RouteComponent() {
     <GlobalLayout>
       <LayoutWithSidebar>
         <div className="flex h-full min-h-0">
-          <div className="min-w-[300px] flex-1">
+          <div className="min-w-0 flex-1">
             <Outlet />
           </div>
           <div className="hidden h-full sm:block">
