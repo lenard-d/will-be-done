@@ -1,30 +1,28 @@
-const MIN_SWIPE_DISTANCE = 56;
-const MAX_HORIZONTAL_DISTANCE = 24;
-const DIRECTION_LOCK_DISTANCE = 8;
-const MIN_VERTICAL_RATIO = 1.5;
-const MAX_SWIPE_DURATION_MS = 750;
+const DOWNWARD_INTENT_DISTANCE = 8;
+export const COMMAND_PALETTE_OPEN_DISTANCE = 56;
 
-export type SwipePoint = { x: number; y: number; time: number };
+export type SwipePoint = { x: number; y: number };
+export type CommandPalettePull =
+  | { phase: "pending" }
+  | { phase: "cancelled" }
+  | { phase: "dragging"; distance: number };
 
-export function getCommandPaletteSwipeProgress(
-  start: SwipePoint,
-  current: SwipePoint,
-): "pending" | "cancelled" | "ready" {
-  const horizontalDistance = Math.abs(current.x - start.x);
-  const verticalDistance = current.y - start.y;
-
-  if (
-    current.time - start.time > MAX_SWIPE_DURATION_MS ||
-    verticalDistance < -DIRECTION_LOCK_DISTANCE ||
-    horizontalDistance > MAX_HORIZONTAL_DISTANCE ||
-    (horizontalDistance >= DIRECTION_LOCK_DISTANCE &&
-      horizontalDistance > Math.abs(verticalDistance))
-  ) {
-    return "cancelled";
+/** Once the pull starts, only vertical displacement controls the reveal. */
+export function getCommandPaletteSwipeProgress({
+  start,
+  current,
+  pulling,
+}: {
+  start: SwipePoint;
+  current: SwipePoint;
+  pulling: boolean;
+}): CommandPalettePull {
+  const distance = current.y - start.y;
+  if (pulling) return { phase: "dragging", distance: Math.max(0, distance) };
+  const sidewaysDistance = Math.abs(current.x - start.x);
+  if (distance <= -DOWNWARD_INTENT_DISTANCE) return { phase: "cancelled" };
+  if (distance >= DOWNWARD_INTENT_DISTANCE && distance > sidewaysDistance) {
+    return { phase: "dragging", distance };
   }
-
-  return verticalDistance >= MIN_SWIPE_DISTANCE &&
-    verticalDistance >= horizontalDistance * MIN_VERTICAL_RATIO
-    ? "ready"
-    : "pending";
+  return { phase: "pending" };
 }

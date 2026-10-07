@@ -126,6 +126,7 @@ test.describe("mobile command palette swipe", () => {
       await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });
       await expect(palette).toBeVisible();
       await expect(palette.getByRole("combobox")).toBeFocused();
+      await expect.poll(async () => (await palette.boundingBox())?.y).toBe(0);
       await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });
       await expect(palette).toBeVisible();
       await page.keyboard.press("Escape");
@@ -133,7 +134,7 @@ test.describe("mobile command palette swipe", () => {
     }
   });
 
-  test("keeps list scrolling and rejects controls, other directions, multi-touch and cancellation", async ({
+  test("keeps list scrolling and ignores short pulls, other directions, multi-touch and cancellation", async ({
     page,
   }) => {
     const { spacePath } = await createTestSpace(page);
@@ -180,7 +181,9 @@ test.describe("mobile command palette swipe", () => {
       from: control,
       to: { x: control.x, y: control.y + 90 },
     });
-    await expect(palette).toBeHidden();
+    await expect(palette).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Sidebar" })).toBeHidden();
+    await page.keyboard.press("Escape");
 
     const session = await page.context().newCDPSession(page);
     await session.send("Input.dispatchTouchEvent", {
@@ -223,6 +226,133 @@ test.describe("mobile command palette swipe", () => {
     await expect(palette).toBeHidden();
   });
 
+  test("follows a slow diagonal pull and retracts before cancelling", async ({
+    page,
+  }) => {
+    const { spacePath } = await createTestSpace(page);
+    await page.goto(`${spacePath}/all-tasks`);
+    const from = await titlePoint(
+      page
+        .getByRole("heading", { name: "All tasks", exact: true })
+        .locator(".."),
+    );
+    const session = await page.context().newCDPSession(page);
+    const move = async (point: Point) => {
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ ...point, id: 1 }],
+      });
+    };
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ ...from, id: 1 }],
+    });
+    await page.waitForTimeout(1000);
+    await move({ x: from.x, y: from.y + 30 });
+    const panel = page.locator(".command-palette-mobile");
+    const revealHeight = () =>
+      panel.evaluate((element) => {
+        const clippedBottom = Number.parseFloat(
+          getComputedStyle(element).clipPath.split(" ")[2],
+        );
+        return element.getBoundingClientRect().height - clippedBottom;
+      });
+    await expect.poll(revealHeight).toBeCloseTo(30, 0);
+    await expect(panel).toHaveAttribute("aria-hidden", "true");
+    await expect
+      .poll(async () =>
+        panel
+          .locator('[data-slot="command-input"]')
+          .evaluate((element) => element.getBoundingClientRect().top),
+      )
+      .toBeGreaterThanOrEqual(0);
+    await expect(
+      panel.getByRole("combobox", { includeHidden: true }),
+    ).not.toBeFocused();
+    await page.waitForTimeout(1000);
+    await move({ x: from.x + 120, y: from.y + 100 });
+    await expect.poll(revealHeight).toBeCloseTo(100, 0);
+    await move({ x: from.x + 120, y: from.y + 20 });
+    await expect.poll(revealHeight).toBeCloseTo(20, 0);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await expect(panel).toBeHidden();
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ ...from, id: 1 }],
+    });
+    await move({ x: from.x, y: from.y + 30 });
+    await page.waitForTimeout(1000);
+    await move({ x: from.x + 120, y: from.y + 100 });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    const palette = page.getByRole("dialog", { name: "Command bar" });
+    await expect.poll(async () => (await palette.boundingBox())?.y).toBe(0);
+    await expect(palette.getByRole("combobox")).toBeFocused();
+    await session.detach();
+  });
+
+  test("swipes on header buttons do not click, and small-movement taps still work", async ({
+    page,
+  }) => {
+    const { spacePath } = await createTestSpace(page);
+    await page.goto(`${spacePath}/all-tasks`);
+    const button = page.getByRole("button", { name: "Toggle Sidebar" });
+    const bounds = await button.boundingBox();
+    if (!bounds) throw new Error("The sidebar button is missing");
+    const from = {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+    };
+    await button.focus();
+    await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });
+    const palette = page.getByRole("dialog", { name: "Command bar" });
+    await expect(palette).toBeVisible();
+    await expect(
+      page.locator('[data-sidebar="sidebar"]').filter({ visible: true }),
+    ).toBeHidden();
+    await page.keyboard.press("Escape");
+    await expect(button).toBeFocused();
+    await swipe(page, { from, to: { x: from.x, y: from.y + 30 } });
+    await swipe(page, { from, to: { x: from.x + 2, y: from.y + 3 } });
+    await expect(page.getByRole("link", { name: /^Inbox/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await button.tap();
+    await expect(page.getByRole("link", { name: /^Inbox/ })).toBeVisible();
+  });
+
+  test("pulls from search and filter buttons and supports reduced motion", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const { spacePath } = await createTestSpace(page);
+    await page.goto(`${spacePath}/all-tasks`);
+    const palette = page.getByRole("dialog", { name: "Command bar" });
+    for (const name of ["Search tasks and commands", "Filters and sorting"]) {
+      const button = page.getByRole("button", { name, exact: true });
+      const from = await titlePoint(button);
+      await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });
+      await expect.poll(async () => (await palette.boundingBox())?.y).toBe(0);
+      await expect(palette.getByRole("combobox")).toBeFocused();
+      await expect(
+        page.getByRole("dialog", { name: "Filters and sorting", exact: true }),
+      ).toBeHidden();
+      await page.keyboard.press("Escape");
+    }
+    const filter = page.getByRole("button", {
+      name: "Filters and sorting",
+      exact: true,
+    });
+    await filter.tap();
+    await expect(
+      page.getByRole("dialog", { name: "Filters and sorting", exact: true }),
+    ).toBeVisible();
+  });
+
   test("ignores editing and dialogs and removes the listener on desktop", async ({
     page,
   }) => {
@@ -236,11 +366,13 @@ test.describe("mobile command palette swipe", () => {
     await page.keyboard.press("KeyI");
     const editor = page.getByLabel("Edit task title");
     await expect(editor).toBeVisible();
+    await editor.focus();
     await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });
     await expect(palette).toBeHidden();
     await page.keyboard.press("Escape");
 
     await page.keyboard.press("Control+KeyK");
+    await expect.poll(async () => (await palette.boundingBox())?.y).toBe(0);
     await palette.getByRole("combobox").fill("Create project");
     await palette
       .getByRole("option", { name: "Create project", exact: true })

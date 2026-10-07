@@ -66,10 +66,7 @@ test.describe(`mobile overscroll in ${browserName}`, () => {
       name: "All tasks",
       exact: true,
     });
-    await expect(title.locator("..")).toHaveCSS(
-      "touch-action",
-      "pan-x pinch-zoom",
-    );
+    await expect(title.locator("..")).toHaveCSS("touch-action", "pinch-zoom");
     expect(await dispatchTitleSwipe(title)).toEqual({
       initialMovePrevented: true,
       completedMovePrevented: true,

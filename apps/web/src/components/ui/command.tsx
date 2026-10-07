@@ -1,6 +1,14 @@
 import * as React from "react";
 import { Command as CommandPrimitive } from "cmdk";
 import { SearchIcon } from "lucide-react";
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+  type MotionValue,
+} from "motion/react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -27,33 +35,108 @@ function Command({
   );
 }
 
+const MotionDialogContent = motion.create(DialogContent);
+
 function CommandDialog({
   title = "Command Palette",
   description = "Search for a command to run...",
   children,
   onCloseAutoFocus,
+  reveal,
   ...props
 }: React.ComponentProps<typeof Dialog> & {
   title?: string;
   description?: string;
+  reveal?: {
+    phase: "idle" | "dragging" | "closing";
+    distance: MotionValue<number>;
+  };
   onCloseAutoFocus?: React.ComponentProps<
     typeof DialogContent
   >["onCloseAutoFocus"];
 }) {
+  const openingAnimation = React.useRef<ReturnType<typeof animate> | null>(
+    null,
+  );
+  const returnFocus = React.useRef<HTMLElement | null>(null);
+  const mobile = !!reveal;
+  const fallbackDistance = useMotionValue(0);
+  const distance = reveal?.distance ?? fallbackDistance;
+  const panelHeight = useMotionValue(0);
+  const clipPath = useTransform(
+    () =>
+      `inset(0px 0px ${Math.max(0, panelHeight.get() - distance.get())}px 0px round 8px)`,
+  );
+  const reducedMotion = useReducedMotion();
+  const preview = !!reveal && !props.open && reveal.phase !== "idle";
+  const mountContent = React.useCallback(
+    (element: HTMLDivElement | null) => {
+      openingAnimation.current?.stop();
+      if (!mobile || !element) return;
+      panelHeight.set(element.offsetHeight);
+      if (!props.open) return;
+      openingAnimation.current = animate(distance, element.offsetHeight, {
+        duration: reducedMotion ? 0 : 0.18,
+      });
+    },
+    [distance, panelHeight, props.open, reducedMotion, mobile],
+  );
   return (
-    <Dialog {...props}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-      </DialogHeader>
-      <DialogContent
-        onCloseAutoFocus={onCloseAutoFocus}
-        className="overflow-hidden border-dialog-border bg-dialog-bg p-0 text-content"
+    <Dialog {...props} modal={preview ? false : props.modal}>
+      <MotionDialogContent
+        ref={mountContent}
+        overlayProps={
+          mobile ? { className: "command-palette-mobile-overlay" } : undefined
+        }
+        forceMount={preview ? true : undefined}
+        aria-hidden={preview ? true : undefined}
+        inert={preview ? true : undefined}
+        onOpenAutoFocus={(event) => {
+          if (preview) {
+            event.preventDefault();
+            return;
+          }
+          returnFocus.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          if (preview) {
+            event.preventDefault();
+            return;
+          }
+          onCloseAutoFocus?.(event);
+          if (!event.defaultPrevented && returnFocus.current?.isConnected) {
+            event.preventDefault();
+            returnFocus.current.focus({ preventScroll: true });
+          }
+        }}
+        onInteractOutside={
+          preview ? (event) => event.preventDefault() : undefined
+        }
+        style={
+          reveal
+            ? {
+                transform: "translateX(-50%)",
+                clipPath,
+                pointerEvents: preview ? "none" : "auto",
+              }
+            : undefined
+        }
+        className={cn(
+          "overflow-hidden border-dialog-border bg-dialog-bg p-0 text-content",
+          reveal && "command-palette-mobile",
+        )}
       >
+        <DialogHeader className="sr-only">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
         <Command className="[&_[cmdk-group-heading]]:text-content-tinted **:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
           {children}
         </Command>
-      </DialogContent>
+      </MotionDialogContent>
     </Dialog>
   );
 }
