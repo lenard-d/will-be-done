@@ -367,9 +367,6 @@ export const ProjectTaskPanel = ({
         data-focus-region-direction="column"
         className="flex flex-col gap-1"
       >
-        <div className="flex justify-end mb-2">
-          <TaskSortControl viewKey={`project:${projectId}`} />
-        </div>
         {sections.map((section) => (
           <SectionSection
             key={section.id}

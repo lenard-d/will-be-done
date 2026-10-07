@@ -4,10 +4,21 @@ import { isInputElement } from "@/utils/isInputElement";
 import { isTaskSortMode, taskSortLabels, taskSortModes } from "./taskSorting";
 import { useTaskSorting } from "./useTaskSorting";
 import { useLocation } from "@tanstack/react-router";
+import { ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function TaskSortControl({ viewKey }: { viewKey: string }) {
   const { sortMode, setSortMode } = useTaskSorting(viewKey);
-  const ref = useRef<HTMLSelectElement>(null);
+  const ref = useRef<HTMLButtonElement>(null);
   const pathname = useLocation({ select: (location) => location.pathname });
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -56,25 +67,38 @@ export function TaskSortControl({ viewKey }: { viewKey: string }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [sortMode, setSortMode, viewKey, pathname]);
   return (
-    <label className="inline-flex shrink-0 items-center gap-2 text-xs text-content-tinted">
-      <span>Sort</span>
-      <select
-        ref={ref}
-        aria-label="Sort tasks"
-        title="Cycle sort: Q"
-        value={sortMode}
-        onChange={(event) => {
-          if (isTaskSortMode(event.target.value))
-            setSortMode(event.target.value);
-        }}
-        className="cursor-pointer rounded border border-content-tinted/20 bg-surface px-2 py-1 text-content outline-none focus-visible:ring-2 focus-visible:ring-accent"
-      >
-        {taskSortModes.map((mode) => (
-          <option key={mode} value={mode}>
-            {taskSortLabels[mode]}
-          </option>
-        ))}
-      </select>
-    </label>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          ref={ref}
+          type="button"
+          aria-label="Sort tasks"
+          className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded border border-content-tinted/20 bg-surface px-2 py-1 text-xs text-content outline-none hover:bg-panel-hover focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <span>{taskSortLabels[sortMode]}</span>
+          <ChevronDown className="size-3" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="z-1100">
+        <DropdownMenuLabel>Sort tasks</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={sortMode}
+          onValueChange={(value) => {
+            if (isTaskSortMode(value)) setSortMode(value);
+          }}
+        >
+          {taskSortModes.map((mode) => (
+            <DropdownMenuRadioItem key={mode} value={mode}>
+              {taskSortLabels[mode]}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="flex items-center gap-4">
+          Cycle sort
+          <DropdownMenuShortcut>Q</DropdownMenuShortcut>
+        </DropdownMenuLabel>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
