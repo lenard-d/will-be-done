@@ -20,15 +20,14 @@ export const Route = createFileRoute("/spaces/$spaceId/_withSidebar")({
 function RouteComponent() {
   return (
     <GlobalLayout>
-      <LayoutWithSidebar>
-        <div className="flex h-full min-h-0">
-          <div className="min-w-0 flex-1">
-            <Outlet />
-          </div>
-          <div className="hidden h-full sm:block">
+      <LayoutWithSidebar
+        sidePanel={
+          <div className="hidden h-full shrink-0 sm:block">
             <ItemDetails />
           </div>
-        </div>
+        }
+      >
+        <Outlet />
       </LayoutWithSidebar>
     </GlobalLayout>
   );
