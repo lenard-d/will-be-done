@@ -47,22 +47,35 @@ export function GlobalListener() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const focusState = useFocusStore.getState();
-      const isSomethingFocused =
-        !focusState.isFocusDisabled && !!focusState.focusItemKey;
-
       if (e.defaultPrevented) return;
 
       const activeElement =
         e.target instanceof Element ? e.target : document.activeElement;
 
-      const isInput = activeElement && isInputElement(activeElement);
-      if (isInput) return;
+      const isEditor =
+        activeElement &&
+        (activeElement.closest(
+          "textarea, select, [role='textbox'], [role='combobox']",
+        ) ||
+          (activeElement instanceof HTMLElement &&
+            activeElement.isContentEditable) ||
+          activeElement.closest(
+            "input:not([type='checkbox']):not([type='radio']):not([type='button']):not([type='submit'])",
+          ));
+      if (isEditor) return;
       if (e.target instanceof HTMLElement && e.target.shadowRoot) {
         return;
       }
       if (focusState.isFocusDisabled) return;
 
       if (shouldHandleTaskUndo(e)) {
+        if (
+          !e.metaKey &&
+          !e.ctrlKey &&
+          activeElement &&
+          isInputElement(activeElement)
+        )
+          return;
         e.preventDefault();
         void undoTaskCommand();
         return;
@@ -73,16 +86,22 @@ export function GlobalListener() {
         void redoTaskCommand();
         return;
       }
-
-      if (e.code === "Escape" && !isSomethingFocused) {
-        useFocusStore.getState().resetFocus();
-
-        return;
-      }
     };
 
+    const handleModifiedHistoryShortcut = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey) handleKeyDown(event);
+    };
+
+    window.addEventListener("keydown", handleModifiedHistoryShortcut, true);
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleModifiedHistoryShortcut,
+        true,
+      );
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [redoTaskCommand, undoTaskCommand]);
 
   useEffect(() => {
@@ -99,6 +118,11 @@ export function GlobalListener() {
 
       // If it's an input, return early
       if (isInput) return;
+
+      if (e.code === "Escape" && !focusState.focusItemKey) {
+        useFocusStore.getState().resetFocus();
+        return;
+      }
 
       const noModifiers = !(e.shiftKey || e.ctrlKey || e.metaKey || e.altKey);
       const isUp = noModifiers && (e.code === "ArrowUp" || e.code == "KeyK");

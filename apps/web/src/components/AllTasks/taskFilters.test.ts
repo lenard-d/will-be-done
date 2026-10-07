@@ -7,6 +7,7 @@ import {
   type ItemForDisplay,
 } from "@will-be-done/slices/space";
 import {
+  columnFilterOptions,
   emptyTaskFilters,
   filterTaskItems,
   taskFiltersSchema,
@@ -17,12 +18,14 @@ function task({
   id,
   projectId = "inbox",
   sectionId = "inbox-column",
+  columnTitle = "Week",
   state = "todo",
   date,
 }: {
   id: string;
   projectId?: string;
   sectionId?: string;
+  columnTitle?: string;
   state?: "todo" | "done";
   date?: string;
 }): ItemForDisplay {
@@ -31,7 +34,12 @@ function task({
     item,
     listItem: item,
     project: { ...defaultProject, id: projectId },
-    section: { ...defaultProjectSection, id: sectionId, projectId },
+    section: {
+      ...defaultProjectSection,
+      id: sectionId,
+      projectId,
+      title: columnTitle,
+    },
     dailyList: date ? { ...defaultDailyList, date } : undefined,
     dateOfTask: undefined,
     lastScheduleTime: new Date("2026-10-08T12:00:00"),
@@ -46,6 +54,7 @@ const items = [
     id: "middle",
     projectId: "work",
     sectionId: "blocked",
+    columnTitle: "Blocked",
     date: "2026-10-10",
     state: "done",
   }),
@@ -53,10 +62,16 @@ const items = [
     id: "end",
     projectId: "work",
     sectionId: "blocked",
+    columnTitle: "Blocked",
     date: "2026-10-12",
   }),
   task({ id: "after", date: "2026-10-13" }),
-  task({ id: "unscheduled", projectId: "work", sectionId: "work-column" }),
+  task({
+    id: "unscheduled",
+    projectId: "work",
+    sectionId: "work-column",
+    columnTitle: "Later",
+  }),
 ];
 
 describe("All tasks filters", () => {
@@ -68,10 +83,67 @@ describe("All tasks filters", () => {
       filterTaskItems(items, {
         ...emptyTaskFilters,
         projectIds: ["inbox", "work"],
-        sectionIds: ["inbox-column", "blocked"],
+        columnNames: ["week", "blocked"],
         states: ["todo"],
       }).map(({ item }) => item.id),
     ).toEqual(["before", "start", "end", "after"]);
+  });
+  it("matches columns with the same name across projects and different IDs", () => {
+    const tasks = [
+      task({
+        id: "home",
+        projectId: "home",
+        sectionId: "home-blocked",
+        columnTitle: "Blocked",
+      }),
+      task({
+        id: "work",
+        projectId: "work",
+        sectionId: "work-blocked",
+        columnTitle: " blocked ",
+      }),
+      task({ id: "other", projectId: "work", columnTitle: "Week" }),
+    ];
+    expect(
+      filterTaskItems(tasks, {
+        ...emptyTaskFilters,
+        columnNames: ["blocked"],
+      }).map(({ item }) => item.id),
+    ).toEqual(["home", "work"]);
+  });
+  it("can narrow shared columns with the project filter", () => {
+    const tasks = [
+      task({ id: "home", projectId: "home", columnTitle: "Blocked" }),
+      task({ id: "work", projectId: "work", columnTitle: "Blocked" }),
+    ];
+    expect(
+      filterTaskItems(tasks, {
+        ...emptyTaskFilters,
+        columnNames: ["blocked"],
+        projectIds: ["work"],
+      }).map(({ item }) => item.id),
+    ).toEqual(["work"]);
+  });
+  it("offers each column name once in alphabetical order", () => {
+    const sections = [
+      { ...defaultProjectSection, id: "a", title: "Week" },
+      { ...defaultProjectSection, id: "b", title: "Blocked" },
+      { ...defaultProjectSection, id: "c", title: " blocked " },
+    ];
+    expect(columnFilterOptions(sections)).toEqual([
+      { value: "blocked", label: "Blocked" },
+      { value: "week", label: "Week" },
+    ]);
+  });
+  it("retains other saved filters when replacing legacy column IDs", () => {
+    const { columnNames: _columnNames, ...legacy } = emptyTaskFilters;
+    expect(
+      taskFiltersSchema.parse({
+        ...legacy,
+        query: "keep",
+        sectionIds: ["old-column"],
+      }),
+    ).toEqual({ ...emptyTaskFilters, query: "keep" });
   });
   it.each<{ filter: PlannedDayFilter; expected: string[] }>([
     {
@@ -108,7 +180,7 @@ describe("All tasks filters", () => {
         ...emptyTaskFilters,
         query: "  END  ",
         projectIds: ["work"],
-        sectionIds: ["blocked"],
+        columnNames: ["blocked"],
         states: ["todo"],
         plannedDay: { kind: "range", from: "2026-10-08", to: "2026-10-12" },
       }).map(({ item }) => item.id),
