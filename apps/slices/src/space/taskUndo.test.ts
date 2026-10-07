@@ -204,6 +204,21 @@ describe("task undo snapshots", () => {
     expect(restoredTask(db)).toBeUndefined();
   });
 
+  it("redoes deletion when an unchanged row has a different property order", () => {
+    const db = createEmptyDB();
+    syncDispatch(db, seedTaskGraph({}));
+    const before = snapshot(db);
+    syncDispatch(db, deleteTasks({ ids: [task.id] }));
+    const after = snapshot(db);
+    syncDispatch(db, undoTaskCommand({ before, after }));
+    const reordered = {
+      ...before,
+      tasks: before.tasks.map(({ id, ...fields }) => ({ ...fields, id })),
+    };
+    syncDispatch(db, undoTaskCommand({ before: after, after: reordered }));
+    expect(snapshot(db)).toEqual(after);
+  });
+
   it("does not overwrite a newer list change while undoing a title", () => {
     const db = createDB();
     const before = snapshot(db);

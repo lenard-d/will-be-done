@@ -1,5 +1,24 @@
 import { z } from "zod";
-import type { ItemForDisplay } from "@will-be-done/slices/space";
+import type {
+  ItemForDisplay,
+  ProjectSection,
+} from "@will-be-done/slices/space";
+
+function columnName(title: string) {
+  return title.trim().toLowerCase();
+}
+
+export function columnFilterOptions(sections: readonly ProjectSection[]) {
+  const labels = new Map<string, string>();
+  for (const section of sections) {
+    const value = columnName(section.title);
+    if (!labels.has(value))
+      labels.set(value, section.title.trim() || "Untitled");
+  }
+  return Array.from(labels, ([value, label]) => ({ value, label })).sort(
+    (left, right) => left.label.localeCompare(right.label),
+  );
+}
 
 export const plannedDayFilterSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("all") }),
@@ -19,7 +38,7 @@ export const taskFiltersSchema = z.object({
   query: z.string(),
   states: z.array(z.enum(["todo", "done"])),
   projectIds: z.array(z.string()),
-  sectionIds: z.array(z.string()),
+  columnNames: z.array(z.string().transform(columnName)).default([]),
   plannedDay: plannedDayFilterSchema,
 });
 
@@ -30,7 +49,7 @@ export const emptyTaskFilters: TaskFilters = {
   query: "",
   states: [],
   projectIds: [],
-  sectionIds: [],
+  columnNames: [],
   plannedDay: { kind: "all" },
 };
 
@@ -68,8 +87,8 @@ export function filterTaskItems(
           (!filters.states.length || filters.states.includes(item.state)) &&
           (!filters.projectIds.length ||
             filters.projectIds.includes(project.id)) &&
-          (!filters.sectionIds.length ||
-            filters.sectionIds.includes(section.id)) &&
+          (!filters.columnNames.length ||
+            filters.columnNames.includes(columnName(section.title))) &&
           matchesPlannedDay(dailyList?.date, filters.plannedDay))),
   );
 }
@@ -79,7 +98,7 @@ export function countTaskFilters(filters: TaskFilters) {
     !!filters.query.trim(),
     filters.states.length > 0,
     filters.projectIds.length > 0,
-    filters.sectionIds.length > 0,
+    filters.columnNames.length > 0,
     filters.plannedDay.kind !== "all",
   ].filter(Boolean).length;
 }

@@ -55,7 +55,7 @@ test("combines state, project, column and planned day, and keeps filters per spa
   ).toHaveAccessibleDescription("1 active filter. Sort: Planned day");
   await chooseFilter(page, "project", "Research");
   await expect(rows(page)).toHaveText([/Research unscheduled/]);
-  await chooseFilter(page, "column", "Research / Week");
+  await chooseFilter(page, "column", "Week");
   await openTaskOptions(page);
   await page.getByRole("button", { name: "Filter by planned day" }).click();
   await page
@@ -222,4 +222,45 @@ test("returns keyboard focus through nested filter and sort menus", async ({
   await expect(options).toBeFocused();
   await expect(options).toHaveAttribute("data-state", "closed");
   await expect(page.getByText("No tasks match these filters.")).toBeVisible();
+});
+
+test("groups Blocked columns across projects and retains the selection", async ({
+  page,
+}) => {
+  const space = uniqueE2EName("Shared columns");
+  await signupUser(page);
+  await createSpace(page, space);
+  await openSpace(page, space);
+  await createTodayTask(page, "Unblocked inbox task");
+  for (const project of ["Research", "Writing"]) {
+    await createProject(page, project);
+    await projectSidebarLink(page, project).click();
+    await page.getByRole("button", { name: "Week", exact: true }).click();
+    await page.getByRole("button", { name: "Edit column name" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("textbox").fill("Blocked");
+    await dialog.getByRole("button", { name: "Confirm" }).click();
+    await createProjectTask(page, `${project} blocked task`);
+  }
+  await page.getByRole("link", { name: "Tasks", exact: true }).click();
+  await openTaskOptions(page);
+  await page.getByRole("button", { name: "Filter by column" }).click();
+  await expect(page.getByRole("option")).toHaveText([
+    "BlockedNot selected",
+    "IdeasNot selected",
+    "InboxNot selected",
+    "MonthNot selected",
+  ]);
+  await page.getByRole("option", { name: /^Blocked/ }).click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await expect(rows(page)).toHaveCount(2);
+  await expect(rows(page)).toContainText([
+    "Research blocked task",
+    "Writing blocked task",
+  ]);
+  await page.reload();
+  await expect(rows(page)).toHaveCount(2);
+  await chooseFilter(page, "project", "Research");
+  await expect(rows(page)).toHaveText([/Research blocked task/]);
 });
