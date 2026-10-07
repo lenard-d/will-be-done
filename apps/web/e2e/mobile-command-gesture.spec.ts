@@ -250,30 +250,19 @@ test.describe("mobile command palette swipe", () => {
     await page.waitForTimeout(1000);
     await move({ x: from.x, y: from.y + 30 });
     const panel = page.locator(".command-palette-mobile");
-    const revealHeight = () =>
-      panel.evaluate((element) => {
-        const clippedBottom = Number.parseFloat(
-          getComputedStyle(element).clipPath.split(" ")[2],
-        );
-        return element.getBoundingClientRect().height - clippedBottom;
-      });
-    await expect.poll(revealHeight).toBeCloseTo(30, 0);
+    const opacity = () =>
+      panel.evaluate((element) => Number(getComputedStyle(element).opacity));
+    await expect.poll(opacity).toBeCloseTo(0.3, 2);
     await expect(panel).toHaveAttribute("aria-hidden", "true");
-    await expect
-      .poll(async () =>
-        panel
-          .locator('[data-slot="command-input"]')
-          .evaluate((element) => element.getBoundingClientRect().top),
-      )
-      .toBeGreaterThanOrEqual(0);
     await expect(
       panel.getByRole("combobox", { includeHidden: true }),
     ).not.toBeFocused();
     await page.waitForTimeout(1000);
     await move({ x: from.x + 120, y: from.y + 100 });
-    await expect.poll(revealHeight).toBeCloseTo(100, 0);
+    await expect.poll(opacity).toBeCloseTo(0.9, 2);
+    await expect(panel).toHaveAttribute("data-state", "closed");
     await move({ x: from.x + 120, y: from.y + 20 });
-    await expect.poll(revealHeight).toBeCloseTo(20, 0);
+    await expect.poll(opacity).toBeCloseTo(0.2, 2);
     await session.send("Input.dispatchTouchEvent", {
       type: "touchEnd",
       touchPoints: [],
@@ -292,7 +281,70 @@ test.describe("mobile command palette swipe", () => {
     });
     const palette = page.getByRole("dialog", { name: "Command bar" });
     await expect.poll(async () => (await palette.boundingBox())?.y).toBe(0);
+    await expect(palette).toHaveCSS("opacity", "1");
     await expect(palette.getByRole("combobox")).toBeFocused();
+    await session.detach();
+  });
+
+  test("never flashes fully open in the first frames of repeated short pulls", async ({
+    page,
+  }) => {
+    const { spacePath } = await createTestSpace(page);
+    await page.goto(`${spacePath}/all-tasks`);
+    const from = await titlePoint(
+      page
+        .getByRole("heading", { name: "All tasks", exact: true })
+        .locator(".."),
+    );
+    const session = await page.context().newCDPSession(page);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const probe = await page.evaluateHandle(() => {
+        const frames: { opacity: number; open: boolean; focused: boolean }[] =
+          [];
+        const observer = new MutationObserver(() => {
+          const panel = document.querySelector(".command-palette-mobile");
+          if (!panel) return;
+          observer.disconnect();
+          const sample = () => {
+            frames.push({
+              opacity: Number(getComputedStyle(panel).opacity),
+              open: panel.getAttribute("data-state") === "open",
+              focused: panel.contains(document.activeElement),
+            });
+            if (frames.length < 6) requestAnimationFrame(sample);
+          };
+          sample();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        return { frames, observer };
+      });
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ ...from, id: 1 }],
+      });
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: from.x, y: from.y + 30, id: 1 }],
+      });
+      await expect
+        .poll(() => probe.evaluate(({ frames }) => frames.length))
+        .toBe(6);
+      const frames = await probe.evaluate(({ frames, observer }) => {
+        observer.disconnect();
+        return frames;
+      });
+      expect(
+        frames.every(
+          (frame) => frame.opacity <= 0.31 && !frame.open && !frame.focused,
+        ),
+      ).toBe(true);
+      await probe.dispose();
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      });
+      await expect(page.locator(".command-palette-mobile")).toBeHidden();
+    }
     await session.detach();
   });
 

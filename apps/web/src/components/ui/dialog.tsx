@@ -50,14 +50,14 @@ function DialogContent({
   className,
   children,
   forceMount,
-  overlayProps,
+  overlay,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
-  overlayProps?: React.ComponentProps<typeof DialogOverlay>;
+  overlay?: React.ReactNode;
 }) {
   return (
     <DialogPortal data-slot="dialog-portal" forceMount={forceMount}>
-      <DialogOverlay {...overlayProps} />
+      {overlay ?? <DialogOverlay />}
       <DialogPrimitive.Content
         data-slot="dialog-content"
         forceMount={forceMount}
