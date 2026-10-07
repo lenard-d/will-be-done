@@ -1,4 +1,11 @@
-import { z } from "zod";
+import type { TaskFilters, PlannedDayFilter } from "@will-be-done/slices/space";
+export {
+  plannedDayFilterSchema,
+  taskFiltersSchema,
+  emptyTaskFilters,
+  type TaskFilters,
+  type PlannedDayFilter,
+} from "@will-be-done/slices/space";
 import type {
   ItemForDisplay,
   ProjectSection,
@@ -19,39 +26,6 @@ export function columnFilterOptions(sections: readonly ProjectSection[]) {
     (left, right) => left.label.localeCompare(right.label),
   );
 }
-
-export const plannedDayFilterSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("all") }),
-  z.object({ kind: z.literal("scheduled") }),
-  z.object({ kind: z.literal("unscheduled") }),
-  z.object({ kind: z.literal("on"), date: z.iso.date() }),
-  z
-    .object({
-      kind: z.literal("range"),
-      from: z.iso.date().nullable(),
-      to: z.iso.date().nullable(),
-    })
-    .refine(({ from, to }) => !from || !to || from <= to),
-]);
-
-export const taskFiltersSchema = z.object({
-  query: z.string(),
-  states: z.array(z.enum(["todo", "done"])),
-  projectIds: z.array(z.string()),
-  columnNames: z.array(z.string().transform(columnName)).default([]),
-  plannedDay: plannedDayFilterSchema,
-});
-
-export type TaskFilters = z.infer<typeof taskFiltersSchema>;
-export type PlannedDayFilter = TaskFilters["plannedDay"];
-
-export const emptyTaskFilters: TaskFilters = {
-  query: "",
-  states: [],
-  projectIds: [],
-  columnNames: [],
-  plannedDay: { kind: "all" },
-};
 
 function matchesPlannedDay(date: string | undefined, filter: PlannedDayFilter) {
   switch (filter.kind) {

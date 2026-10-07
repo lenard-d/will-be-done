@@ -6,6 +6,7 @@ import {
   projectSectionType,
   routineType,
   stashEntryType,
+  allTasksColumnType,
 } from "@will-be-done/slices/space";
 
 export type FocusKey = string & { __brand: never };
@@ -40,7 +41,8 @@ export const parseColumnKey = (
     | typeof dailyEntryType
     | typeof stashEntryType
     | typeof habitType
-    | typeof routineType;
+    | typeof routineType
+    | typeof allTasksColumnType;
   id: string;
   component?: string;
 } => {
@@ -58,7 +60,8 @@ export const parseColumnKey = (
       | typeof dailyEntryType
       | typeof stashEntryType
       | typeof habitType
-      | typeof routineType,
+      | typeof routineType
+      | typeof allTasksColumnType,
     id,
     component,
   };

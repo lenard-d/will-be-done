@@ -24,6 +24,11 @@ import {
   syncChannelName,
 } from "./syncCompatibility";
 
+import {
+  syncNotificationVersions,
+  waitForSyncTrigger,
+} from "./waitForSyncTrigger";
+
 const SYNC_POLL_INTERVAL_MS = 5000;
 
 const syncerLogsEnabled = () =>
@@ -155,6 +160,11 @@ export class Syncer {
         this.cleanupWebSocket();
         return;
       }
+      const notifications = {
+        webSocket: this.wsNotification,
+        local: this.forceSyncNotification,
+      };
+      const since = syncNotificationVersions(notifications);
       try {
         syncerLog("sending changes to server");
         await this.sendChangesToServer();
@@ -168,48 +178,15 @@ export class Syncer {
         console.error(e);
       }
 
-      await this.waitForNextSyncTrigger();
+      await waitForSyncTrigger({
+        notifications,
+        since,
+        pollInterval:
+          process.env.NODE_ENV !== "development"
+            ? SYNC_POLL_INTERVAL_MS
+            : undefined,
+      });
     }
-  }
-
-  private async waitForNextSyncTrigger() {
-    const wsVersion = this.wsNotification.get();
-    const forceSyncVersion = this.forceSyncNotification.get();
-
-    return new Promise<"timeout" | "ws" | "local">((resolve) => {
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      let unsubscribeWs = () => {};
-      let unsubscribeForceSync = () => {};
-      let settled = false;
-
-      const finish = (reason: "timeout" | "ws" | "local") => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        if (timeoutId !== null) {
-          clearTimeout(timeoutId);
-        }
-        unsubscribeWs();
-        unsubscribeForceSync();
-        resolve(reason);
-      };
-
-      unsubscribeWs = this.wsNotification.subscribe((version) => {
-        if (version > wsVersion) {
-          finish("ws");
-        }
-      });
-      unsubscribeForceSync = this.forceSyncNotification.subscribe((version) => {
-        if (version > forceSyncVersion) {
-          finish("local");
-        }
-      });
-
-      if (process.env.NODE_ENV !== "development") {
-        timeoutId = setTimeout(() => finish("timeout"), SYNC_POLL_INTERVAL_MS);
-      }
-    });
   }
 
   private async getAndApplyChanges() {

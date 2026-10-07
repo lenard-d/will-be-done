@@ -7,6 +7,8 @@ import { allProjects } from "./projectsAll";
 import { allTasks } from "./tasks";
 import { allTaskTemplates } from "./taskTemplates";
 import { allHabitCompletions, allHabits, allRoutines } from "./habits";
+import { allTasksColumns } from "./allTasksColumns";
+import { normalizeTaskFiltersJson } from "./taskViewFilters";
 import { dailyListAllIds, dailyListById, dailyListGetId } from "./dailyLists";
 import { dailyEntryAllIds, dailyEntryById } from "./dailyEntries";
 import { inboxProjectId as getInboxProjectId } from "./projects";
@@ -14,6 +16,9 @@ import { appTypeTablesMap } from "./maps";
 import { registeredSpaceSyncableTables } from "./syncMap";
 import {
   AnyModel,
+  AllTasksColumn,
+  allTasksColumnsTable,
+  allTasksColumnType,
   ChecklistItem,
   checklistItemType,
   ChecklistParentType,
@@ -147,6 +152,7 @@ export interface Backup {
   habits?: HabitBackup[];
   routines?: RoutineBackup[];
   habitCompletions?: HabitCompletionBackup[];
+  allTasksColumns?: Omit<AllTasksColumn, "type">[];
 }
 
 interface LegacyEntryBackupFields {
@@ -199,10 +205,21 @@ const habitCompletionBackupSchema = v.object({
   completedAt: v.number(),
 });
 
-const optionalHabitBackupSchemas = {
+const optionalSettingsBackupSchemas = {
   habits: v.optional(v.array(habitBackupSchema)),
   routines: v.optional(v.array(routineBackupSchema)),
   habitCompletions: v.optional(v.array(habitCompletionBackupSchema)),
+  allTasksColumns: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        title: v.string(),
+        orderToken: v.string(),
+        createdAt: v.number(),
+        filtersJson: v.string(),
+      }),
+    ),
+  ),
 };
 
 const backupSchema = v.object({
@@ -288,7 +305,7 @@ const backupSchema = v.object({
       }),
     ),
   ),
-  ...optionalHabitBackupSchemas,
+  ...optionalSettingsBackupSchemas,
   checklistItems: v.optional(
     v.array(
       v.object({
@@ -388,7 +405,7 @@ const legacyBackupSchema = v.object({
       }),
     ),
   ),
-  ...optionalHabitBackupSchemas,
+  ...optionalSettingsBackupSchemas,
   checklistItems: v.optional(
     v.array(
       v.object({
@@ -652,6 +669,14 @@ const getNewModels = action({
       models.push(routine);
     }
 
+    for (const columnBackup of backup.allTasksColumns || []) {
+      models.push({
+        type: allTasksColumnType,
+        ...columnBackup,
+        filtersJson: normalizeTaskFiltersJson(columnBackup.filtersJson),
+      });
+    }
+
     for (const habitBackup of backup.habits || []) {
       const habit: Habit = {
         type: habitType,
@@ -705,7 +730,8 @@ export const loadSpaceBackup = selector({
         (table === habitsTable && backup.habits === undefined) ||
         (table === routinesTable && backup.routines === undefined) ||
         (table === habitCompletionsTable &&
-          backup.habitCompletions === undefined)
+          backup.habitCompletions === undefined) ||
+        (table === allTasksColumnsTable && backup.allTasksColumns === undefined)
       ) {
         continue;
       }
@@ -746,6 +772,7 @@ export const getSpaceBackup = selector({
     const habits: Habit[] = yield* allHabits({});
     const routines: Routine[] = yield* allRoutines({});
     const habitCompletions: HabitCompletion[] = yield* allHabitCompletions({});
+    const columns = yield* allTasksColumns({});
     const dailyLists: DailyList[] = [];
 
     // Get all daily lists
@@ -851,6 +878,15 @@ export const getSpaceBackup = selector({
         habitId: completion.habitId,
         completedAt: completion.completedAt,
       })),
+      allTasksColumns: columns.map(
+        ({ id, title, orderToken, createdAt, filtersJson }) => ({
+          id,
+          title,
+          orderToken,
+          createdAt,
+          filtersJson,
+        }),
+      ),
     } satisfies Backup;
   },
 });

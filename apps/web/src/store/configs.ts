@@ -1,6 +1,7 @@
 import { changesTable, syncStateTable } from "@will-be-done/slices/common";
 import {
   allTasks,
+  allTasksColumnsTable,
   checklistItemsTable,
   createInboxIfNotExists,
   dailyListsTable,
@@ -60,6 +61,7 @@ export const spaceDBConfig = (dbId: string) => {
         db.preloadTables([
           { table: changesTable, scanIndex: "byEntityIdAndTableName" },
           { table: tasksTable, scanIndex: "byIds" },
+          { table: allTasksColumnsTable, scanIndex: "byIds" },
           { table: dailyListsTable, scanIndex: "byIds" },
           { table: dailyEntriesTable, scanIndex: "byIds" },
           { table: projectsTable, scanIndex: "byIds" },
@@ -116,6 +118,7 @@ export const demoSpaceDBConfig = () => {
 
       await execAsync(
         db.preloadTables([
+          { table: allTasksColumnsTable, scanIndex: "byIds" },
           { table: projectsTable, scanIndex: "byIds" },
           { table: projectSectionsTable, scanIndex: "byIds" },
           { table: dailyEntriesTable, scanIndex: "byIds" },
