@@ -4,6 +4,7 @@ import {
   createSpace,
   dailyTaskItem,
   openSpace,
+  openToday,
   openSpaceSettings,
   projectSidebarLink,
   projectTaskItem,
@@ -64,7 +65,7 @@ test("imports a TickTick CSV through settings", async ({ page }) => {
   await expect(projectSidebarLink(page, projectTitle, 1)).toBeVisible();
   await expect(projectTaskItem(page, taskTitle)).toBeVisible();
 
-  await page.getByRole("link", { name: /today/i }).click();
+  await openToday(page);
   await expect(dailyTaskItem(page, taskTitle)).toBeVisible();
 });
 

@@ -4,6 +4,7 @@ import {
   createSpace,
   createTodayTask,
   openSpace,
+  openToday,
   openTaskActions,
   signupUser,
   taskItem,
@@ -62,7 +63,7 @@ test("creates, edits, toggles, and deletes a task across Today and Inbox", async
   await expect(todoInboxItem).not.toHaveAttribute("data-ignore-drop", "true");
   await expect(inboxWithOneTask).toBeVisible();
 
-  await page.getByRole("link", { name: /today/i }).click();
+  await openToday(page);
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/dates\/\d{4}-\d{2}-\d{2}$/);
   const todoTodayItem = taskItem(page, editedTitle);
   await expect(todoTodayItem).toBeVisible();

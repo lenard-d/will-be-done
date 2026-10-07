@@ -304,6 +304,8 @@ export const CreateTaskBodySchema = z
 
 export const TaskResponseSchema = z.object({ task: TaskSchema });
 
+export const ListTasksResponseSchema = z.object({ tasks: z.array(TaskSchema) });
+
 export const ScheduleTaskBodySchema = z
   .object({
     date: z.iso.date().describe("Schedule date in YYYY-MM-DD format"),

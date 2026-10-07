@@ -30,6 +30,7 @@ import {
   type TaskTemplate,
 } from "@will-be-done/slices/space";
 import * as databases from "../db/db";
+import { DatabaseAccessDeniedError } from "./databaseAccess";
 import { dbsTable } from "../slices/dbSlice";
 import {
   createProjectSection,
@@ -48,6 +49,7 @@ import {
   createSectionTask,
   deleteTask,
   getTask,
+  listSpaceTasks,
   moveTask,
   updateTask,
 } from "./tasks";
@@ -249,6 +251,58 @@ function setUpDatabases() {
 
 describe("section and task services", () => {
   afterEach(() => mock.restore());
+
+  test("lists tasks from every section and the Inbox without templates or duplicate placements", () => {
+    const { spaceDB } = setUpDatabases();
+    syncDispatch(spaceDB, seedInboxProject({}));
+    const inboxTask = createSectionTask({
+      spaceId: "space-1",
+      userId: "user-1",
+      sectionId: "inbox-section",
+      title: "Inbox capture",
+    });
+    const otherSectionTask = createSectionTask({
+      spaceId: "space-1",
+      userId: "user-1",
+      sectionId: "section-2",
+      title: "Other section",
+    });
+    scheduleTask({
+      spaceId: "space-1",
+      userId: "user-1",
+      taskId: "task-a",
+      date: "2026-10-12",
+    });
+
+    const tasks = listSpaceTasks({ spaceId: "space-1", userId: "user-1" });
+    const expectedTasks = [
+      { id: inboxTask.id, state: "todo", scheduledDate: null },
+      { id: otherSectionTask.id, state: "todo", scheduledDate: null },
+      { id: "task-a", state: "todo", scheduledDate: "2026-10-12" },
+      { id: "task-c", state: "todo", scheduledDate: null },
+      { id: "done-old", state: "done", scheduledDate: null },
+      { id: "done-new", state: "done", scheduledDate: null },
+    ] satisfies Pick<
+      (typeof tasks)[number],
+      "id" | "state" | "scheduledDate"
+    >[];
+    expect(
+      tasks
+        .map(({ id, state, scheduledDate }) => ({ id, state, scheduledDate }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
+    ).toEqual(
+      expectedTasks.sort((left, right) => left.id.localeCompare(right.id)),
+    );
+  });
+
+  test("does not list another user's space tasks", () => {
+    setUpDatabases();
+    listSpaceTasks({ spaceId: "space-1", userId: "user-1" });
+
+    expect(() =>
+      listSpaceTasks({ spaceId: "space-1", userId: "user-2" }),
+    ).toThrow(DatabaseAccessDeniedError);
+  });
 
   test("lists project sections in display order without order tokens", () => {
     setUpDatabases();

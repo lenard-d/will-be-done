@@ -1,3 +1,7 @@
+import { SortedTaskList } from "@/components/TaskSorting/SortedTaskList";
+import { TaskSortControl } from "@/components/TaskSorting/TaskSortControl";
+import { useTaskSorting } from "@/components/TaskSorting/useTaskSorting";
+import { sortTaskItems } from "@/components/TaskSorting/taskSorting";
 import { PreloadedTaskComp } from "../Task/Task.tsx";
 import { buildFocusKey, useFocusStore } from "@/store/focusSlice.ts";
 import { useMemo, useState } from "react";
@@ -49,6 +53,8 @@ const ProjectTasksColumn = ({
     !!lastScheduleTime &&
     !!weekDayTimes?.has(startOfDay(lastScheduleTime).getTime());
 
+  const { sortMode } = useTaskSorting(`project:${project.id}`);
+
   const { data: itemsForDisplay = [] } = useAsyncSelector({
     selector: projectSectionItemsForDisplayChildren,
     args: { projectSectionId: section.id },
@@ -59,7 +65,10 @@ const ProjectTasksColumn = ({
   const [isShowMore, setIsShowMore] = useState(false);
   const { data: doneItemsForDisplay = [] } = useAsyncSelector({
     selector: doneProjectSectionItemsForDisplay,
-    args: { projectSectionId: section.id, limited: !isShowMore },
+    args: {
+      projectSectionId: section.id,
+      limited: !isShowMore && sortMode === "manual",
+    },
   });
 
   const isHidden =
@@ -83,11 +92,15 @@ const ProjectTasksColumn = ({
   };
 
   const finalDoneIds = useMemo(() => {
+    const sortedDone = sortTaskItems({
+      items: doneItemsForDisplay,
+      mode: sortMode,
+    });
     if (isShowMore) {
-      return doneItemsForDisplay;
+      return sortedDone;
     }
-    return doneItemsForDisplay.slice(0, 5);
-  }, [doneItemsForDisplay, isShowMore]);
+    return sortedDone.slice(0, 5);
+  }, [doneItemsForDisplay, isShowMore, sortMode]);
 
   return (
     <TasksColumn
@@ -212,38 +225,42 @@ const ProjectTasksColumn = ({
       }
     >
       <div className="flex flex-col gap-4 w-full py-4">
-        {itemsForDisplay.map((displayData) => {
-          return (
-            <PreloadedTaskComp
-              key={displayData.listItem.id}
-              item={displayData.item}
-              section={displayData.section}
-              listItem={displayData.listItem}
-              project={displayData.project}
-              lastScheduleTime={displayData.lastScheduleTime}
-              displayedUnderProjectId={project.id}
-              hasCheclistItems={displayData.hasChecklist}
-              displayLastScheduleTime
-              isOnTimeline={isOnDisplayedWeek(displayData.lastScheduleTime)}
-            />
-          );
-        })}
-        {finalDoneIds.map((displayData) => {
-          return (
-            <PreloadedTaskComp
-              key={displayData.listItem.id}
-              item={displayData.item}
-              section={displayData.section}
-              listItem={displayData.listItem}
-              project={displayData.project}
-              lastScheduleTime={displayData.lastScheduleTime}
-              displayedUnderProjectId={project.id}
-              hasCheclistItems={displayData.hasChecklist}
-              displayLastScheduleTime
-              isOnTimeline={isOnDisplayedWeek(displayData.lastScheduleTime)}
-            />
-          );
-        })}
+        <SortedTaskList items={itemsForDisplay} mode={sortMode}>
+          {(displayData) => {
+            return (
+              <PreloadedTaskComp
+                key={displayData.listItem.id}
+                item={displayData.item}
+                section={displayData.section}
+                listItem={displayData.listItem}
+                project={displayData.project}
+                lastScheduleTime={displayData.lastScheduleTime}
+                displayedUnderProjectId={project.id}
+                hasCheclistItems={displayData.hasChecklist}
+                displayLastScheduleTime
+                isOnTimeline={isOnDisplayedWeek(displayData.lastScheduleTime)}
+              />
+            );
+          }}
+        </SortedTaskList>
+        <SortedTaskList items={finalDoneIds} mode={sortMode}>
+          {(displayData) => {
+            return (
+              <PreloadedTaskComp
+                key={displayData.listItem.id}
+                item={displayData.item}
+                section={displayData.section}
+                listItem={displayData.listItem}
+                project={displayData.project}
+                lastScheduleTime={displayData.lastScheduleTime}
+                displayedUnderProjectId={project.id}
+                hasCheclistItems={displayData.hasChecklist}
+                displayLastScheduleTime
+                isOnTimeline={isOnDisplayedWeek(displayData.lastScheduleTime)}
+              />
+            );
+          }}
+        </SortedTaskList>
 
         {!isShowMore && doneItemsForDisplay.length > 5 && (
           <button
@@ -270,6 +287,8 @@ export const ProjectItemsList = ({
     args: { projectId: project.id },
   });
 
+  const { sortMode } = useTaskSorting(`project:${project.id}`);
+
   const weekDayTimes = useMemo(() => {
     if (!selectedDate) return undefined;
     const start = startOfDay(selectedDate);
@@ -279,7 +298,16 @@ export const ProjectItemsList = ({
   }, [selectedDate]);
 
   return (
-    <>
+    <div
+      data-task-sort-view={`project:${project.id}`}
+      data-task-sort-mode={sortMode}
+    >
+      <div
+        className="flex justify-end px-4 pt-2"
+        data-task-sort-view={`project:${project.id}`}
+      >
+        <TaskSortControl viewKey={`project:${project.id}`} />
+      </div>
       <TasksColumnGrid columnsCount={sections.length}>
         {sections.map((group) => (
           <ProjectTasksColumn
@@ -290,6 +318,6 @@ export const ProjectItemsList = ({
           />
         ))}
       </TasksColumnGrid>
-    </>
+    </div>
   );
 };

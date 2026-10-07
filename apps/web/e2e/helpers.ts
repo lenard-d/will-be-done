@@ -95,6 +95,13 @@ export async function openSpace(page: Page, spaceName: string) {
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/dates\/\d{4}-\d{2}-\d{2}$/);
 }
 
+export async function openToday(page: Page) {
+  await page.getByRole("link", { name: /^Timeline$/ }).click();
+  await expect(page).toHaveURL(/\/timeline\/\d{4}-\d{2}-\d{2}/);
+  await page.getByRole("link", { name: "Today", exact: true }).click();
+  await expect(page).toHaveURL(/\/dates\/\d{4}-\d{2}-\d{2}$/);
+}
+
 export async function createTodayTask(page: Page, title: string) {
   await page.getByRole("button", { name: "Add task" }).click();
   await page.getByLabel("Edit task title").fill(title);

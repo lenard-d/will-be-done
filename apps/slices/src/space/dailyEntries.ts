@@ -430,6 +430,37 @@ export const dailyEntryHandleDrop = action({
   },
 });
 
+/** Change day order without changing the task's date or project placement. */
+export const reorderDailyEntry = action({
+  name: "reorderDailyEntry",
+  args: {
+    taskId: v.string(),
+    targetTaskId: v.string(),
+    edge: v.union(v.literal("top"), v.literal("bottom")),
+  },
+  handler: function* ({ taskId, targetTaskId, edge }) {
+    if (taskId === targetTaskId) return;
+    const source = yield* dailyEntryById({ id: taskId });
+    const target = yield* dailyEntryById({ id: targetTaskId });
+    if (!source || !target || source.dailyListId !== target.dailyListId) return;
+    const sourceTask = yield* taskById({ id: taskId });
+    const targetTask = yield* taskById({ id: targetTaskId });
+    if (!sourceTask || !targetTask || sourceTask.state !== targetTask.state)
+      return;
+    const entries = (yield* dailyEntriesByDailyListId({
+      dailyListId: target.dailyListId,
+    })).filter((entry) => entry.id !== taskId);
+    const targetIndex = entries.findIndex((entry) => entry.id === targetTaskId);
+    const before = entries[targetIndex - 1];
+    const after = entries[targetIndex + 1];
+    const orderToken = generateJitteredKeyBetween(
+      edge === "top" ? (before?.orderToken ?? null) : target.orderToken,
+      edge === "top" ? target.orderToken : (after?.orderToken ?? null),
+    );
+    yield* upsertRows(dailyEntriesTable, [{ ...source, orderToken }]);
+  },
+});
+
 export const deleteDailyEntries = action({
   name: "deleteDailyEntries",
   args: { ids: v.array(v.string()) },

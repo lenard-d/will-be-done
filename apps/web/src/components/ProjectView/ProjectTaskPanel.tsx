@@ -1,3 +1,7 @@
+import { SortedTaskList } from "@/components/TaskSorting/SortedTaskList";
+import { TaskSortControl } from "@/components/TaskSorting/TaskSortControl";
+import { useTaskSorting } from "@/components/TaskSorting/useTaskSorting";
+import { sortTaskItems } from "@/components/TaskSorting/taskSorting";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
 import { useAsyncSelector } from "@will-be-done/hyperdb/react";
@@ -80,6 +84,8 @@ const SectionSection = ({
     args: { id: projectSectionId },
   });
 
+  const { sortMode } = useTaskSorting(`project:${projectId}`);
+
   const { data: itemsForDisplay = [] } = useAsyncSelector({
     selector: projectSectionItemsForDisplayChildren,
     args: { projectSectionId: section?.id ?? projectSectionId },
@@ -88,7 +94,10 @@ const SectionSection = ({
   const [isShowMore, setIsShowMore] = useState(false);
   const { data: doneItemsForDisplay = [] } = useAsyncSelector({
     selector: doneProjectSectionItemsForDisplay,
-    args: { projectSectionId: projectSectionId, limited: !isShowMore },
+    args: {
+      projectSectionId: projectSectionId,
+      limited: !isShowMore && sortMode === "manual",
+    },
   });
 
   useEffect(() => {
@@ -114,9 +123,13 @@ const SectionSection = ({
   }, [section, projectSectionId]);
 
   const visibleDoneIds = useMemo(() => {
-    if (isShowMore) return doneItemsForDisplay;
-    return doneItemsForDisplay.slice(0, 3);
-  }, [doneItemsForDisplay, isShowMore]);
+    const sortedDone = sortTaskItems({
+      items: doneItemsForDisplay,
+      mode: sortMode,
+    });
+    if (isShowMore) return sortedDone;
+    return sortedDone.slice(0, 3);
+  }, [doneItemsForDisplay, isShowMore, sortMode]);
 
   const handleTitleClick = async () => {
     if (!section) return;
@@ -232,32 +245,36 @@ const SectionSection = ({
         className="relative"
       >
         <div className="flex flex-col gap-2">
-          {itemsForDisplay.map((displayData) => (
-            <PreloadedTaskComp
-              key={displayData.listItem.id}
-              item={displayData.item}
-              section={displayData.section}
-              listItem={displayData.listItem}
-              project={displayData.project}
-              lastScheduleTime={displayData.lastScheduleTime}
-              displayedUnderProjectId={projectId}
-              hasCheclistItems={displayData.hasChecklist}
-              displayLastScheduleTime
-            />
-          ))}
-          {visibleDoneIds.map((displayData) => (
-            <PreloadedTaskComp
-              key={displayData.listItem.id}
-              item={displayData.item}
-              section={displayData.section}
-              listItem={displayData.listItem}
-              project={displayData.project}
-              lastScheduleTime={displayData.lastScheduleTime}
-              displayedUnderProjectId={projectId}
-              hasCheclistItems={displayData.hasChecklist}
-              displayLastScheduleTime
-            />
-          ))}
+          <SortedTaskList items={itemsForDisplay} mode={sortMode}>
+            {(displayData) => (
+              <PreloadedTaskComp
+                key={displayData.listItem.id}
+                item={displayData.item}
+                section={displayData.section}
+                listItem={displayData.listItem}
+                project={displayData.project}
+                lastScheduleTime={displayData.lastScheduleTime}
+                displayedUnderProjectId={projectId}
+                hasCheclistItems={displayData.hasChecklist}
+                displayLastScheduleTime
+              />
+            )}
+          </SortedTaskList>
+          <SortedTaskList items={visibleDoneIds} mode={sortMode}>
+            {(displayData) => (
+              <PreloadedTaskComp
+                key={displayData.listItem.id}
+                item={displayData.item}
+                section={displayData.section}
+                listItem={displayData.listItem}
+                project={displayData.project}
+                lastScheduleTime={displayData.lastScheduleTime}
+                displayedUnderProjectId={projectId}
+                hasCheclistItems={displayData.hasChecklist}
+                displayLastScheduleTime
+              />
+            )}
+          </SortedTaskList>
           {!isShowMore && doneItemsForDisplay.length > 3 && (
             <button
               onClick={() => setIsShowMore(true)}
@@ -320,6 +337,7 @@ export const ProjectTaskPanel = ({
   embedded?: boolean;
 }) => {
   const dispatch = useAsyncDispatch();
+  const { sortMode } = useTaskSorting(`project:${projectId}`);
   const { data: project } = useAsyncSelector({
     selector: projectByIdOrDefault,
     args: { id: projectId },
@@ -343,7 +361,15 @@ export const ProjectTaskPanel = ({
 
   if (embedded) {
     return (
-      <div data-focus-region-direction="column" className="flex flex-col gap-1">
+      <div
+        data-task-sort-view={`project:${projectId}`}
+        data-task-sort-mode={sortMode}
+        data-focus-region-direction="column"
+        className="flex flex-col gap-1"
+      >
+        <div className="flex justify-end mb-2">
+          <TaskSortControl viewKey={`project:${projectId}`} />
+        </div>
         {sections.map((section) => (
           <SectionSection
             key={section.id}
@@ -359,12 +385,19 @@ export const ProjectTaskPanel = ({
   if (!project) return null;
 
   return (
-    <div className="h-full flex flex-col">
+    <div
+      data-task-sort-view={`project:${projectId}`}
+      data-task-sort-mode={sortMode}
+      className="h-full flex flex-col"
+    >
       <div className="flex items-center gap-2 px-4 py-3 shrink-0">
         <span className="text-base">{project.icon || "🟡"}</span>
         <span className="text-sm font-semibold text-content truncate">
           {project.title}
         </span>
+        <div className="ml-auto">
+          <TaskSortControl viewKey={`project:${projectId}`} />
+        </div>
       </div>
       <div
         data-focus-region-direction="column"

@@ -37,6 +37,7 @@ describe("shortcut catalog", () => {
     expect(byId.get("task-toggle-state")?.keys).toEqual([["Space"]]);
     expect(byId.get("task-add-before")?.keys).toEqual([["Shift", "O"]]);
     expect(byId.get("sidebar-toggle")?.keys).toEqual([["Ctrl/Cmd", "B"]]);
+    expect(byId.get("task-sort-cycle")?.keys).toEqual([["Q"]]);
     expect(byId.get("desktop-quick-add")?.keys).toEqual([
       ["Ctrl/Cmd", "Shift", "A"],
     ]);

@@ -98,6 +98,8 @@ import {
   useItemDetailsOpen,
 } from "@/components/ItemDetails/ItemDetailsStore.ts";
 import { useOpenProject } from "@/hooks/useOpenProject.ts";
+import { useTaskSortContext } from "@/components/TaskSorting/TaskSortContext";
+import { reorderDailyEntry } from "@will-be-done/slices/space";
 
 export const DropTaskIndicator = ({
   direction,
@@ -169,6 +171,8 @@ export const PreloadedTaskComp = ({
   isOnTimeline?: boolean;
 }) => {
   const dispatch = useAsyncDispatch();
+
+  const taskSorting = useTaskSortContext();
 
   const taskId = item.id;
   const date = useCurrentDate();
@@ -377,6 +381,24 @@ export const PreloadedTaskComp = ({
 
   const handleMoveStacked = useCallback(
     (direction: "up" | "down") => {
+      if (taskSorting && taskSorting.mode !== "manual") {
+        if (taskSorting.mode !== "date") return;
+        const targetTaskId =
+          direction === "up"
+            ? taskSorting.previousTaskId
+            : taskSorting.nextTaskId;
+        if (targetTaskId) {
+          void dispatch(
+            reorderDailyEntry({
+              taskId,
+              targetTaskId,
+              edge: direction === "up" ? "top" : "bottom",
+            }),
+          );
+        }
+        return;
+      }
+      if (taskSorting?.blockManual) return;
       const [upKey, downKey] = getDOMSiblings(focusableItemKey, {
         forMove: true,
       });
@@ -435,7 +457,14 @@ export const PreloadedTaskComp = ({
         }
       }, 0);
     },
-    [listItem.id, listItem.type, dispatch, focusableItemKey],
+    [
+      listItem.id,
+      listItem.type,
+      dispatch,
+      focusableItemKey,
+      taskSorting,
+      taskId,
+    ],
   );
 
   const handleAddChecklistItem = useCallback(() => {
@@ -926,12 +955,22 @@ export const PreloadedTaskComp = ({
     const element = ref.current;
     invariant(element);
 
+    const sortData = taskSorting
+      ? {
+          taskSortMode: taskSorting.mode,
+          taskSortDailyListId: taskSorting.dailyListId,
+          taskSortCalendar: taskSorting.calendar,
+          blockManualTaskSort: taskSorting.blockManual,
+        }
+      : {};
+
     return combine(
       draggable({
         element: element,
         getInitialData: (): DndModelData => ({
           modelId: listItem.id,
           modelType: listItem.type,
+          ...sortData,
         }),
         onGenerateDragPreview: ({ location, source, nativeSetDragImage }) => {
           const rect = source.element.getBoundingClientRect();
@@ -974,6 +1013,7 @@ export const PreloadedTaskComp = ({
           const data: DndModelData = {
             modelId: listItem.id,
             modelType: listItem.type,
+            ...sortData,
           };
 
           return attachClosestEdge(data, {
@@ -1003,7 +1043,7 @@ export const PreloadedTaskComp = ({
         },
       }),
     );
-  }, [dispatch, select, listItem.id, listItem.type]);
+  }, [dispatch, select, listItem.id, listItem.type, taskSorting]);
 
   const focusTitleTextarea = useCallback(() => {
     const textarea = titleTextareaRef.current;
@@ -1288,7 +1328,6 @@ export const PreloadedTaskComp = ({
               centerScheduleDate && displayLastScheduleTime
                 ? "grid grid-cols-[1fr_auto_1fr] items-center gap-1"
                 : "flex items-center justify-between",
-
             )}
           >
             <div>{section.title}</div>

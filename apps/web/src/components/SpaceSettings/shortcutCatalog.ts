@@ -27,6 +27,7 @@ export type ShortcutKey =
   | "M"
   | "O"
   | "P"
+  | "Q"
   | "R"
   | "S"
   | "T"
@@ -256,6 +257,12 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
         id: "sidebar-toggle",
         label: "Toggle main sidebar",
         keys: [["Ctrl/Cmd", "B"]],
+      },
+      {
+        id: "task-sort-cycle",
+        label: "Cycle task sort",
+        keys: [["Q"]],
+        description: "Date, alphabetical, then manual. Outside text fields.",
       },
       {
         id: "stash-toggle",

@@ -1,3 +1,6 @@
+import { SortedTaskList } from "@/components/TaskSorting/SortedTaskList";
+import { TaskSortControl } from "@/components/TaskSorting/TaskSortControl";
+import { useTaskSorting } from "@/components/TaskSorting/useTaskSorting";
 import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { addDays, format, startOfDay, subDays } from "date-fns";
 import { useAsyncDispatch } from "@will-be-done/hyperdb/react";
@@ -89,6 +92,8 @@ const SingleDayColumn = ({
   const [calendarOpen, setCalendarOpen] = useState(false);
   const currentDate = useCurrentDMY();
   const isToday = currentDate === dailyList.date;
+
+  const { sortMode } = useTaskSorting("daily");
 
   const { data: itemsForDisplay = [] } = useAsyncSelector({
     selector: dailyEntryChildrenForDisplay,
@@ -204,6 +209,9 @@ const SingleDayColumn = ({
         </Link>
       </div>
 
+      <div className="flex justify-end mb-3">
+        <TaskSortControl viewKey="daily" />
+      </div>
       {/* Add task row at the top of the list */}
       <button
         type="button"
@@ -233,41 +241,39 @@ const SingleDayColumn = ({
         ref={scrollableRef}
         className={cn("flex flex-col gap-4 w-full overflow-y-auto p-1", {})}
       >
-        {itemsForDisplay.map((displayData) => (
-          <PreloadedTaskComp
-            key={displayData.listItem.id}
-            item={displayData.item}
-            section={displayData.section}
-            listItem={displayData.listItem}
-            project={displayData.project}
-            lastScheduleTime={displayData.lastScheduleTime}
-            hasCheclistItems={displayData.hasChecklist}
-            alwaysShowProject
-            displayLastScheduleTime
-            centerScheduleDate
-          />
-        ))}
+        <SortedTaskList items={itemsForDisplay} mode={sortMode} calendar>
+          {(displayData) => (
+            <PreloadedTaskComp
+              key={displayData.listItem.id}
+              item={displayData.item}
+              section={displayData.section}
+              listItem={displayData.listItem}
+              project={displayData.project}
+              lastScheduleTime={displayData.lastScheduleTime}
+              hasCheclistItems={displayData.hasChecklist}
+              alwaysShowProject
+              displayLastScheduleTime
+              centerScheduleDate
+            />
+          )}
+        </SortedTaskList>
 
-        {doneItemsForDisplay.map((displayData) => (
-          <PreloadedTaskComp
-            key={displayData.listItem.id}
-            item={displayData.item}
-            section={displayData.section}
-            listItem={displayData.listItem}
-            project={displayData.project}
-            lastScheduleTime={displayData.lastScheduleTime}
-            hasCheclistItems={displayData.hasChecklist}
-            alwaysShowProject
-            displayLastScheduleTime
-            centerScheduleDate
-          />
-        ))}
-
-        {/* {taskIds.length === 0 && doneTaskIds.length === 0 && ( */}
-        {/*   <div className="text-content-tinted text-sm text-center py-8"> */}
-        {/*     No tasks for this day */}
-        {/*   </div> */}
-        {/* )} */}
+        <SortedTaskList items={doneItemsForDisplay} mode={sortMode} calendar>
+          {(displayData) => (
+            <PreloadedTaskComp
+              key={displayData.listItem.id}
+              item={displayData.item}
+              section={displayData.section}
+              listItem={displayData.listItem}
+              project={displayData.project}
+              lastScheduleTime={displayData.lastScheduleTime}
+              hasCheclistItems={displayData.hasChecklist}
+              alwaysShowProject
+              displayLastScheduleTime
+              centerScheduleDate
+            />
+          )}
+        </SortedTaskList>
       </div>
     </div>
   );
@@ -321,7 +327,10 @@ export const DateView = ({ selectedDate }: { selectedDate: Date }) => {
   );
 
   return (
-    <div className="relative h-full min-w-0 overflow-hidden">
+    <div
+      data-task-sort-view="daily"
+      className="relative h-full min-w-0 overflow-hidden"
+    >
       <Stash />
       <div
         data-scroll-restoration-id={scrollRestorationId}

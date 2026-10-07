@@ -74,7 +74,10 @@ export const SidebarProjectItem = ({
   const isActive = useRouterState({
     select: (s) =>
       s.matches.some(
-        (m) => (m.params as Record<string, string>).projectId === projectId,
+        (m) =>
+          (m.params as Record<string, string>).projectId === projectId ||
+          (project.isInbox &&
+            (m.params as Record<string, string>).projectId === "inbox"),
       ),
   });
 
@@ -168,6 +171,7 @@ export const SidebarProjectItem = ({
         }}
         to="/spaces/$spaceId/projects/$projectId"
         params={{ spaceId, projectId }}
+        aria-current={isActive ? "page" : undefined}
         onClick={isMobile ? () => setOpenMobile(false) : undefined}
         className={cn(
           "flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors w-full min-h-[40px]",
@@ -177,7 +181,9 @@ export const SidebarProjectItem = ({
           isOver && "ring-2 ring-accent bg-accent/10",
         )}
       >
-        <span className="text-base flex-shrink-0">{project.icon || "🟡"}</span>
+        <span className="text-base flex-shrink-0" aria-hidden="true">
+          {project.icon || "🟡"}
+        </span>
         <span className="flex-1 truncate">{project.title}</span>
         {(notDoneCount > 0 || overdueCount > 0) && (
           <span className="flex items-center gap-1 text-xs tabular-nums text-content-tinted">

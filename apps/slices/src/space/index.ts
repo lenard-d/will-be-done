@@ -11,6 +11,7 @@ export * from "./spaceStorageMigrations";
 export * from "./app";
 export * from "./items";
 export * from "./tasks";
+export * from "./allTasksForDisplay";
 export * from "./taskTemplates";
 export * from "./projectSections";
 export * from "./projectSectionItems";

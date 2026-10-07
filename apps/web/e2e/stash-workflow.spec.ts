@@ -5,6 +5,7 @@ import {
   createTodayTask,
   dailyTaskItem,
   openSpace,
+  openToday,
   openTaskActions,
   projectTaskItem,
   signupUser,
@@ -61,7 +62,7 @@ test("stashes a task and keeps it available across Today and Inbox", async ({
   await expect(stashTaskItem(page, taskTitle)).toBeVisible();
   await expect(stashCount).toHaveText("1");
 
-  await page.getByRole("link", { name: /today/i }).click();
+  await openToday(page);
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/dates\/\d{4}-\d{2}-\d{2}$/);
   await expect(dailyTaskItem(page, taskTitle)).toHaveCount(0);
   await expect(stashTaskItem(page, taskTitle)).toBeVisible();
