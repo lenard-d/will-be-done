@@ -195,6 +195,7 @@ export function GlobalListener() {
         onDrop: function (args) {
           void (async () => {
             const { location, source } = args;
+            const { projectSectionId, taskSortFocusScope } = source.data;
 
             if (!location.current.dropTargets.length) {
               return;
@@ -205,6 +206,13 @@ export function GlobalListener() {
             }
 
             const closestTarget = location.current.dropTargets[0];
+            const projectTarget = location.current.dropTargets.find(
+              (target) => target.data.modelType === projectSectionType,
+            );
+            const isProjectColumnTransfer =
+              typeof projectSectionId === "string" &&
+              typeof projectTarget?.data.modelId === "string" &&
+              projectSectionId !== projectTarget.data.modelId;
             const sortedTarget =
               closestTarget && "taskSortMode" in closestTarget.data
                 ? closestTarget
@@ -213,7 +221,7 @@ export function GlobalListener() {
               source.data.modelType === taskType ||
               source.data.modelType === dailyEntryType ||
               source.data.modelType === stashEntryType;
-            if (sortedTarget && isTaskSource) {
+            if (sortedTarget && isTaskSource && !isProjectColumnTransfer) {
               const sourceEntry = await selectAsync(db, {
                 selector: dailyEntryById,
                 args: { id: source.data.modelId },
@@ -221,6 +229,7 @@ export function GlobalListener() {
               const sortedDrop = sortedTaskDrop({
                 sourceId: source.data.modelId,
                 sourceDailyListId: sourceEntry?.dailyListId,
+                sourceFocusScope: taskSortFocusScope,
                 target: sortedTarget.data,
                 edge:
                   extractClosestEdge(sortedTarget.data) === "bottom"
@@ -242,6 +251,7 @@ export function GlobalListener() {
               .closest("[data-task-sort-mode]")
               ?.getAttribute("data-task-sort-mode");
             if (
+              !isProjectColumnTransfer &&
               closestTarget?.data.modelType === projectSectionType &&
               (projectSortMode === "date" || projectSortMode === "alphabetical")
             )
@@ -335,12 +345,7 @@ export function GlobalListener() {
                   edge: closestEdgeOfTarget || "top",
                 }),
               );
-            const sourceIsTask = [
-              taskType,
-              dailyEntryType,
-              stashEntryType,
-            ].includes(sourceModelType);
-            if (sourceIsTask) {
+            if (isTaskSource) {
               void executeTaskCommand([sourceModelId], moveItem);
             } else {
               void moveItem();
