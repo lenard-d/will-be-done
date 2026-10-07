@@ -106,6 +106,7 @@ export async function createTodayTask(page: Page, title: string) {
   await page.getByRole("button", { name: "Add task" }).click();
   await page.getByLabel("Edit task title").fill(title);
   await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Edit task title")).toHaveCount(0);
 
   const item = taskItem(page, title);
   await expect(item).toBeVisible();
@@ -118,6 +119,7 @@ export async function createProjectTask(page: Page, title: string) {
   await page.keyboard.press("KeyO");
   await page.getByLabel("Edit task title").fill(title);
   await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Edit task title")).toHaveCount(0);
 
   const item = projectTaskItem(page, title);
   await expect(item).toBeVisible();
