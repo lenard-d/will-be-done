@@ -93,7 +93,11 @@ export function useCommandPaletteSwipe({
         ) === "cancelled"
       ) {
         cancel();
+        return;
       }
+
+      // Reserve title movement before native overscroll can cancel the gesture.
+      if (event.cancelable) event.preventDefault();
     };
     const end = (event: TouchEvent) => {
       const completed = gesture;
@@ -113,9 +117,8 @@ export function useCommandPaletteSwipe({
       }
     };
 
-    // Observe touch input without blocking the browser's normal scrolling.
     document.addEventListener("touchstart", start, { passive: true });
-    document.addEventListener("touchmove", move, { passive: true });
+    document.addEventListener("touchmove", move, { passive: false });
     document.addEventListener("touchend", end, { passive: true });
     document.addEventListener("touchcancel", cancel, { passive: true });
     window.addEventListener("blur", cancel);

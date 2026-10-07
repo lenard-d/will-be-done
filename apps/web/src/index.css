@@ -3,6 +3,25 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@media (width < 640px) {
+  html:has([data-app-shell]),
+  body:has([data-app-shell]) {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  [data-app-shell],
+  [data-app-shell] * {
+    overscroll-behavior: none;
+  }
+
+  [data-app-shell]
+    :is(header, [data-command-palette-swipe-region], h1, :has(> h1)) {
+    touch-action: pan-x pinch-zoom;
+  }
+}
+
 @font-face {
   font-family: "InterVariable";
   font-style: normal;
