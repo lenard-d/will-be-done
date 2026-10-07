@@ -92,7 +92,6 @@ export function AllTasksView() {
             <p role="status" className="text-xs text-content-tinted">
               {taskCount}
             </p>
-            {addButton}
           </header>
         )}
         {(error || columnError || saveError) && (
@@ -111,7 +110,7 @@ export function AllTasksView() {
           className="min-h-0 flex-1 overflow-hidden pb-4"
         >
           <TasksColumnGrid
-            columnsCount={columns.length}
+            columnsCount={columns.length + (isMobile ? 0 : 1)}
             paddingLeft={
               !isMobile && !stashOffset ? STASH_BUTTON_WIDTH : undefined
             }
@@ -128,6 +127,7 @@ export function AllTasksView() {
                 onAddColumn={(afterId) => void addColumn(afterId)}
               />
             ))}
+            {!isMobile && <div className="px-2 pt-1">{addButton}</div>}
           </TasksColumnGrid>
         </div>
       </div>
