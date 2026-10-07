@@ -288,7 +288,10 @@ export function CommandPalette() {
   const isEditing = useFocusStore(
     (state) => !!state.editItemKey || state.isFocusDisabled,
   );
-  useCommandPaletteSwipe({ disabled: open || isEditing, pathname });
+  const pull = useCommandPaletteSwipe({
+    disabled: open || isEditing,
+    pathname,
+  });
   const toggleStash = useStashOpen((state) => state.toggle);
   const toggleDetails = useItemDetailsOpen((state) => state.toggle);
   const setDetailsOpen = useItemDetailsOpen((state) => state.setOpen);
@@ -560,6 +563,7 @@ export function CommandPalette() {
   return (
     <CommandDialog
       open={open}
+      reveal={pull.isMobile ? pull : undefined}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
         if (!nextOpen) setQuery("");
