@@ -5,6 +5,7 @@ import { useAsyncSelector } from "@will-be-done/hyperdb/react";
 import { useFocusStore, parseColumnKey } from "@/store/focusSlice.ts";
 import {
   dailyEntryType,
+  stashEntryType,
   habitById,
   habitType,
   itemExists,
@@ -25,8 +26,6 @@ import {
   useItemDetailsEditRequest,
 } from "@/components/ItemDetails/ItemDetailsStore.ts";
 
-// ─── Main sidebar panel ──────────────────────────────────────────────────────
-
 export function ItemDetails() {
   const rootRef = useRef<HTMLDivElement>(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -35,6 +34,7 @@ export function ItemDetails() {
   const isItemFocused =
     parsed?.type === "task" ||
     parsed?.type === dailyEntryType ||
+    parsed?.type === stashEntryType ||
     parsed?.type === "template" ||
     parsed?.type === habitType;
   const itemId = isItemFocused ? parsed.id : null;
