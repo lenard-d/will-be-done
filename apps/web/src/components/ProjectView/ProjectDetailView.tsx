@@ -24,6 +24,7 @@ import { useMemo, useState, useEffect } from "react";
 import { promptDialog } from "@/components/ui/prompt-dialog-service";
 import { Stash } from "@/components/Stash/Stash.tsx";
 import { useStashDesktopOffset } from "@/components/Stash/useStashDesktopOffset.ts";
+import { TaskSortControl } from "@/components/TaskSorting/TaskSortControl";
 
 const DeleteIcon = () => (
   <svg
@@ -102,7 +103,6 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
       id="main-scrollable-area"
     >
       <div className="pointer-events-none absolute top-0 left-0 right-0 z-0 h-4" />
-      {/* Header */}
       <div className="sm:flex-shrink-0 w-full pt-11 sm:pt-5 mb-6">
         <div className="max-w-lg mx-auto px-4">
           <div className="flex items-start gap-3">
@@ -143,10 +143,12 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
               </h1>
             </button>
 
-            <div className="flex self-center flex-shrink-0">
+            <div className="flex self-center flex-shrink-0 items-center gap-3">
+              <TaskSortControl viewKey={`project:${projectId}`} />
               <button
                 onClick={handleDeleteClick}
                 type="button"
+                aria-label="Delete project"
                 className="cursor-pointer text-content-tinted hover:text-notice transition-colors flex justify-center items-center"
               >
                 <DeleteIcon />
@@ -165,7 +167,7 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
       ) : (
         <div className="flex flex-1 min-h-0 overflow-x-auto pb-4">
           <div className="min-w-max h-full px-4">
-            <ProjectItemsList project={project} />
+            <ProjectItemsList project={project} header={null} />
           </div>
         </div>
       )}

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Dialog,
   DialogPanel,
@@ -20,10 +19,16 @@ import { BackupSection } from "./BackupSection";
 import { GeneralSection } from "./GeneralSection";
 import { ImportSection } from "./ImportSection";
 import { ShortcutsSection } from "./ShortcutsSection";
+import {
+  useSpaceSettingsStore,
+  type SettingsSection,
+} from "./spaceSettingsStore";
 
-type Section = "general" | "data" | "import" | "shortcuts";
-
-const SECTIONS: { id: Section; label: string; icon: React.ReactNode }[] = [
+const SECTIONS: {
+  id: SettingsSection;
+  label: string;
+  icon: React.ReactNode;
+}[] = [
   {
     id: "general",
     label: "General",
@@ -53,7 +58,10 @@ interface Props {
 }
 
 export function SpaceSettingsModal({ open, onClose, spaceName }: Props) {
-  const [activeSectionIndex, setActiveSectionIndex] = useState(0);
+  const activeSection = useSpaceSettingsStore((state) => state.activeSection);
+  const setActiveSection = useSpaceSettingsStore(
+    (state) => state.setActiveSection,
+  );
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
@@ -87,8 +95,10 @@ export function SpaceSettingsModal({ open, onClose, spaceName }: Props) {
 
           <TabGroup
             className="contents"
-            selectedIndex={activeSectionIndex}
-            onChange={setActiveSectionIndex}
+            selectedIndex={SECTIONS.findIndex(
+              (section) => section.id === activeSection,
+            )}
+            onChange={(index) => setActiveSection(SECTIONS[index].id)}
           >
             {/* Top tab nav */}
             <TabList
@@ -144,7 +154,7 @@ export function SpaceSettingsModal({ open, onClose, spaceName }: Props) {
 function SettingsTabPanel({
   section,
   children,
-}: React.PropsWithChildren<{ section: Section }>) {
+}: React.PropsWithChildren<{ section: SettingsSection }>) {
   return (
     <TabPanel
       id={`settings-panel-${section}`}

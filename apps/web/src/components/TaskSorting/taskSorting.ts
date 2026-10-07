@@ -2,6 +2,32 @@ import type { ItemForDisplay } from "@will-be-done/slices/space";
 
 export type TaskSortMode = "date" | "alphabetical" | "manual";
 
+export type TaskInsertion = {
+  taskId: string;
+  anchorTaskId: string;
+  position: "before" | "after";
+  focusKey: string;
+};
+
+/** Keep a new task beside its selected neighbor until title editing ends. */
+export function keepTaskInsertionPosition<T extends ItemForDisplay>(
+  items: readonly T[],
+  insertion: TaskInsertion | undefined,
+): T[] {
+  if (!insertion) return [...items];
+  const task = items.find((item) => item.item.id === insertion.taskId);
+  const anchor = items.find((item) => item.item.id === insertion.anchorTaskId);
+  if (!task || !anchor) return [...items];
+  const reordered = items.filter((item) => item !== task);
+  const anchorIndex = reordered.indexOf(anchor);
+  reordered.splice(
+    anchorIndex + (insertion.position === "after" ? 1 : 0),
+    0,
+    task,
+  );
+  return reordered;
+}
+
 export const taskSortModes = ["date", "alphabetical", "manual"] as const;
 export const taskSortLabels: Record<TaskSortMode, string> = {
   date: "Planned day",

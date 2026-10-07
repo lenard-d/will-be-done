@@ -35,10 +35,12 @@ test("keeps a reordered day across sorting, project views, and reloads", async (
   await page.keyboard.press("Control+ArrowUp");
   await expect(allTasks).toHaveText([/Bravo task/, /Alpha task/]);
 
-  const sortControl = page.getByRole("combobox", { name: "Sort tasks" });
-  await sortControl.selectOption("alphabetical");
+  const sortControl = page.getByRole("button", { name: "Sort tasks" });
+  await sortControl.click();
+  await page.getByRole("menuitemradio", { name: "Alphabetical" }).click();
   await expect(allTasks).toHaveText([/Alpha task/, /Bravo task/]);
-  await sortControl.selectOption("date");
+  await sortControl.click();
+  await page.getByRole("menuitemradio", { name: "Planned day" }).click();
   await expect(allTasks).toHaveText([/Bravo task/, /Alpha task/]);
 
   await page.getByRole("link", { name: /^Inbox/ }).click();
@@ -103,18 +105,18 @@ test("cycles the active sort with Q without changing text being edited", async (
   await createSpace(page, spaceName);
   await openSpace(page, spaceName);
   const task = await createTodayTask(page, "Shortcut task");
-  const sortControl = page.getByRole("combobox", { name: "Sort tasks" });
+  const sortControl = page.getByRole("button", { name: "Sort tasks" });
   await task.click();
   await page.keyboard.press("KeyQ");
-  await expect(sortControl).toHaveValue("alphabetical");
+  await expect(sortControl).toHaveText("Alphabetical");
   await page.keyboard.press("KeyQ");
-  await expect(sortControl).toHaveValue("manual");
+  await expect(sortControl).toHaveText("Manual");
   await page.keyboard.press("KeyQ");
-  await expect(sortControl).toHaveValue("date");
+  await expect(sortControl).toHaveText("Planned day");
   await page.keyboard.press("Enter");
   await page.getByLabel("Edit task title").fill("Q text");
   await page.keyboard.press("KeyQ");
-  await expect(sortControl).toHaveValue("date");
+  await expect(sortControl).toHaveText("Planned day");
 });
 
 test("moves a checklist item between tasks while All tasks uses date sorting", async ({
@@ -169,17 +171,17 @@ test("cycles Timeline sorting when its focused project panel is hidden", async (
     .locator('[data-task-sort-view^="project:"] [data-focusable-key^="task^^"]')
     .filter({ hasText: "Hidden panel task" });
   const timelineSort = page.locator(
-    'header[data-task-sort-view="timeline"] select[aria-label="Sort tasks"]',
+    'header[data-task-sort-view="timeline"] button[aria-label="Sort tasks"]',
   );
   const projectSort = page.locator(
-    '[data-task-sort-view^="project:"] select[aria-label="Sort tasks"]',
+    '[data-task-sort-view^="project:"] button[aria-label="Sort tasks"]',
   );
   await projectTask.click();
   await page.keyboard.press("KeyP");
   await page.keyboard.press("KeyQ");
 
-  await expect(timelineSort).toHaveValue("alphabetical");
-  await expect(projectSort).toHaveValue("date");
+  await expect(timelineSort).toHaveText("Alphabetical");
+  await expect(projectSort).toHaveText("Planned day");
 });
 
 test("uses the general sort default until a view saves its own choice", async ({
@@ -198,16 +200,17 @@ test("uses the general sort default until a view saves its own choice", async ({
   await page.getByRole("button", { name: "Close settings" }).click();
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
 
-  const sortControl = page.getByRole("combobox", {
+  const sortControl = page.getByRole("button", {
     name: "Sort tasks",
     exact: true,
   });
   const tasks = page.locator(
     '[data-task-sort-view="all-tasks"] [data-focusable-key^="task^^"]',
   );
-  await expect(sortControl).toHaveValue("alphabetical");
+  await expect(sortControl).toHaveText("Alphabetical");
   await expect(tasks).toHaveText([/Alpha default task/, /Bravo default task/]);
-  await sortControl.selectOption("date");
+  await sortControl.click();
+  await page.getByRole("menuitemradio", { name: "Planned day" }).click();
   await expect(tasks).toHaveText([/Bravo default task/, /Alpha default task/]);
 
   await page.getByRole("button", { name: "Space settings" }).click();
@@ -215,8 +218,8 @@ test("uses the general sort default until a view saves its own choice", async ({
     .getByRole("combobox", { name: "Default task sort" })
     .selectOption("manual");
   await page.getByRole("button", { name: "Close settings" }).click();
-  await expect(sortControl).toHaveValue("date");
+  await expect(sortControl).toHaveText("Planned day");
   await page.reload();
-  await expect(sortControl).toHaveValue("date");
+  await expect(sortControl).toHaveText("Planned day");
   await expect(tasks).toHaveText([/Bravo default task/, /Alpha default task/]);
 });

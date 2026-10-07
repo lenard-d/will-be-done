@@ -1,7 +1,11 @@
 import { v } from "@will-be-done/hyperdb";
 import { action, selector } from "../builders";
 import { assertUnreachable } from "./utils";
-import { createDailyEntrySibling, deleteDailyEntries } from "./dailyEntries";
+import {
+  createDailyEntrySibling,
+  dailyEntryByTaskId,
+  deleteDailyEntries,
+} from "./dailyEntries";
 import { createTaskNextToSectionItem } from "./projectSectionItems";
 import { createStashEntrySibling, deleteStashEntries } from "./stashEntries";
 import { deleteTasksByIds, taskById, defaultTask } from "./tasks";
@@ -76,6 +80,33 @@ export const createTaskNextToListItem = action({
     } else {
       assertUnreachable(listItem);
     }
+  },
+});
+
+/** Inherit the selected task's schedule when inserting in Planned day order. */
+export const createTaskNextToPlannedItem = action({
+  name: "createTaskNextToPlannedItem",
+  args: {
+    listItem,
+    position: v.union(v.literal("before"), v.literal("after")),
+    taskParams: v.optional(v.partial(tasksTable.v())),
+  },
+  handler: function* ({ listItem, position, taskParams }) {
+    if (
+      isTask(listItem) &&
+      (yield* dailyEntryByTaskId({ taskId: listItem.id }))
+    ) {
+      const entry = yield* createDailyEntrySibling({
+        taskId: listItem.id,
+        position,
+        taskParams,
+      });
+      const task = yield* taskById({ id: entry.id });
+      if (!task) throw new Error("Created task not found");
+      return task;
+    }
+
+    return yield* createTaskNextToListItem({ listItem, position, taskParams });
   },
 });
 

@@ -278,9 +278,11 @@ const ProjectTasksColumn = ({
 export const ProjectItemsList = ({
   project,
   selectedDate,
+  header = <TaskSortControl viewKey={`project:${project.id}`} />,
 }: {
   project: Project;
   selectedDate?: Date;
+  header?: React.ReactNode;
 }) => {
   const { data: sections = [] } = useAsyncSelector({
     selector: projectSectionsByProjectId,
@@ -302,12 +304,7 @@ export const ProjectItemsList = ({
       data-task-sort-view={`project:${project.id}`}
       data-task-sort-mode={sortMode}
     >
-      <div
-        className="flex justify-end px-4 pt-2"
-        data-task-sort-view={`project:${project.id}`}
-      >
-        <TaskSortControl viewKey={`project:${project.id}`} />
-      </div>
+      {header && <div className="flex justify-end px-4 pt-2">{header}</div>}
       <TasksColumnGrid columnsCount={sections.length}>
         {sections.map((group) => (
           <ProjectTasksColumn

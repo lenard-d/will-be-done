@@ -1,5 +1,5 @@
 import { createContext, use } from "react";
-import type { TaskSortMode } from "./taskSorting";
+import type { TaskInsertion, TaskSortMode } from "./taskSorting";
 
 type TaskSortContextValue = {
   mode: TaskSortMode;
@@ -8,6 +8,7 @@ type TaskSortContextValue = {
   nextTaskId?: string;
   calendar: boolean;
   blockManual: boolean;
+  keepInsertionPosition: (insertion: TaskInsertion) => void;
 };
 
 export const TaskSortingContext = createContext<

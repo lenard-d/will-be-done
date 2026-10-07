@@ -7,8 +7,6 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar.tsx";
-import { useSpaceSettingsStore } from "@/components/SpaceSettings/spaceSettingsStore.ts";
-import { SpaceSettingsModal } from "@/components/SpaceSettings/SpaceSettingsModal.tsx";
 import { TOGGLE_SIDEBAR_EVENT } from "@/components/CommandPalette/CommandPalette.tsx";
 
 function SidebarCommandBridge() {
@@ -25,36 +23,32 @@ function SidebarCommandBridge() {
 
 export const LayoutWithSidebar = ({
   children,
+  sidePanel,
 }: {
   children: React.ReactNode;
+  sidePanel?: React.ReactNode;
 }) => {
   const sidebarWidth = useSidebarStore((s) => s.width);
   const setSidebarWidth = useSidebarStore((s) => s.setWidth);
-  const { open, spaceName, closeSettings } = useSpaceSettingsStore();
 
   return (
-    <>
-      <SidebarProvider
-        defaultOpen={true}
-        className="min-h-0 h-full w-full"
-        width={sidebarWidth}
-        onWidthChange={setSidebarWidth}
-      >
-        <SidebarCommandBridge />
-        <AppSidebar />
-        <SidebarInset className="min-h-0 min-w-0 bg-transparent">
+    <SidebarProvider
+      defaultOpen={true}
+      className="min-h-0 h-full w-full"
+      width={sidebarWidth}
+      onWidthChange={setSidebarWidth}
+    >
+      <SidebarCommandBridge />
+      <AppSidebar />
+      <SidebarInset className="min-h-0 min-w-0 flex-row bg-transparent">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <header className="flex h-12 shrink-0 items-center gap-2 px-2 [app-region:no-drag]">
             <SidebarTrigger className="shrink-0 cursor-pointer text-content-tinted hover:text-primary" />
           </header>
           <div className="relative flex-1 min-h-0">{children}</div>
-        </SidebarInset>
-      </SidebarProvider>
-
-      <SpaceSettingsModal
-        open={open}
-        onClose={closeSettings}
-        spaceName={spaceName}
-      />
-    </>
+        </div>
+        {sidePanel}
+      </SidebarInset>
+    </SidebarProvider>
   );
 };

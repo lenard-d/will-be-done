@@ -14,6 +14,8 @@ import { authUtils, isDemoMode } from "@/lib/auth";
 import { demoSpaceDBConfig, spaceDBConfig } from "@/store/configs";
 import { useFocusStore } from "@/store/focusSlice.ts";
 import { CommandPalette } from "@/components/CommandPalette/CommandPalette.tsx";
+import { SpaceSettingsModal } from "@/components/SpaceSettings/SpaceSettingsModal";
+import { useSpaceSettingsStore } from "@/components/SpaceSettings/spaceSettingsStore";
 import { useEffect } from "react";
 
 export const Route = createFileRoute("/spaces/$spaceId")({
@@ -46,6 +48,7 @@ async function loadSpaceDb(spaceId: string) {
 
 function RouteComponent() {
   const newStore = Route.useLoaderData();
+  const { open, spaceName, closeSettings } = useSpaceSettingsStore();
 
   return (
     <DBProvider value={newStore as SubscribableDB}>
@@ -59,6 +62,11 @@ function RouteComponent() {
             <ResetFocusOnNavigate />
 
             <Outlet />
+            <SpaceSettingsModal
+              open={open}
+              spaceName={spaceName}
+              onClose={closeSettings}
+            />
           </div>
         </KeyPressedCtxProvider>
       </ThemeProvider>
