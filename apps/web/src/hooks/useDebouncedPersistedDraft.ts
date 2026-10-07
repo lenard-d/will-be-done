@@ -18,7 +18,7 @@ export function useDebouncedPersistedDraft<T>({
   isEqual = defaultIsEqual<T>,
 }: {
   value: T;
-  persist: (value: T) => void;
+  persist: (value: T) => void | Promise<void>;
   delay?: number;
   isEqual?: (left: T, right: T) => boolean;
 }) {
@@ -26,6 +26,7 @@ export function useDebouncedPersistedDraft<T>({
   const draftRef = useRef(value);
   const sourceRef = useRef(value);
   const lastSubmittedRef = useRef(value);
+  const pendingSaveRef = useRef<Promise<void>>(Promise.resolve());
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearSaveTimeout = useCallback(() => {
@@ -35,7 +36,7 @@ export function useDebouncedPersistedDraft<T>({
     saveTimeoutRef.current = null;
   }, []);
 
-  const flush = useCallback(
+  const flushAndWait = useCallback(
     (valueToPersist = draftRef.current) => {
       clearSaveTimeout();
 
@@ -43,14 +44,19 @@ export function useDebouncedPersistedDraft<T>({
         isEqual(valueToPersist, sourceRef.current) ||
         isEqual(valueToPersist, lastSubmittedRef.current)
       ) {
-        return;
+        return pendingSaveRef.current;
       }
 
       lastSubmittedRef.current = valueToPersist;
-      persist(valueToPersist);
+      pendingSaveRef.current = Promise.resolve(persist(valueToPersist));
+      return pendingSaveRef.current;
     },
     [clearSaveTimeout, isEqual, persist],
   );
+
+  const flush = useCallback(() => {
+    void flushAndWait();
+  }, [flushAndWait]);
 
   const setDraft = useCallback((nextValue: SetStateAction<T>) => {
     const resolvedValue =
@@ -112,5 +118,6 @@ export function useDebouncedPersistedDraft<T>({
     draft,
     setDraft,
     flush,
+    flushAndWait,
   };
 }
