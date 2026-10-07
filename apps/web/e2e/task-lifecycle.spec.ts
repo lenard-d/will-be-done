@@ -6,6 +6,7 @@ import {
   openSpace,
   openToday,
   openTaskActions,
+  projectTaskItem,
   signupUser,
   taskItem,
   uniqueE2EName,
@@ -51,7 +52,7 @@ test("creates, edits, toggles, and deletes a task across Today and Inbox", async
 
   await page.getByRole("link", { name: /^Inbox$/ }).click();
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/projects\/[^/]+$/);
-  await expect(taskItem(page, editedTitle)).toBeVisible();
+  await expect(projectTaskItem(page, editedTitle)).toBeVisible();
 
   await openTaskActions(page, editedTitle);
   await expect(
