@@ -30,6 +30,8 @@ import {
   getDOMColumnSiblingFirstItems,
 } from "@/components/Focus/domNavigation.ts";
 import { selectAsync } from "@will-be-done/hyperdb";
+import { sortedTaskDrop } from "@/components/TaskSorting/sortedTaskDrop";
+import { dailyEntryById } from "@will-be-done/slices/space";
 
 export function GlobalListener() {
   const dispatch = useAsyncDispatch();
@@ -181,6 +183,44 @@ export function GlobalListener() {
             if (!isModelDNDData(source.data)) {
               return;
             }
+
+            const closestTarget = location.current.dropTargets[0];
+            const sortedTarget =
+              closestTarget && "taskSortMode" in closestTarget.data
+                ? closestTarget
+                : undefined;
+            const isTaskSource =
+              source.data.modelType === taskType ||
+              source.data.modelType === dailyEntryType ||
+              source.data.modelType === stashEntryType;
+            if (sortedTarget && isTaskSource) {
+              const sourceEntry = await selectAsync(db, {
+                selector: dailyEntryById,
+                args: { id: source.data.modelId },
+              });
+              const sortedDrop = sortedTaskDrop({
+                sourceId: source.data.modelId,
+                sourceDailyListId: sourceEntry?.dailyListId,
+                target: sortedTarget.data,
+                edge:
+                  extractClosestEdge(sortedTarget.data) === "bottom"
+                    ? "bottom"
+                    : "top",
+              });
+              if (sortedDrop.handled) {
+                if (sortedDrop.action) void dispatch(sortedDrop.action);
+                return;
+              }
+            }
+
+            const projectSortMode = closestTarget?.element
+              .closest("[data-task-sort-mode]")
+              ?.getAttribute("data-task-sort-mode");
+            if (
+              closestTarget?.data.modelType === projectSectionType &&
+              (projectSortMode === "date" || projectSortMode === "alphabetical")
+            )
+              return;
 
             const targetImportanceOrder = [
               checklistItemType,

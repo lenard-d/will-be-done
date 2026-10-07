@@ -1,10 +1,38 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { DB } from "@will-be-done/hyperdb";
 import { BptreeInmemDriver } from "@will-be-done/hyperdb/drivers/inmemory";
 import { createAppRouter } from "./appRouter";
 import { createServer } from "./server";
+import * as databases from "./db/db";
 
 describe("API documentation", () => {
+  test("requires authentication to list all space tasks", async () => {
+    const mainDB = new DB(new BptreeInmemDriver());
+    const databaseStub = spyOn(databases, "getMainHyperDB").mockReturnValue(
+      mainDB,
+    );
+    const appRouter = createAppRouter({
+      mainDB,
+      captchaConfig: null,
+    });
+    const server = createServer({
+      appRouter,
+      logger: false,
+      serveFrontend: false,
+    });
+
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/api/v1/spaces/space-1/tasks",
+      });
+      expect(response.statusCode).toBe(401);
+    } finally {
+      await server.close();
+      databaseStub.mockRestore();
+    }
+  });
+
   test("serves the OpenAPI document through Scalar", async () => {
     const appRouter = createAppRouter({
       mainDB: new DB(new BptreeInmemDriver()),

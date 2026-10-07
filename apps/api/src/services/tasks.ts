@@ -5,6 +5,7 @@ import {
   upsert,
 } from "@will-be-done/hyperdb";
 import {
+  allTasks,
   createTaskInSection,
   dailyEntryByTaskId,
   dailyListById,
@@ -104,6 +105,18 @@ export function getTask({
   const task = selectSync(db, { selector: taskById, args: { id: taskId } });
   if (!task) throw new ResourceNotFoundError("Task");
   return toPublicTask(db, task);
+}
+
+export function listSpaceTasks({
+  spaceId,
+  userId,
+}: {
+  spaceId: string;
+  userId: string;
+}): PublicTask[] {
+  const db = getSpaceDatabase(spaceId, userId);
+  const tasks = selectSync(db, { selector: allTasks, args: {} });
+  return tasks.map((task) => toPublicTask(db, task));
 }
 
 export function createSectionTask({

@@ -5,6 +5,7 @@ import {
   createSpace,
   dailyTaskItem,
   openSpace,
+  openToday,
   projectTaskItem,
   signupUser,
   stashPanel,
@@ -58,7 +59,7 @@ test("supports a keyboard-only planning loop", async ({ page }) => {
   await projectTaskItem(page, aboveTitle).click();
   await page.keyboard.press("KeyT");
 
-  await page.getByRole("link", { name: /today/i }).click();
+  await openToday(page);
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/dates\/\d{4}-\d{2}-\d{2}$/);
   await expect(dailyTaskItem(page, aboveTitle)).toBeVisible();
 
@@ -79,7 +80,7 @@ test("supports a keyboard-only planning loop", async ({ page }) => {
   await expect(stashPanel(page)).toHaveAttribute("aria-hidden", "false");
   await expect(stashTaskItem(page, belowTitle)).toBeVisible();
 
-  await page.getByRole("link", { name: "timeline" }).click();
+  await page.getByRole("link", { name: /^Timeline$/ }).click();
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/timeline\/\d{4}-\d{2}-\d{2}/);
   await expect(page.getByRole("link", { name: "Previous day" })).toBeVisible();
   await expect(stashPanel(page)).toHaveAttribute("aria-hidden", "false");
