@@ -1,0 +1,261 @@
+import { expect, test, type Locator, type Page } from "playwright/test";
+import {
+  createSpace,
+  createTodayTask,
+  openSpace,
+  signupUser,
+  uniqueE2EName,
+} from "./helpers";
+
+type Point = { x: number; y: number };
+
+async function swipe(page: Page, path: { from: Point; to: Point }) {
+  const session = await page.context().newCDPSession(page);
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ ...path.from, id: 1 }],
+  });
+  for (let step = 1; step <= 8; step++) {
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        {
+          x: path.from.x + ((path.to.x - path.from.x) * step) / 8,
+          y: path.from.y + ((path.to.y - path.from.y) * step) / 8,
+          id: 1,
+        },
+      ],
+    });
+    await page.waitForTimeout(20);
+  }
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await session.detach();
+}
+
+async function titlePoint(region: Locator): Promise<Point> {
+  await expect(region).toBeVisible();
+  const bounds = await region.boundingBox();
+  if (!bounds) throw new Error("The title region is missing");
+  return { x: bounds.x + bounds.width / 2, y: bounds.y + 6 };
+}
+
+async function createTestSpace(page: Page) {
+  const name = uniqueE2EName("Mobile command gesture");
+  await signupUser(page);
+  await createSpace(page, name);
+  await openSpace(page, name);
+  const todayPath = new URL(page.url()).pathname;
+  const spacePath = new URL(page.url()).pathname
+    .split("/")
+    .slice(0, 3)
+    .join("/");
+  await page.locator('[data-sidebar="trigger"]').tap();
+  const inboxPath = await page
+    .getByRole("link", { name: /^Inbox/ })
+    .getAttribute("href");
+  if (!inboxPath) throw new Error("The Inbox link is missing");
+  await page.keyboard.press("Escape");
+  return { spacePath, inboxPath, todayPath };
+}
+
+test.describe("mobile command palette swipe", () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("opens from title areas across authenticated views", async ({
+    page,
+  }) => {
+    const { spacePath, inboxPath, todayPath } = await createTestSpace(page);
+    const task = await createTodayTask(page, "Gesture details task");
+    const taskKey = await task.getAttribute("data-focusable-key");
+    const taskId = taskKey?.split("^^")[1];
+    if (!taskId) throw new Error("The details task id is missing");
+
+    const views = [
+      { path: todayPath, region: () => page.locator("header").first() },
+      {
+        path: `${spacePath}/all-tasks`,
+        region: () =>
+          page
+            .getByRole("heading", { name: "All tasks", exact: true })
+            .locator(".."),
+      },
+      {
+        path: inboxPath,
+        region: () =>
+          page.locator("[data-command-palette-swipe-region], header").first(),
+      },
+      {
+        path: `${spacePath}/timeline/2026-10-05?projectId=inbox`,
+        region: () => page.locator('header[data-task-sort-view="timeline"]'),
+        startX: 378,
+      },
+      {
+        path: `${spacePath}/habits`,
+        region: () =>
+          page
+            .getByRole("heading", { name: "Habits", exact: true })
+            .locator("../.."),
+      },
+      {
+        path: `${spacePath}/stats`,
+        region: () =>
+          page
+            .getByRole("heading", { name: "Stats", exact: true })
+            .locator(".."),
+      },
+      {
+        path: `${spacePath}/item-details/${taskId}`,
+        region: () => page.locator("[data-command-palette-swipe-region]"),
+      },
+    ];
+    const palette = page.getByRole("dialog", { name: "Command bar" });
+    for (const view of views) {
+      await page.goto(view.path);
+      const titleStart = await titlePoint(view.region());
+      const from = { ...titleStart, x: view.startX ?? titleStart.x };
+      await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });
+      await expect(palette).toBeVisible();
+      await expect(palette.getByRole("combobox")).toBeFocused();
+      await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });
+      await expect(palette).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(palette).toBeHidden();
+    }
+  });
+
+  test("keeps list scrolling and rejects controls, other directions, multi-touch and cancellation", async ({
+    page,
+  }) => {
+    const { spacePath } = await createTestSpace(page);
+    for (let index = 0; index < 18; index++) {
+      await createTodayTask(page, `Gesture scroll task ${index}`);
+    }
+    await page.goto(`${spacePath}/all-tasks`);
+    const palette = page.getByRole("dialog", { name: "Command bar" });
+    const list = page.locator("#main-scrollable-area");
+    await expect(list).toBeVisible();
+    const listBounds = await list.boundingBox();
+    if (!listBounds) throw new Error("The task list is missing");
+    const listPoint = { x: 210, y: Math.min(listBounds.y + 250, 580) };
+    await swipe(page, {
+      from: listPoint,
+      to: { x: listPoint.x, y: listPoint.y - 160 },
+    });
+    await expect
+      .poll(() => list.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+    await swipe(page, {
+      from: { x: listPoint.x, y: listPoint.y - 140 },
+      to: listPoint,
+    });
+    await expect(palette).toBeHidden();
+
+    const from = await titlePoint(
+      page
+        .getByRole("heading", { name: "All tasks", exact: true })
+        .locator(".."),
+    );
+    for (const to of [
+      { x: from.x, y: from.y + 20 },
+      { x: from.x + 80, y: from.y + 30 },
+      { x: from.x, y: from.y - 40 },
+    ]) {
+      await swipe(page, { from, to });
+      await expect(palette).toBeHidden();
+    }
+    const control = await titlePoint(
+      page.getByRole("button", { name: "Sort tasks" }),
+    );
+    await swipe(page, {
+      from: control,
+      to: { x: control.x, y: control.y + 90 },
+    });
+    await expect(palette).toBeHidden();
+
+    const session = await page.context().newCDPSession(page);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ ...from, id: 1 }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [
+        { ...from, id: 1 },
+        { x: from.x + 30, y: from.y, id: 2 },
+      ],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        { x: from.x, y: from.y + 90, id: 1 },
+        { x: from.x + 30, y: from.y + 90, id: 2 },
+      ],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await expect(palette).toBeHidden();
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ ...from, id: 1 }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchCancel",
+      touchPoints: [],
+    });
+    await session.detach();
+    await expect(palette).toBeHidden();
+
+    await page.keyboard.press("Control+KeyK");
+    await expect(palette).toBeVisible();
+    await page.keyboard.press("Control+KeyK");
+    await expect(palette).toBeHidden();
+  });
+
+  test("ignores editing and dialogs and removes the listener on desktop", async ({
+    page,
+  }) => {
+    const { spacePath } = await createTestSpace(page);
+    await createTodayTask(page, "Gesture editing task");
+    await page.goto(`${spacePath}/all-tasks`);
+    const title = page.getByRole("heading", { name: "All tasks", exact: true });
+    const from = await titlePoint(title.locator(".."));
+    const palette = page.getByRole("dialog", { name: "Command bar" });
+    await page.locator('[data-focusable-key^="task^^"]').first().click();
+    await page.keyboard.press("KeyI");
+    const editor = page.getByLabel("Edit task title");
+    await expect(editor).toBeVisible();
+    await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });
+    await expect(palette).toBeHidden();
+    await page.keyboard.press("Escape");
+
+    await page.keyboard.press("Control+KeyK");
+    await palette.getByRole("combobox").fill("Create project");
+    await palette
+      .getByRole("option", { name: "Create project", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Enter project title" });
+    await expect(dialog).toBeVisible();
+    await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });
+    await expect(palette).toBeHidden();
+    await page.keyboard.press("Escape");
+
+    await page.setViewportSize({ width: 900, height: 844 });
+    const desktopFrom = await titlePoint(title.locator(".."));
+    await swipe(page, {
+      from: desktopFrom,
+      to: { x: desktopFrom.x, y: desktopFrom.y + 90 },
+    });
+    await expect(palette).toBeHidden();
+    await page.keyboard.press("Meta+KeyK");
+    await expect(palette).toBeVisible();
+  });
+});
