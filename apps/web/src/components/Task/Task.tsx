@@ -57,6 +57,7 @@ import {
   createDailyListIfNotPresent,
   createItem,
   createTaskNextToListItem,
+  createTaskNextToPlannedItem,
   createTaskTemplateFromTask,
   dailyListType,
   dailyEntryDateOfTask,
@@ -543,21 +544,30 @@ export const PreloadedTaskComp = ({
       if (isTask(item) && item.state === "done") return;
 
       void (async () => {
+        const createSibling =
+          taskSorting?.mode === "date"
+            ? createTaskNextToPlannedItem
+            : createTaskNextToListItem;
         const newBox = await dispatch(
-          createTaskNextToListItem({
-            listItem: listItem,
-            position: position,
+          createSibling({
+            listItem,
+            position,
             taskParams: newTaskParams,
           }),
         );
+        const focusKey = buildFocusKey(newBox.id, newBox.type);
         unstable_batchedUpdates(() => {
-          useFocusStore
-            .getState()
-            .editByKey(buildFocusKey(newBox.id, newBox.type));
+          taskSorting?.keepInsertionPosition({
+            taskId: newBox.id,
+            anchorTaskId: item.id,
+            position,
+            focusKey,
+          });
+          useFocusStore.getState().editByKey(focusKey);
         });
       })();
     },
-    [item, listItem, dispatch, newTaskParams],
+    [item, listItem, dispatch, newTaskParams, taskSorting],
   );
 
   const handleOpenMoveModal = useCallback(() => {
@@ -743,7 +753,12 @@ export const PreloadedTaskComp = ({
 
       const isOpenActions = noModifiers && e.code === "KeyA";
       const isAddAfter = noModifiers && e.code === "KeyO";
-      const isAddBefore = e.shiftKey && e.code === "KeyO";
+      const isAddBefore =
+        e.shiftKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        e.code === "KeyO";
 
       const isDeleteDailyEntryTask =
         (e.metaKey || e.ctrlKey) &&
@@ -1146,15 +1161,6 @@ export const PreloadedTaskComp = ({
       useFocusStore.getState().resetEdit();
       e.currentTarget.blur();
       ref.current?.focus();
-
-      // if (e.key === "Enter") {
-      //   task.setTitle(editingTitle);
-      //   const siblings = listItem.siblings;
-      //   const list = listItem.listRef.current;
-      //   const newItem = list.createChild([listItem, siblings[1]], listItem);
-      //
-      //   currentDailyEntryState.setFocusedItemId(newItem.id);
-      // }
     }
   };
 
@@ -1361,6 +1367,7 @@ export const PreloadedTaskComp = ({
                 />
               ) : (
                 <div
+                  data-task-title
                   className={cn("min-h-5 cursor-default", {
                     "line-through": isTask(item) && item.state === "done",
                   })}
