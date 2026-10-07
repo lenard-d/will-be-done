@@ -6,7 +6,6 @@ import {
 } from "@will-be-done/slices/space";
 import { PreloadedTaskComp } from "@/components/Task/Task";
 import { SortedTaskList } from "@/components/TaskSorting/SortedTaskList";
-import { TaskSortControl } from "@/components/TaskSorting/TaskSortControl";
 import {
   sortTaskItems,
   type TaskSortMode,
@@ -109,9 +108,11 @@ export function AllTasksView() {
         className="flex h-full min-w-0 flex-col"
         style={{ marginLeft: stashOffset ? `${stashOffset}px` : undefined }}
       >
-        <header className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-5">
+        <header
+          data-command-palette-swipe-region
+          className="mx-auto hidden w-full max-w-3xl items-center px-4 py-5 sm:flex"
+        >
           <h1 className="text-3xl font-bold text-content">All tasks</h1>
-          <TaskSortControl viewKey="all-tasks" />
         </header>
         <TaskFilterBar
           items={items}
