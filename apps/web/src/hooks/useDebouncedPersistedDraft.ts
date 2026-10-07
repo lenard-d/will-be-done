@@ -62,10 +62,6 @@ export function useDebouncedPersistedDraft<T>({
     setDraftState(resolvedValue);
   }, []);
 
-  useEffect(() => {
-    draftRef.current = draft;
-  }, [draft]);
-
   useLayoutEffect(() => {
     const previousSource = sourceRef.current;
     if (isEqual(previousSource, value)) return;
