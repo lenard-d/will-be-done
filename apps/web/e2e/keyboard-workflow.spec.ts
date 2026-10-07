@@ -82,6 +82,7 @@ test("supports a keyboard-only planning loop", async ({ page }) => {
 
   await page.getByRole("link", { name: /^Timeline$/ }).click();
   await expect(page).toHaveURL(/\/spaces\/[^/]+\/timeline\/\d{4}-\d{2}-\d{2}/);
+  await expect(page.getByRole("link", { name: "Previous day" })).toBeVisible();
   await expect(stashPanel(page)).toHaveAttribute("aria-hidden", "false");
   await stashTaskItem(page, belowTitle).click();
   await page.keyboard.press("KeyV");
@@ -100,4 +101,5 @@ test("supports a keyboard-only planning loop", async ({ page }) => {
 
 async function expectFocused(item: Locator) {
   await expect(item).toHaveClass(/ring-2 ring-accent/);
+  await expect(item).toBeFocused();
 }

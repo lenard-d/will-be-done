@@ -34,11 +34,7 @@ describe("buildHabitHeatmap", () => {
   });
 
   it("allows backfilling dates before the habit was created", () => {
-    const weeks = buildHabitHeatmap(
-      [],
-      new Date(2027, 2, 10, 12),
-      1,
-    );
+    const weeks = buildHabitHeatmap([], new Date(2027, 2, 10, 12), 1);
 
     expect(weeks[0]?.days[0]).toMatchObject({
       date: "2027-03-08",

@@ -51,9 +51,8 @@ function positionalArgs() {
 }
 
 async function main() {
-  const { createSelector, selectFrom, selectSync, syncDispatch } = await import(
-    "@will-be-done/hyperdb"
-  );
+  const { createSelector, selectFrom, selectSync, syncDispatch } =
+    await import("@will-be-done/hyperdb");
   const { getHyperDB, getMainHyperDB } = await import("../src/db/db.ts");
   const { spaceDBConfig } = await import("../src/db/configs.ts");
   const { usersTable } = await import("../src/slices/authSlice.ts");
@@ -119,7 +118,9 @@ async function main() {
       if (explicitProject) {
         requireProject(db, explicitProject);
         if (category.projectId !== explicitProject) {
-          fail(`Category ${explicitCategory} does not belong to project ${explicitProject}`);
+          fail(
+            `Category ${explicitCategory} does not belong to project ${explicitProject}`,
+          );
         }
       }
       return category.id;
@@ -197,7 +198,9 @@ async function main() {
     if (!new Set(["todo", "done", "all"]).has(state)) {
       fail("--state must be todo, done, or all");
     }
-    let rows = tasks(db).filter((task) => state === "all" || task.state === state);
+    let rows = tasks(db).filter(
+      (task) => state === "all" || task.state === state,
+    );
     const projectId = option("--project");
     if (projectId) {
       const categoryIds = new Set(

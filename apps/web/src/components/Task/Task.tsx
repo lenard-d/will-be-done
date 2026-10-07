@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import invariant from "tiny-invariant";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import {
@@ -1161,7 +1167,7 @@ export const PreloadedTaskComp = ({
     useFocusStore.getState().resetEdit();
   }, [flushEditedTitle]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isEditing) return;
 
     const textarea = titleTextareaRef.current;
@@ -1171,10 +1177,8 @@ export const PreloadedTaskComp = ({
       return;
     }
 
-    window.requestAnimationFrame(() => {
-      shouldPlaceTitleCaretAtEndRef.current = false;
-      focusTitleTextarea();
-    });
+    shouldPlaceTitleCaretAtEndRef.current = false;
+    focusTitleTextarea();
   }, [focusTitleTextarea, isEditing]);
 
   // const [isHidden, setIsHidden] = useState(false);

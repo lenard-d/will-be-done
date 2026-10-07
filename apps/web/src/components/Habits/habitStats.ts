@@ -4,14 +4,9 @@ import {
   format,
   parseISO,
   startOfDay,
-  startOfYear,
   subDays,
 } from "date-fns";
-import type {
-  Habit,
-  HabitCompletion,
-  Task,
-} from "@will-be-done/slices/space";
+import type { Habit, HabitCompletion, Task } from "@will-be-done/slices/space";
 
 export type DayMetric = {
   date: string;
@@ -57,6 +52,9 @@ export type HabitStats = {
 
 const dayKey = (date: Date) => format(startOfDay(date), "yyyy-MM-dd");
 
+const DAILY_ACTIVITY_DAYS = 30;
+const ACTIVITY_HISTORY_DAYS = 13 * 7;
+
 const increment = (counts: Map<string, number>, key: string) => {
   counts.set(key, (counts.get(key) ?? 0) + 1);
 };
@@ -82,18 +80,19 @@ const buildDays = (
     return { date, count: counts.get(date) ?? 0, isToday: date === today };
   });
 
-const buildYearToDateHeatmap = (
+const buildActivityHistoryHeatmap = (
   counts: Map<string, number>,
   now: Date,
   today: string,
 ): ActivityHeatmap => {
-  const yearStart = startOfYear(now);
-  const heatmapStart = mondayStart(yearStart);
+  const windowStart = subDays(startOfDay(now), ACTIVITY_HISTORY_DAYS - 1);
+  const firstDay = dayKey(windowStart);
+  const heatmapStart = mondayStart(windowStart);
   const heatmapEnd = sundayEnd(now);
   const length = differenceInCalendarDays(heatmapEnd, heatmapStart) + 1;
   const days = Array.from({ length }, (_, index) => {
     const date = dayKey(addDays(heatmapStart, index));
-    const isPadding = date < dayKey(yearStart) || date > today;
+    const isPadding = date < firstDay || date > today;
     return {
       date,
       count: isPadding ? 0 : (counts.get(date) ?? 0),
@@ -102,14 +101,17 @@ const buildYearToDateHeatmap = (
     };
   });
   const monthLabels: HeatmapMonthLabel[] = [];
-  for (let month = 0; month <= now.getMonth(); month += 1) {
-    const monthStart = new Date(now.getFullYear(), month, 1);
-    const weekIndex = Math.floor(
-      differenceInCalendarDays(mondayStart(monthStart), heatmapStart) / 7,
-    );
-    if (monthLabels.at(-1)?.weekIndex !== weekIndex) {
-      monthLabels.push({ label: format(monthStart, "MMM"), weekIndex });
+  for (let index = 0; index < days.length; index += 1) {
+    const day = days[index]!;
+    if (day.isPadding) continue;
+    const date = parseISO(day.date);
+    if (day.date !== firstDay && date.getDate() !== 1) continue;
+    const weekIndex = Math.floor(index / 7);
+    const previousLabel = monthLabels.at(-1);
+    if (previousLabel && weekIndex - previousLabel.weekIndex < 2) {
+      monthLabels.pop();
     }
+    monthLabels.push({ label: format(date, "MMM"), weekIndex });
   }
   return { year: now.getFullYear(), days, monthLabels };
 };
@@ -165,13 +167,13 @@ export function buildHabitStats(
   }
 
   const last30Days = buildDays(
-    startOfDay(subDays(now, 29)),
-    30,
+    startOfDay(subDays(now, DAILY_ACTIVITY_DAYS - 1)),
+    DAILY_ACTIVITY_DAYS,
     activityCounts,
     today,
   );
   const doneLast30Days = last30Days.reduce((sum, day) => sum + day.count, 0);
-  const activityHeatmap = buildYearToDateHeatmap(
+  const activityHeatmap = buildActivityHistoryHeatmap(
     activityCounts,
     now,
     today,
@@ -233,11 +235,9 @@ export function buildHabitStats(
     totalDone: doneTasks.length,
     totalHabitCompletions: completions.length,
     doneLast30Days,
-    averageDoneLast30Days: Math.round((doneLast30Days / 30) * 10) / 10,
-    maxDoneInADayLast30Days: Math.max(
-      0,
-      ...last30Days.map((day) => day.count),
-    ),
+    averageDoneLast30Days:
+      Math.round((doneLast30Days / DAILY_ACTIVITY_DAYS) * 10) / 10,
+    maxDoneInADayLast30Days: Math.max(0, ...last30Days.map((day) => day.count)),
     currentStreakDays: calculateCurrentStreak(activeDays, now),
     bestStreakDays: calculateBestStreak([...activeDays]),
     last30Days,

@@ -546,7 +546,9 @@ describe("persistent habit actions", () => {
 
     const habits = selectSync(db, { selector: allHabits, args: {} });
     expect(habits.map((habit) => habit.id)).toEqual(["unassigned", "dangling"]);
-    expect(habits.find((habit) => habit.id === "unassigned")?.routineId).toBeNull();
+    expect(
+      habits.find((habit) => habit.id === "unassigned")?.routineId,
+    ).toBeNull();
     expect(habits.find((habit) => habit.id === "dangling")?.routineId).toBe(
       "missing-routine",
     );

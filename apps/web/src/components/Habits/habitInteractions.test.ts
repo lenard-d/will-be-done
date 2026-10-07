@@ -71,9 +71,9 @@ describe("habit details routine selection", () => {
     expect(getHabitRoutineSelection("missing", routines, "unassigned")).toBe(
       "unassigned",
     );
-    expect(
-      getHabitRoutineSelection("archived", routines, "unassigned"),
-    ).toBe("unassigned");
+    expect(getHabitRoutineSelection("archived", routines, "unassigned")).toBe(
+      "unassigned",
+    );
   });
 });
 
