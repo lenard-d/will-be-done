@@ -6,6 +6,7 @@ import {
   createSectionTask,
   deleteTask,
   getTask,
+  listSpaceTasks,
   moveTask,
   updateTask,
 } from "../../services/tasks";
@@ -17,15 +18,53 @@ import {
   ErrorResponseSchema,
   ListSectionItemsQuerySchema,
   ListSectionItemsResponseSchema,
+  ListTasksResponseSchema,
   MoveTaskBodySchema,
   ScheduleTaskBodySchema,
   ScheduleTaskResponseSchema,
   TaskParamsSchema,
   TaskResponseSchema,
+  SpaceParamsSchema,
   UpdateTaskBodySchema,
 } from "../schemas";
 
 export const taskRoutes: FastifyPluginAsyncZod = async (server) => {
+  server.get(
+    "/spaces/:spaceId/tasks",
+    {
+      schema: {
+        operationId: "listSpaceTasks",
+        summary: "List all tasks in a space",
+        description:
+          "Returns every todo and completed task once, including Inbox tasks. Templates are excluded. Each task includes its current scheduled date.",
+        tags: ["Tasks"],
+        security: [{ bearerAuth: [] }],
+        params: SpaceParamsSchema,
+        response: {
+          200: ListTasksResponseSchema,
+          400: ErrorResponseSchema,
+          401: ErrorResponseSchema,
+          403: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = authenticateBearerToken(request.headers.authorization);
+      if (!user) return unauthorized(reply);
+
+      try {
+        const tasks = listSpaceTasks({
+          spaceId: request.params.spaceId,
+          userId: user.id,
+        });
+        return reply.code(200).send({ tasks });
+      } catch (error) {
+        return handleTaskError(request, reply, error, "Failed to list tasks");
+      }
+    },
+  );
+
   server.get(
     "/spaces/:spaceId/sections/:sectionId/items",
     {

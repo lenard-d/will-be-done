@@ -8,9 +8,19 @@ import {
 } from "@/store/persistentDriver";
 import { getDbName } from "@/store/syncClock";
 import { spaceDbType } from "@/store/configs";
+import {
+  isTaskSortMode,
+  taskSortLabels,
+  taskSortModes,
+} from "@/components/TaskSorting/taskSorting";
+import {
+  setDefaultTaskSortMode,
+  useDefaultTaskSortMode,
+} from "@/components/TaskSorting/useTaskSorting";
 
 export function GeneralSection() {
   const { spaceId } = Route.useParams();
+  const defaultSortMode = useDefaultTaskSortMode();
   const devtoolsEnabled = useDevtoolsEnabled();
   const dbName = getDbName({ dbType: spaceDbType, dbId: spaceId });
   const persistentDriverKind = usePersistentDriverKind(dbName);
@@ -23,6 +33,31 @@ export function GeneralSection() {
 
   return (
     <div className="flex flex-col gap-3 px-5 py-5">
+      <div className="flex items-center justify-between gap-4 py-3">
+        <div>
+          <h3 className="text-[13px] font-semibold text-content">
+            Default task sort
+          </h3>
+          <p className="mt-1 text-xs text-content-tinted">
+            Used until you choose a sort for a view.
+          </p>
+        </div>
+        <select
+          aria-label="Default task sort"
+          value={defaultSortMode}
+          onChange={(event) => {
+            if (isTaskSortMode(event.target.value))
+              setDefaultTaskSortMode(event.target.value);
+          }}
+          className="rounded border border-content-tinted/20 bg-surface px-2 py-1 text-xs text-content"
+        >
+          {taskSortModes.map((mode) => (
+            <option key={mode} value={mode}>
+              {taskSortLabels[mode]}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/8 p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 gap-3">

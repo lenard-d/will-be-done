@@ -4,6 +4,7 @@ import {
   createSpace,
   dailyTaskItem,
   openSpace,
+  openToday,
   openSpaceSettings,
   openTaskDetails,
   projectSidebarLink,
@@ -72,7 +73,7 @@ test("restores a JSON backup through settings", async ({ page }) => {
   await expect(projectSidebarLink(page, projectTitle, 1)).toBeVisible();
   await expect(projectTaskItem(page, taskTitle)).toBeVisible();
 
-  await page.getByRole("link", { name: /today/i }).click();
+  await openToday(page);
   await expect(dailyTaskItem(page, taskTitle)).toBeVisible();
 });
 
