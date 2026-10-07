@@ -52,7 +52,7 @@ test.use({ browserName });
 test.describe(`mobile overscroll in ${browserName}`, () => {
   test.use({
     viewport: { width: 390, height: 844 },
-    isMobile: true,
+    isMobile: false,
     hasTouch: true,
   });
 
