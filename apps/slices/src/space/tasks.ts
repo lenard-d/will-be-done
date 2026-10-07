@@ -11,6 +11,7 @@ import { action, selector } from "../builders";
 import { changesTable } from "../common";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
 import { uuidv7 } from "uuidv7";
+import { isEqual } from "es-toolkit";
 import { appById, appDeleteModel } from "./app";
 import {
   checklistItemCanDropOnParent,
@@ -166,10 +167,6 @@ export const taskUndoSnapshot = selector({
   },
 });
 
-function rowsMatch<T>(left: T | undefined, right: T | undefined) {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
 export const undoTaskCommand = action({
   name: "undoTaskCommand",
   args: {
@@ -192,7 +189,7 @@ export const undoTaskCommand = action({
       }
 
       if (!previous) {
-        if (rowsMatch(current, changed)) yield* deleteRows(tasksTable, [id]);
+        if (isEqual(current, changed)) yield* deleteRows(tasksTable, [id]);
         continue;
       }
 
@@ -251,7 +248,7 @@ export const undoTaskCommand = action({
         const current = yield* selectFrom(table, "byId")
           .where((q) => q.eq("id", id))
           .first();
-        if (!rowsMatch(current, changedById.get(id))) continue;
+        if (!isEqual(current, changedById.get(id))) continue;
 
         const previous = previousById.get(id);
         if (previous) yield* upsert(table, [previous]);

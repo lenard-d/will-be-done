@@ -10,7 +10,11 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { TaskOptionsMenu } from "@/components/TaskHeader/TaskOptionsMenu";
 import { MobileTaskHeader } from "@/components/TaskHeader/MobileTaskHeader";
 import { filterButtonClass } from "./filterStyles";
-import { countTaskFilters, type TaskFilters } from "./taskFilters";
+import {
+  columnFilterOptions,
+  countTaskFilters,
+  type TaskFilters,
+} from "./taskFilters";
 
 export function TaskFilterBar({
   items,
@@ -38,21 +42,7 @@ export function TaskFilterBar({
     value: project.id,
     label: project.title,
   }));
-  const sections = allProjects.flatMap((project) =>
-    allSections
-      .filter(
-        (section) =>
-          section.projectId === project.id &&
-          (!filters.projectIds.length ||
-            filters.projectIds.includes(project.id) ||
-            filters.sectionIds.includes(section.id)),
-      )
-      .sort((left, right) => left.orderToken.localeCompare(right.orderToken))
-      .map((section) => ({
-        value: section.id,
-        label: `${project.title} / ${section.title}`,
-      })),
-  );
+  const columns = columnFilterOptions(allSections);
   const activeCount = countTaskFilters(filters);
   const taskCount = `${resultCount} of ${items.length} tasks`;
   const titleSearch = (
@@ -90,9 +80,9 @@ export function TaskFilterBar({
         />
         <FilterChoices
           label="Column"
-          options={sections}
-          selected={filters.sectionIds}
-          onChange={(sectionIds) => onChange({ sectionIds })}
+          options={columns}
+          selected={filters.columnNames}
+          onChange={(columnNames) => onChange({ columnNames })}
         />
         {activeCount > 0 && (
           <button type="button" className={filterButtonClass} onClick={onReset}>

@@ -3,9 +3,97 @@ import {
   createSpace,
   createTodayTask,
   openSpace,
+  openTaskActions,
   signupUser,
   uniqueE2EName,
 } from "./helpers";
+
+for (const deletion of ["keyboard", "menu"]) {
+  for (const view of ["all-tasks", "project", "day"]) {
+    test(`restores the last deleted task with Cmd+Z after ${deletion} deletion in ${view}`, async ({
+      page,
+    }) => {
+      const space = uniqueE2EName("Delete undo");
+      await signupUser(page);
+      await createSpace(page, space);
+      await openSpace(page, space);
+      await createTodayTask(page, "Restore deleted task");
+      if (view === "all-tasks") {
+        await page.getByRole("link", { name: "Tasks", exact: true }).click();
+      } else if (view === "project") {
+        await page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ }).click();
+      }
+      await expect(page).toHaveURL(
+        view === "all-tasks"
+          ? /\/all-tasks$/
+          : view === "project"
+            ? /\/projects\/[^/]+$/
+            : /\/dates\/[^/]+$/,
+      );
+      const task = page
+        .locator(
+          '[data-focusable-key^="task^^"], [data-focusable-key^="dailyEntry^^"]',
+        )
+        .filter({ hasText: "Restore deleted task" });
+      if (deletion === "keyboard") {
+        await task.click();
+        await page.keyboard.press("Backspace");
+      } else {
+        await openTaskActions(page, "Restore deleted task");
+        const remove = page.getByRole("menuitem", { name: /^Delete/ });
+        await remove.focus();
+        await remove.press("Enter");
+      }
+      await expect(task).toHaveCount(0);
+      if (view === "all-tasks") {
+        await page
+          .getByRole("button", { name: "Filters and sorting", exact: true })
+          .focus();
+      }
+      await page.keyboard.press("Meta+KeyZ");
+      await expect(task).toBeVisible();
+      await page.keyboard.press("Meta+Shift+KeyZ");
+      await expect(task).toHaveCount(0);
+    });
+  }
+}
+
+test("undoes a checkbox change while the checkbox has focus", async ({
+  page,
+}) => {
+  const space = uniqueE2EName("Checkbox undo");
+  await signupUser(page);
+  await createSpace(page, space);
+  await openSpace(page, space);
+  const task = await createTodayTask(page, "Restore completion");
+  const checkbox = task.getByRole("checkbox").first();
+  await checkbox.click();
+  await expect(checkbox).toBeChecked();
+  await checkbox.focus();
+  await page.keyboard.press("Meta+KeyZ");
+  await expect(checkbox).not.toBeChecked();
+  await page.keyboard.press("Meta+Shift+KeyZ");
+  await expect(checkbox).toBeChecked();
+});
+
+test("keeps text undo in the title editor separate from task undo", async ({
+  page,
+}) => {
+  const space = uniqueE2EName("Editor undo");
+  await signupUser(page);
+  await createSpace(page, space);
+  await openSpace(page, space);
+  const task = await createTodayTask(page, "Editor task");
+  await task.getByRole("checkbox").first().click();
+  await task.dblclick();
+  const editor = page.getByLabel("Edit task title");
+  await expect(editor).toBeFocused();
+  await editor.press("End");
+  await page.keyboard.type("!");
+  await page.keyboard.press("Control+KeyZ");
+  await expect(editor).toHaveValue("Editor task");
+  await expect(task.getByRole("checkbox").first()).toBeChecked();
+});
 
 test("undoes and redoes same-day keyboard and drag reordering in Tasks", async ({
   page,
