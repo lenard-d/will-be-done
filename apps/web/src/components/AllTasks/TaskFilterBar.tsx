@@ -54,6 +54,7 @@ export function TaskFilterBar({
       })),
   );
   const activeCount = countTaskFilters(filters);
+  const taskCount = `${resultCount} of ${items.length} tasks`;
   const titleSearch = (
     <input
       aria-label="Search task titles"
@@ -103,7 +104,7 @@ export function TaskFilterBar({
   );
   return (
     <div
-      className="mx-auto w-full max-w-3xl"
+      className="mx-auto w-full max-w-3xl shrink-0"
       role="region"
       aria-label="Task filters"
       onKeyDown={(event) => {
@@ -111,21 +112,21 @@ export function TaskFilterBar({
       }}
     >
       {isMobile ? (
-        <MobileTaskHeader
-          title="All tasks"
-          count={`${resultCount} of ${items.length} tasks`}
-          menu={menu}
-        />
+        <MobileTaskHeader title="All tasks" count={taskCount} menu={menu} />
       ) : (
-        <div className="px-4 pb-5">
-          <div className="flex items-center gap-2">
-            {titleSearch}
-            {menu}
+        <header
+          data-command-palette-swipe-region
+          className="flex items-center gap-2 px-4 py-5"
+        >
+          <div className="mr-2 flex shrink-0 items-baseline gap-3">
+            <h1 className="text-3xl font-bold text-content">All tasks</h1>
+            <p role="status" className="text-xs text-content-tinted">
+              {taskCount}
+            </p>
           </div>
-          <p role="status" className="mt-2 text-xs text-content-tinted">
-            {resultCount} of {items.length} tasks
-          </p>
-        </div>
+          {titleSearch}
+          {menu}
+        </header>
       )}
     </div>
   );
