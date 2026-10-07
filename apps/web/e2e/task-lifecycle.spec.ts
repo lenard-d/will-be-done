@@ -27,7 +27,9 @@ test("creates, edits, toggles, and deletes a task across Today and Inbox", async
   await expect(inboxWithOneTask).toBeVisible();
 
   await createdItem.dblclick();
-  await createdItem.getByLabel("Edit task title").fill(editedTitle);
+  const titleInput = page.getByLabel("Edit task title");
+  await titleInput.fill(editedTitle);
+  await expect(titleInput).toHaveValue(editedTitle);
   await page.keyboard.press("Enter");
 
   await expect(taskItem(page, editedTitle)).toBeVisible();

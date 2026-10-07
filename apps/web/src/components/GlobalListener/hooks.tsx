@@ -1,6 +1,5 @@
-import { useEffect, useMemo } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import { create } from "zustand";
-import { useUnmount } from "@/utils.ts";
 
 type GlobalCallback<E = unknown> = (e: E) => void;
 
@@ -40,11 +39,11 @@ export const useGlobalListener = <K extends keyof WindowEventMap>(
   }
   addEvent(key);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     cbMap.set(id, cb as GlobalCallback);
-  }, [cb, cbMap, id]);
 
-  useUnmount(() => {
-    cbMap.delete(id);
-  });
+    return () => {
+      cbMap.delete(id);
+    };
+  }, [cb, cbMap, id]);
 };
