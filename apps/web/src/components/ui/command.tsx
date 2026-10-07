@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
+  DialogOverlay,
   DialogTitle,
 } from "@/components/ui/dialog";
 
@@ -36,6 +37,10 @@ function Command({
 }
 
 const MotionDialogContent = motion.create(DialogContent);
+const MOBILE_REVEAL_OFFSET = 12;
+const OPENING_DURATION = 0.18;
+const BACKGROUND_BLUR = 8;
+const BACKGROUND_DIM = 0.35;
 
 function CommandDialog({
   title = "Command Palette",
@@ -49,7 +54,7 @@ function CommandDialog({
   description?: string;
   reveal?: {
     phase: "idle" | "dragging" | "closing";
-    distance: MotionValue<number>;
+    progress: MotionValue<number>;
   };
   onCloseAutoFocus?: React.ComponentProps<
     typeof DialogContent
@@ -60,34 +65,59 @@ function CommandDialog({
   );
   const returnFocus = React.useRef<HTMLElement | null>(null);
   const mobile = !!reveal;
-  const fallbackDistance = useMotionValue(0);
-  const distance = reveal?.distance ?? fallbackDistance;
-  const panelHeight = useMotionValue(0);
-  const clipPath = useTransform(
-    () =>
-      `inset(0px 0px ${Math.max(0, panelHeight.get() - distance.get())}px 0px round 8px)`,
-  );
+  const fallbackProgress = useMotionValue(0);
+  const progress = reveal?.progress ?? fallbackProgress;
   const reducedMotion = useReducedMotion();
   const preview = !!reveal && !props.open && reveal.phase !== "idle";
+  const transform = useTransform(
+    progress,
+    (value) =>
+      `translate(-50%, ${reducedMotion ? 0 : (value - 1) * MOBILE_REVEAL_OFFSET}px)`,
+  );
+  const backdropFilter = useTransform(
+    progress,
+    (value) => `blur(${reducedMotion ? 0 : value * BACKGROUND_BLUR}px)`,
+  );
+  const backgroundColor = useTransform(
+    progress,
+    (value) => `rgba(0, 0, 0, ${value * BACKGROUND_DIM})`,
+  );
+  React.useEffect(() => {
+    if (!props.open && !preview) progress.jump(0);
+  }, [props.open, preview, progress]);
   const mountContent = React.useCallback(
     (element: HTMLDivElement | null) => {
       openingAnimation.current?.stop();
-      if (!mobile || !element) return;
-      panelHeight.set(element.offsetHeight);
-      if (!props.open) return;
-      openingAnimation.current = animate(distance, element.offsetHeight, {
-        duration: reducedMotion ? 0 : 0.18,
+      if (!mobile || !element || !props.open) return;
+      openingAnimation.current = animate(progress, 1, {
+        duration: reducedMotion ? 0 : OPENING_DURATION,
+        ease: "easeOut",
       });
     },
-    [distance, panelHeight, props.open, reducedMotion, mobile],
+    [progress, props.open, reducedMotion, mobile],
+  );
+  const backdrop = (
+    <motion.div
+      data-slot="dialog-overlay"
+      aria-hidden="true"
+      className="command-palette-mobile-overlay fixed inset-0 z-50"
+      style={{
+        backgroundColor,
+        backdropFilter,
+        pointerEvents: preview ? "none" : "auto",
+      }}
+    />
+  );
+  const mobileOverlay = preview ? (
+    backdrop
+  ) : (
+    <DialogOverlay asChild>{backdrop}</DialogOverlay>
   );
   return (
     <Dialog {...props} modal={preview ? false : props.modal}>
       <MotionDialogContent
         ref={mountContent}
-        overlayProps={
-          mobile ? { className: "command-palette-mobile-overlay" } : undefined
-        }
+        overlay={mobile ? mobileOverlay : undefined}
         forceMount={preview ? true : undefined}
         aria-hidden={preview ? true : undefined}
         inert={preview ? true : undefined}
@@ -118,8 +148,8 @@ function CommandDialog({
         style={
           reveal
             ? {
-                transform: "translateX(-50%)",
-                clipPath,
+                transform,
+                opacity: progress,
                 pointerEvents: preview ? "none" : "auto",
               }
             : undefined
