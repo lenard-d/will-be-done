@@ -10,15 +10,18 @@ import { TaskSortMenu } from "@/components/TaskSorting/TaskSortControl";
 import { useTaskSortShortcut } from "@/components/TaskSorting/useTaskSortShortcut";
 import { useTaskSorting } from "@/components/TaskSorting/useTaskSorting";
 import { taskSortLabels } from "@/components/TaskSorting/taskSorting";
+import { cn } from "@/lib/utils";
 
 export function TaskOptionsMenu({
   viewKey,
   children,
   activeFilterCount = 0,
+  triggerClassName,
 }: {
   viewKey: string;
   children?: ReactNode;
   activeFilterCount?: number;
+  triggerClassName?: string;
 }) {
   const isMobile = useIsMobile();
   const stateDescriptionId = useId();
@@ -35,7 +38,10 @@ export function TaskOptionsMenu({
           aria-label="Filters and sorting"
           aria-describedby={stateDescriptionId}
           title={`Sort: ${taskSortLabels[sortMode]}`}
-          className="relative flex size-11 shrink-0 cursor-pointer items-center justify-center rounded text-content hover:bg-panel-hover outline-none focus-visible:ring-2 focus-visible:ring-accent sm:size-9 sm:border sm:border-content-tinted/20"
+          className={cn(
+            "relative flex size-11 shrink-0 cursor-pointer items-center justify-center rounded text-content hover:bg-panel-hover outline-none focus-visible:ring-2 focus-visible:ring-accent sm:size-9 sm:border sm:border-content-tinted/20",
+            triggerClassName,
+          )}
         >
           <SlidersHorizontal className="size-5" aria-hidden />
           {activeFilterCount > 0 && (

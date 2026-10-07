@@ -15,12 +15,14 @@ export function SortedTaskList({
   mode,
   calendar = false,
   blockManual = false,
+  focusScope,
   children,
 }: {
   items: readonly ItemForDisplay[];
   mode: TaskSortMode;
   calendar?: boolean;
   blockManual?: boolean;
+  focusScope?: string;
   children: (item: ItemForDisplay) => ReactNode;
 }) {
   const [insertion, setInsertion] = useState<TaskInsertion>();
@@ -51,6 +53,7 @@ export function SortedTaskList({
           dailyListId,
           calendar,
           blockManual,
+          focusScope,
           keepInsertionPosition: setInsertion,
           previousTaskId:
             dailyListId && previous?.dailyEntry?.dailyListId === dailyListId

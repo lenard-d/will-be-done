@@ -1,103 +1,72 @@
-import { format, parse } from "date-fns";
-import { useAsyncSelector } from "@will-be-done/hyperdb/react";
+import { useState } from "react";
+import {
+  useAsyncDispatch,
+  useAsyncSelector,
+} from "@will-be-done/hyperdb/react";
 import {
   allTasksForDisplay,
-  type ItemForDisplay,
+  createAllTasksColumn,
+  emptyTaskFilters,
 } from "@will-be-done/slices/space";
-import { PreloadedTaskComp } from "@/components/Task/Task";
-import { SortedTaskList } from "@/components/TaskSorting/SortedTaskList";
-import {
-  sortTaskItems,
-  type TaskSortMode,
-} from "@/components/TaskSorting/taskSorting";
 import { useTaskSorting } from "@/components/TaskSorting/useTaskSorting";
+import { TasksColumnGrid } from "@/components/TasksGrid/TasksGrid";
 import { Stash } from "@/components/Stash/Stash";
 import { useStashDesktopOffset } from "@/components/Stash/useStashDesktopOffset";
+import { STASH_BUTTON_WIDTH } from "@/components/DaysBoard/StashStore";
+import { MobileTaskHeader } from "@/components/TaskHeader/MobileTaskHeader";
+import { PlusIcon } from "@/components/ui/icons";
+import { promptDialog } from "@/components/ui/prompt-dialog-service";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Route } from "@/routes/spaces.$spaceId";
-import { TaskFilterBar } from "./TaskFilterBar";
-import { useTaskFilters } from "./useTaskFilters";
-import { filterTaskItems } from "./taskFilters";
-import { parseColumnKey, useFocusStore } from "@/store/focusSlice";
-
-function TaskGroup({
-  title,
-  items,
-  mode,
-}: {
-  title: string;
-  items: ItemForDisplay[];
-  mode: TaskSortMode;
-}) {
-  const groups = new Map<string, ItemForDisplay[]>();
-  for (const item of sortTaskItems({ items, mode })) {
-    const date = mode === "date" ? (item.dailyList?.date ?? "unscheduled") : "";
-    const group = groups.get(date) ?? [];
-    group.push(item);
-    groups.set(date, group);
-  }
-
-  return (
-    <section className="mb-6" aria-label={title}>
-      <h2 className="mb-3 text-sm font-semibold text-content">{title}</h2>
-      {[...groups].map(([date, tasks]) => (
-        <div key={date} data-focus-column className="mb-5">
-          {date && (
-            <h3 className="mb-2 text-xs text-content-tinted">
-              {date === "unscheduled"
-                ? "Unscheduled"
-                : format(
-                    parse(date, "yyyy-MM-dd", new Date()),
-                    "EEE, d MMM yyyy",
-                  )}
-            </h3>
-          )}
-          <div className="flex flex-col gap-3">
-            <SortedTaskList items={tasks} mode={mode} blockManual>
-              {(displayData) => (
-                <PreloadedTaskComp
-                  item={displayData.item}
-                  section={displayData.section}
-                  listItem={displayData.listItem}
-                  project={displayData.project}
-                  lastScheduleTime={displayData.lastScheduleTime}
-                  hasCheclistItems={displayData.hasChecklist}
-                  alwaysShowProject
-                  displayLastScheduleTime
-                />
-              )}
-            </SortedTaskList>
-          </div>
-        </div>
-      ))}
-    </section>
-  );
-}
+import { AllTasksColumnView } from "./AllTasksColumnView";
+import { useAllTasksColumns } from "./useAllTasksColumns";
 
 export function AllTasksView() {
   const { spaceId } = Route.useParams();
-  const { filters, updateFilters, resetFilters } = useTaskFilters(spaceId);
-  const editItemKey = useFocusStore((state) => state.editItemKey);
-  const editingTaskId = editItemKey?.startsWith("task^^")
-    ? parseColumnKey(editItemKey).id
-    : undefined;
+  const dispatch = useAsyncDispatch();
+  const {
+    columns,
+    ensureColumns,
+    error: columnError,
+  } = useAllTasksColumns(spaceId);
   const {
     data: items = [],
     isFetching,
     error,
-  } = useAsyncSelector({
-    selector: allTasksForDisplay,
-    args: {},
-  });
+  } = useAsyncSelector({ selector: allTasksForDisplay, args: {} });
   const { sortMode } = useTaskSorting("all-tasks");
   const stashOffset = useStashDesktopOffset();
-  const filteredItems = filterTaskItems(items, filters, editingTaskId);
-  const todoItems = filteredItems.filter(
-    (entry) => entry.item.type === "task" && entry.item.state === "todo",
+  const isMobile = useIsMobile();
+  const [saveError, setSaveError] = useState<string>();
+  const addColumn = async (afterId?: string) => {
+    const title = await promptDialog("Column name");
+    if (!title?.trim()) return;
+    try {
+      await ensureColumns();
+      await dispatch(
+        createAllTasksColumn({
+          title,
+          filtersJson: JSON.stringify(emptyTaskFilters),
+          afterId,
+        }),
+      );
+      setSaveError(undefined);
+    } catch {
+      setSaveError("Could not add the column. Try again.");
+    }
+  };
+  const taskCount = `${items.length} ${items.length === 1 ? "task" : "tasks"}`;
+  const addButton = (
+    <button
+      type="button"
+      aria-label="Add column"
+      title="Add column"
+      onClick={() => void addColumn()}
+      className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded text-content hover:bg-panel-hover outline-none focus-visible:ring-2 focus-visible:ring-accent sm:size-9"
+    >
+      <PlusIcon />
+    </button>
   );
-  const doneItems = filteredItems.filter(
-    (entry) => entry.item.type === "task" && entry.item.state === "done",
-  );
-
   return (
     <div
       className="relative h-full min-w-0 overflow-hidden"
@@ -108,45 +77,58 @@ export function AllTasksView() {
         className="flex h-full min-w-0 flex-col"
         style={{ marginLeft: stashOffset ? `${stashOffset}px` : undefined }}
       >
-        <TaskFilterBar
-          items={items}
-          filters={filters}
-          onChange={updateFilters}
-          onReset={resetFilters}
-          resultCount={filteredItems.length}
-        />
+        {isMobile ? (
+          <MobileTaskHeader
+            title="All tasks"
+            count={taskCount}
+            menu={addButton}
+          />
+        ) : (
+          <header
+            data-command-palette-swipe-region
+            className="flex shrink-0 items-center gap-3 px-4 py-5"
+          >
+            <h1 className="text-3xl font-bold text-content">All tasks</h1>
+            <p role="status" className="text-xs text-content-tinted">
+              {taskCount}
+            </p>
+            {addButton}
+          </header>
+        )}
+        {(error || columnError || saveError) && (
+          <p role="alert" className="px-4 text-sm text-notice">
+            {saveError ?? "Could not load tasks."}
+          </p>
+        )}
+        {isFetching && items.length === 0 && (
+          <p role="status" className="px-4 text-sm text-content-tinted">
+            Loading tasks...
+          </p>
+        )}
         <div
           id="main-scrollable-area"
           data-scroll-restoration-id="all-tasks-scroll"
-          data-focus-region-direction="column"
-          className="flex-1 overflow-y-auto overscroll-contain"
+          className="min-h-0 flex-1 overflow-hidden pb-4"
         >
-          <div className="mx-auto max-w-3xl px-4 pb-24">
-            {error ? (
-              <p className="text-sm text-notice" role="alert">
-                Could not load tasks.
-              </p>
-            ) : items.length === 0 ? (
-              <p className="text-sm text-content-tinted" role="status">
-                {isFetching
-                  ? "Loading tasks..."
-                  : "Add a task in Inbox or a project."}
-              </p>
-            ) : filteredItems.length === 0 ? (
-              <p className="text-sm text-content-tinted" role="status">
-                No tasks match these filters.
-              </p>
-            ) : (
-              <>
-                {todoItems.length > 0 && (
-                  <TaskGroup title="To do" items={todoItems} mode={sortMode} />
-                )}
-                {doneItems.length > 0 && (
-                  <TaskGroup title="Done" items={doneItems} mode={sortMode} />
-                )}
-              </>
-            )}
-          </div>
+          <TasksColumnGrid
+            columnsCount={columns.length}
+            paddingLeft={
+              !isMobile && !stashOffset ? STASH_BUTTON_WIDTH : undefined
+            }
+          >
+            {columns.map((column, index) => (
+              <AllTasksColumnView
+                key={column.id}
+                column={column}
+                items={items}
+                mode={sortMode}
+                index={index}
+                columnCount={columns.length}
+                ensureColumns={ensureColumns}
+                onAddColumn={(afterId) => void addColumn(afterId)}
+              />
+            ))}
+          </TasksColumnGrid>
         </div>
       </div>
     </div>

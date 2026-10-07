@@ -6,6 +6,7 @@ import { taskRoutes } from "./v1/tasks";
 import { dailyListRoutes } from "./v1/dailyLists";
 import { taskTemplateRoutes } from "./v1/taskTemplates";
 import { checklistItemRoutes } from "./v1/checklistItems";
+import { allTasksColumnRoutes } from "./v1/allTasksColumns";
 
 export const v1Routes: FastifyPluginAsyncZod = async (server) => {
   server.setErrorHandler((error, _request, reply) => {
@@ -25,4 +26,5 @@ export const v1Routes: FastifyPluginAsyncZod = async (server) => {
   server.register(dailyListRoutes);
   server.register(taskTemplateRoutes);
   server.register(checklistItemRoutes);
+  server.register(allTasksColumnRoutes);
 };

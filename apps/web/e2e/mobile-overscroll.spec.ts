@@ -92,7 +92,9 @@ test.describe(`mobile overscroll in ${browserName}`, () => {
     }
     await page.goto(`${spacePath}/all-tasks`);
     const shell = page.locator("[data-app-shell]");
-    const list = page.locator("#main-scrollable-area");
+    const list = page
+      .locator("[data-all-tasks-column] .overflow-y-auto")
+      .first();
     const header = page
       .locator("[data-command-palette-swipe-region]")
       .filter({ visible: true });

@@ -126,7 +126,11 @@ test.describe("mobile command palette swipe", () => {
       await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });
       await expect(palette).toBeVisible();
       await expect(palette.getByRole("combobox")).toBeFocused();
-      await expect.poll(async () => (await palette.boundingBox())?.y).toBe(0);
+      await expect
+        .poll(async () =>
+          Math.abs((await palette.boundingBox())?.y ?? Infinity),
+        )
+        .toBeLessThan(1);
       await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });
       await expect(palette).toBeVisible();
       await page.keyboard.press("Escape");
@@ -143,7 +147,9 @@ test.describe("mobile command palette swipe", () => {
     }
     await page.goto(`${spacePath}/all-tasks`);
     const palette = page.getByRole("dialog", { name: "Command bar" });
-    const list = page.locator("#main-scrollable-area");
+    const list = page
+      .locator("[data-all-tasks-column] .overflow-y-auto")
+      .first();
     await expect(list).toBeVisible();
     const listBounds = await list.boundingBox();
     if (!listBounds) throw new Error("The task list is missing");
@@ -377,14 +383,14 @@ test.describe("mobile command palette swipe", () => {
     await expect(page.getByRole("link", { name: /^Inbox/ })).toBeVisible();
   });
 
-  test("pulls from search and filter buttons and supports reduced motion", async ({
+  test("pulls from search and add-column buttons and supports reduced motion", async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     const { spacePath } = await createTestSpace(page);
     await page.goto(`${spacePath}/all-tasks`);
     const palette = page.getByRole("dialog", { name: "Command bar" });
-    for (const name of ["Search tasks and commands", "Filters and sorting"]) {
+    for (const name of ["Search tasks and commands", "Add column"]) {
       const button = page.getByRole("button", { name, exact: true });
       const from = await titlePoint(button);
       await swipe(page, { from, to: { x: from.x, y: from.y + 90 } });

@@ -9211,6 +9211,1076 @@
           }
         }
       }
+    },
+    "/api/v1/spaces/{spaceId}/all-tasks-columns": {
+      "get": {
+        "operationId": "listAllTasksColumns",
+        "summary": "List saved All tasks columns",
+        "tags": ["All tasks columns"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "minLength": 1 },
+            "in": "path",
+            "name": "spaceId",
+            "required": true,
+            "description": "Space identifier"
+          }
+        ],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "title": { "type": "string" },
+                          "createdAt": { "type": "number" },
+                          "filtersJson": { "type": "string" }
+                        },
+                        "required": ["id", "title", "createdAt", "filtersJson"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["columns"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAllTasksColumn",
+        "summary": "Create a saved All tasks column",
+        "tags": ["All tasks columns"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string", "minLength": 1 },
+                  "filtersJson": { "type": "string" },
+                  "afterId": { "type": "string", "minLength": 1 }
+                },
+                "required": ["title", "filtersJson"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": { "type": "string", "minLength": 1 },
+            "in": "path",
+            "name": "spaceId",
+            "required": true,
+            "description": "Space identifier"
+          }
+        ],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "column": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "title": { "type": "string" },
+                        "createdAt": { "type": "number" },
+                        "filtersJson": { "type": "string" }
+                      },
+                      "required": ["id", "title", "createdAt", "filtersJson"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["column"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/spaces/{spaceId}/all-tasks-columns/{columnId}": {
+      "patch": {
+        "operationId": "updateAllTasksColumn",
+        "summary": "Update a saved All tasks column",
+        "tags": ["All tasks columns"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string", "minLength": 1 },
+                  "filtersJson": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": { "type": "string", "minLength": 1 },
+            "in": "path",
+            "name": "spaceId",
+            "required": true,
+            "description": "Space identifier"
+          },
+          {
+            "schema": { "type": "string", "minLength": 1 },
+            "in": "path",
+            "name": "columnId",
+            "required": true
+          }
+        ],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "column": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "title": { "type": "string" },
+                        "createdAt": { "type": "number" },
+                        "filtersJson": { "type": "string" }
+                      },
+                      "required": ["id", "title", "createdAt", "filtersJson"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["column"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAllTasksColumn",
+        "summary": "Delete a saved All tasks column",
+        "tags": ["All tasks columns"],
+        "parameters": [
+          {
+            "schema": { "type": "string", "minLength": 1 },
+            "in": "path",
+            "name": "spaceId",
+            "required": true,
+            "description": "Space identifier"
+          },
+          {
+            "schema": { "type": "string", "minLength": 1 },
+            "in": "path",
+            "name": "columnId",
+            "required": true
+          }
+        ],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "204": { "description": "Default Response" },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/spaces/{spaceId}/all-tasks-columns/{columnId}/move": {
+      "post": {
+        "operationId": "moveAllTasksColumn",
+        "summary": "Move a saved All tasks column",
+        "tags": ["All tasks columns"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "direction": { "type": "string", "enum": ["left", "right"] }
+                },
+                "required": ["direction"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": { "type": "string", "minLength": 1 },
+            "in": "path",
+            "name": "spaceId",
+            "required": true,
+            "description": "Space identifier"
+          },
+          {
+            "schema": { "type": "string", "minLength": 1 },
+            "in": "path",
+            "name": "columnId",
+            "required": true
+          }
+        ],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "column": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "title": { "type": "string" },
+                        "createdAt": { "type": "number" },
+                        "filtersJson": { "type": "string" }
+                      },
+                      "required": ["id", "title", "createdAt", "filtersJson"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["column"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "BAD_REQUEST",
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "CONFLICT",
+                        "INTERNAL_SERVER_ERROR"
+                      ]
+                    },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"],
+                  "additionalProperties": false,
+                  "description": "Error response"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

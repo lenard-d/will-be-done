@@ -11,6 +11,8 @@ export const authUtils = {
   },
   setToken: (token: string): void => {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
+    // A socket opened on the login page still has the previous credentials.
+    resetWsClient();
   },
 
   setUserId: (userId: string): void => {

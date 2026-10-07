@@ -8,7 +8,7 @@ import {
   uniqueE2EName,
 } from "./helpers";
 
-test("keeps the desktop title, count, search and options in one aligned row", async ({
+test("keeps the All tasks title and column action in an aligned desktop header", async ({
   page,
 }) => {
   const space = uniqueE2EName("Desktop task header");
@@ -17,60 +17,21 @@ test("keeps the desktop title, count, search and options in one aligned row", as
   await openSpace(page, space);
   await createTodayTask(page, "Desktop header task");
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
-
   const view = page.locator('[data-task-sort-view="all-tasks"]');
   const heading = view.getByRole("heading", { name: "All tasks" });
-  const count = view.getByRole("status");
-  const search = view.getByRole("textbox", { name: "Search task titles" });
-  const options = view.getByRole("button", { name: "Filters and sorting" });
-  const task = view.locator('[data-focusable-key^="task^^"]');
-  await expect(count).toHaveText("1 of 1 tasks");
-
-  let narrowSearchWidth = 0;
+  const add = view.getByRole("button", { name: "Add column", exact: true });
+  await expect(view.locator("header").getByRole("status")).toHaveText("1 task");
   for (const width of [768, 1280]) {
     await page.setViewportSize({ width, height: 800 });
-    const [titleBounds, countBounds, searchBounds, optionBounds, taskBounds] =
-      await Promise.all([
-        heading.boundingBox(),
-        count.boundingBox(),
-        search.boundingBox(),
-        options.boundingBox(),
-        task.boundingBox(),
-      ]);
-    if (
-      !titleBounds ||
-      !countBounds ||
-      !searchBounds ||
-      !optionBounds ||
-      !taskBounds
-    )
-      throw new Error("Desktop task header or list is missing");
-
-    expect(titleBounds.x).toBeCloseTo(taskBounds.x);
-    expect(countBounds.x).toBeGreaterThanOrEqual(
-      titleBounds.x + titleBounds.width,
-    );
-    expect(countBounds.y).toBeGreaterThanOrEqual(titleBounds.y);
-    expect(countBounds.y + countBounds.height).toBeLessThanOrEqual(
-      titleBounds.y + titleBounds.height,
-    );
-    expect(searchBounds.x).toBeGreaterThanOrEqual(
-      countBounds.x + countBounds.width,
-    );
-    expect(searchBounds.y + searchBounds.height / 2).toBeCloseTo(
+    const titleBounds = await heading.boundingBox();
+    const addBounds = await add.boundingBox();
+    if (!titleBounds || !addBounds) throw new Error("Task header is missing");
+    expect(addBounds.y + addBounds.height / 2).toBeCloseTo(
       titleBounds.y + titleBounds.height / 2,
     );
-    expect(optionBounds.y + optionBounds.height / 2).toBeCloseTo(
-      titleBounds.y + titleBounds.height / 2,
-    );
-    expect(optionBounds.x).toBeGreaterThanOrEqual(
-      searchBounds.x + searchBounds.width,
-    );
-    expect(optionBounds.x + optionBounds.width).toBeCloseTo(
-      taskBounds.x + taskBounds.width,
-    );
-    if (width === 768) narrowSearchWidth = searchBounds.width;
-    else expect(searchBounds.width).toBeGreaterThan(narrowSearchWidth);
+    await expect(
+      view.locator('[data-focusable-key^="task^^"]'),
+    ).toBeInViewport();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(width);
@@ -248,7 +209,9 @@ test("keeps mobile task headers fixed while All tasks and Inbox scroll", async (
   const header = page
     .locator("header[data-command-palette-swipe-region]")
     .filter({ visible: true });
-  const scrollArea = page.locator("#main-scrollable-area");
+  let scrollArea = page
+    .locator("[data-all-tasks-column] .overflow-y-auto")
+    .first();
   const originalTop = (await header.boundingBox())?.y;
   const scrollBounds = await scrollArea.boundingBox();
   if (!scrollBounds || originalTop === undefined)
@@ -264,6 +227,19 @@ test("keeps mobile task headers fixed while All tasks and Inbox scroll", async (
   await expect
     .poll(async () => (await header.boundingBox())?.y)
     .toBe(originalTop);
+  const lastTask = page
+    .locator('[data-all-tasks-column] [data-focusable-key^="task^^"]')
+    .last();
+  await lastTask.click();
+  const lastTaskBounds = await lastTask.boundingBox();
+  const toolbarBounds = await page
+    .getByRole("button", { name: "Delete", exact: true })
+    .boundingBox();
+  if (!lastTaskBounds || !toolbarBounds)
+    throw new Error("Mobile task controls are missing");
+  expect(lastTaskBounds.y + lastTaskBounds.height).toBeLessThanOrEqual(
+    toolbarBounds.y,
+  );
   await page.mouse.wheel(0, -1500);
   await expect
     .poll(() => scrollArea.evaluate((element) => element.scrollTop))
@@ -275,6 +251,7 @@ test("keeps mobile task headers fixed while All tasks and Inbox scroll", async (
   await page.getByRole("link", { name: /^Inbox/ }).click();
   await expect(page.locator('[data-slot="sheet-overlay"]')).toHaveCount(0);
   await expect(header.getByRole("heading", { name: "Inbox" })).toBeVisible();
+  scrollArea = page.locator("#main-scrollable-area");
   const projectTop = (await header.boundingBox())?.y;
   const projectScrollBounds = await scrollArea.boundingBox();
   if (!projectScrollBounds || projectTop === undefined)

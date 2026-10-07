@@ -62,7 +62,7 @@ export const TasksColumnAction = ({
 }) => (
   <button
     className={cn(
-      "hidden group-hover:block group-focus-within:block focus:block cursor-pointer text-white mb-2 disabled:cursor-default disabled:opacity-20",
+      "invisible group-hover:visible group-focus-within:visible focus:visible cursor-pointer text-white mb-2 disabled:cursor-default disabled:opacity-20",
       className,
     )}
     type="button"
@@ -99,7 +99,7 @@ export const TasksColumn = ({
   columnModelId: string;
   columnModelType: AnyModelType;
   children: React.ReactNode;
-  panelWidth?: number;
+  panelWidth?: number | string;
   onAddClick?: () => void;
   addButtonLabel?: string;
   actions?: React.ReactNode;
@@ -148,7 +148,16 @@ export const TasksColumn = ({
       className={cn(
         "relative flex h-full px-1 pt-1 flex-shrink-0 min-h-0 group",
       )}
-      style={!isHidden ? { minWidth: `${panelWidth ?? 400}px` } : {}}
+      style={
+        !isHidden
+          ? {
+              minWidth:
+                typeof panelWidth === "string"
+                  ? panelWidth
+                  : `${panelWidth ?? 400}px`,
+            }
+          : {}
+      }
     >
       <div
         className="flex justify-end"
@@ -161,7 +170,7 @@ export const TasksColumn = ({
         <div className="mb-4 flex">
           {onAddClick && (
             <button
-              className="hidden group-hover:block cursor-pointer text-white mb-2"
+              className="visible sm:invisible group-hover:visible group-focus-within:visible focus:visible cursor-pointer text-white mb-2"
               onClick={onAddClick}
               type="button"
               title={addButtonLabel}
@@ -217,24 +226,6 @@ export const TasksColumn = ({
           }}
         />
       )}
-
-      {/* <ScrollArea.Root */}
-      {/*   className={cn("w-full min-h-0", { */}
-      {/*     hidden: isHidden, */}
-      {/*   })} */}
-      {/* > */}
-      {/*   <ScrollArea.Viewport */}
-      {/*     className="h-full overscroll-contain rounded-md w-full pr-4 pl-1" */}
-      {/*     ref={scrollableRef} */}
-      {/*   > */}
-      {/*     <div className={cn("flex flex-col gap-4 w-full py-4")}> */}
-      {/*       {children} */}
-      {/*     </div> */}
-      {/*   </ScrollArea.Viewport> */}
-      {/*   <ScrollArea.Scrollbar className="m-2 flex w-1 justify-center rounded bg-gray-200 opacity-0 transition-opacity delay-300 pointer-events-none data-[hovering]:opacity-100 data-[hovering]:delay-0 data-[hovering]:duration-75 data-[hovering]:pointer-events-auto data-[scrolling]:opacity-100 data-[scrolling]:delay-0 data-[scrolling]:duration-75 data-[scrolling]:pointer-events-auto"> */}
-      {/*     <ScrollArea.Thumb className="w-full rounded bg-gray-500" /> */}
-      {/*   </ScrollArea.Scrollbar> */}
-      {/* </ScrollArea.Root> */}
     </div>
   );
 };
