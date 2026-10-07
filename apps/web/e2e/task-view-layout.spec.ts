@@ -8,6 +8,75 @@ import {
   uniqueE2EName,
 } from "./helpers";
 
+test("keeps the desktop title, count, search and options in one aligned row", async ({
+  page,
+}) => {
+  const space = uniqueE2EName("Desktop task header");
+  await signupUser(page);
+  await createSpace(page, space);
+  await openSpace(page, space);
+  await createTodayTask(page, "Desktop header task");
+  await page.getByRole("link", { name: "Tasks", exact: true }).click();
+
+  const view = page.locator('[data-task-sort-view="all-tasks"]');
+  const heading = view.getByRole("heading", { name: "All tasks" });
+  const count = view.getByRole("status");
+  const search = view.getByRole("textbox", { name: "Search task titles" });
+  const options = view.getByRole("button", { name: "Filters and sorting" });
+  const task = view.locator('[data-focusable-key^="task^^"]');
+  await expect(count).toHaveText("1 of 1 tasks");
+
+  let narrowSearchWidth = 0;
+  for (const width of [768, 1280]) {
+    await page.setViewportSize({ width, height: 800 });
+    const [titleBounds, countBounds, searchBounds, optionBounds, taskBounds] =
+      await Promise.all([
+        heading.boundingBox(),
+        count.boundingBox(),
+        search.boundingBox(),
+        options.boundingBox(),
+        task.boundingBox(),
+      ]);
+    if (
+      !titleBounds ||
+      !countBounds ||
+      !searchBounds ||
+      !optionBounds ||
+      !taskBounds
+    )
+      throw new Error("Desktop task header or list is missing");
+
+    expect(titleBounds.x).toBeCloseTo(taskBounds.x);
+    expect(countBounds.x).toBeGreaterThanOrEqual(
+      titleBounds.x + titleBounds.width,
+    );
+    expect(countBounds.y).toBeGreaterThanOrEqual(titleBounds.y);
+    expect(countBounds.y + countBounds.height).toBeLessThanOrEqual(
+      titleBounds.y + titleBounds.height,
+    );
+    expect(searchBounds.x).toBeGreaterThanOrEqual(
+      countBounds.x + countBounds.width,
+    );
+    expect(searchBounds.y + searchBounds.height / 2).toBeCloseTo(
+      titleBounds.y + titleBounds.height / 2,
+    );
+    expect(optionBounds.y + optionBounds.height / 2).toBeCloseTo(
+      titleBounds.y + titleBounds.height / 2,
+    );
+    expect(optionBounds.x).toBeGreaterThanOrEqual(
+      searchBounds.x + searchBounds.width,
+    );
+    expect(optionBounds.x + optionBounds.width).toBeCloseTo(
+      taskBounds.x + taskBounds.width,
+    );
+    if (width === 768) narrowSearchWidth = searchBounds.width;
+    else expect(searchBounds.width).toBeGreaterThan(narrowSearchWidth);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(width);
+  }
+});
+
 test("keeps task details at the top while the view and sidebar remain usable", async ({
   page,
 }) => {

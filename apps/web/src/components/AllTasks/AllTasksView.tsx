@@ -108,12 +108,6 @@ export function AllTasksView() {
         className="flex h-full min-w-0 flex-col"
         style={{ marginLeft: stashOffset ? `${stashOffset}px` : undefined }}
       >
-        <header
-          data-command-palette-swipe-region
-          className="mx-auto hidden w-full max-w-3xl items-center px-4 py-5 sm:flex"
-        >
-          <h1 className="text-3xl font-bold text-content">All tasks</h1>
-        </header>
         <TaskFilterBar
           items={items}
           filters={filters}

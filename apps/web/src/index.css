@@ -18,7 +18,23 @@
 
   [data-app-shell]
     :is(header, [data-command-palette-swipe-region], h1, :has(> h1)) {
-    touch-action: pan-x pinch-zoom;
+    touch-action: pinch-zoom;
+    user-select: none;
+  }
+
+  .command-palette-mobile-overlay {
+    animation: none;
+  }
+
+  .command-palette-mobile {
+    top: env(safe-area-inset-top, 0px);
+    translate: none;
+    animation: none;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 16px);
+  }
+
+  .command-palette-mobile [data-slot="command-list"] {
+    max-height: min(300px, calc(100dvh - env(safe-area-inset-top, 0px) - 72px));
   }
 }
 
