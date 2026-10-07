@@ -3,7 +3,10 @@ import { BackgroundOrbs } from "@/components/Layout/BackgroundOrbs.tsx";
 
 export const GlobalLayout = ({ children }: { children?: React.ReactNode }) => {
   return (
-    <div className="relative w-full h-screen bg-surface overflow-hidden flex antialiased">
+    <div
+      data-app-shell
+      className="fixed inset-0 w-full h-dvh sm:relative sm:h-screen bg-surface overflow-hidden flex antialiased"
+    >
       {/* Gradient orbs */}
       <BackgroundOrbs />
 
