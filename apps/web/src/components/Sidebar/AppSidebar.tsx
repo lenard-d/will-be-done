@@ -15,6 +15,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar.tsx";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { SpaceNavLinks } from "@/components/SpaceNavLinks.tsx";
 import { Route } from "@/routes/spaces.$spaceId.tsx";
 import { startOfDay } from "date-fns";
 import { useCurrentDate } from "@/components/DaysBoard/hooks.tsx";
@@ -58,6 +59,8 @@ const AllTasksNavItem = () => {
 };
 
 export const AppSidebar = () => {
+  const { spaceId } = Route.useParams();
+  const { isMobile, setOpenMobile } = useSidebar();
   const dispatch = useAsyncDispatch();
   const today = useCurrentDate();
   const currentDate = startOfDay(today).getTime();
@@ -81,7 +84,11 @@ export const AppSidebar = () => {
       className="[&_[data-slot=sidebar-container]]:border-r-0 [&_[data-slot=sidebar-inner]]:bg-surface-elevated [&_[data-slot=sidebar-inner]]:ring-1 [&_[data-slot=sidebar-inner]]:ring-ring"
     >
       <SidebarRail />
-      <SidebarHeader className="px-2 pt-3 pb-0 gap-1">
+      <SidebarHeader className="px-2 pt-3 desktop-macos:pt-12 pb-0 gap-1">
+        <SpaceNavLinks
+          spaceId={spaceId}
+          onNavigate={isMobile ? () => setOpenMobile(false) : undefined}
+        />
         <AllTasksNavItem />
         {inbox && (
           <SidebarProjectItem
