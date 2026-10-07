@@ -8,6 +8,29 @@ const target = {
 };
 
 describe("sorted row drop", () => {
+  it("blocks drops between saved filter views even on the same day", () => {
+    expect(
+      sortedTaskDrop({
+        sourceId: "B",
+        sourceDailyListId: "Monday",
+        sourceFocusScope: "all-tasks:first",
+        target: { ...target, taskSortFocusScope: "all-tasks:second" },
+        edge: "top",
+      }),
+    ).toEqual({ handled: true });
+  });
+  it("keeps same-day reordering inside one saved view", () => {
+    expect(
+      sortedTaskDrop({
+        sourceId: "B",
+        sourceDailyListId: "Monday",
+        sourceFocusScope: "all-tasks:first",
+        target: { ...target, taskSortFocusScope: "all-tasks:first" },
+        edge: "top",
+      }).action,
+    ).toBeDefined();
+  });
+
   it("dispatches day reorder for same-day project rows", () => {
     expect(
       sortedTaskDrop({

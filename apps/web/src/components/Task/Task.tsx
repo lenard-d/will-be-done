@@ -1055,14 +1055,18 @@ export const PreloadedTaskComp = ({
     const element = ref.current;
     invariant(element);
 
-    const sortData = taskSorting
-      ? {
-          taskSortMode: taskSorting.mode,
-          taskSortDailyListId: taskSorting.dailyListId,
-          taskSortCalendar: taskSorting.calendar,
-          blockManualTaskSort: taskSorting.blockManual,
-        }
-      : {};
+    const sortData = {
+      projectSectionId: section.id,
+      ...(taskSorting
+        ? {
+            taskSortMode: taskSorting.mode,
+            taskSortDailyListId: taskSorting.dailyListId,
+            taskSortCalendar: taskSorting.calendar,
+            blockManualTaskSort: taskSorting.blockManual,
+            taskSortFocusScope: taskSorting.focusScope,
+          }
+        : {}),
+    };
 
     return combine(
       draggable({
@@ -1105,6 +1109,17 @@ export const PreloadedTaskComp = ({
 
           const data = source.data;
           if (!isModelDNDData(data)) return false;
+          const isTaskSource =
+            data.modelType === taskType ||
+            data.modelType === dailyEntryType ||
+            data.modelType === stashEntryType;
+          if (
+            isTaskSource &&
+            taskSorting?.focusScope &&
+            (!("taskSortFocusScope" in data) ||
+              data.taskSortFocusScope !== taskSorting.focusScope)
+          )
+            return false;
 
           return true;
         },
@@ -1143,7 +1158,7 @@ export const PreloadedTaskComp = ({
         },
       }),
     );
-  }, [dispatch, select, listItem.id, listItem.type, taskSorting]);
+  }, [dispatch, select, listItem.id, listItem.type, section.id, taskSorting]);
 
   const focusTitleTextarea = useCallback(() => {
     const textarea = titleTextareaRef.current;
