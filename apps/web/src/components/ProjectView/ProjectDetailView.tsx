@@ -6,6 +6,7 @@ import {
   deleteProjects,
   inboxProjectId as getInboxProjectId,
   projectByIdOrDefault,
+  projectTasksCount,
   updateProject,
 } from "@will-be-done/slices/space";
 import { ProjectTaskPanel } from "@/components/ProjectView/ProjectTaskPanel.tsx";
@@ -20,10 +21,13 @@ import {
   EmojiPickerContent,
   EmojiPickerSearch,
 } from "@/components/ui/emoji-picker.tsx";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { promptDialog } from "@/components/ui/prompt-dialog-service";
 import { Stash } from "@/components/Stash/Stash.tsx";
 import { useStashDesktopOffset } from "@/components/Stash/useStashDesktopOffset.ts";
+import { MobileTaskHeader } from "@/components/TaskHeader/MobileTaskHeader";
+import { TaskOptionsMenu } from "@/components/TaskHeader/TaskOptionsMenu";
 import { TaskSortControl } from "@/components/TaskSorting/TaskSortControl";
 
 const DeleteIcon = () => (
@@ -44,21 +48,6 @@ const DeleteIcon = () => (
   </svg>
 );
 
-const SM_BREAKPOINT = 640;
-
-function useIsSmallScreen() {
-  const [isSmall, setIsSmall] = useState(
-    () => window.innerWidth < SM_BREAKPOINT,
-  );
-  useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${SM_BREAKPOINT - 1}px)`);
-    const onChange = () => setIsSmall(mql.matches);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-  return isSmall;
-}
-
 const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
   const dispatch = useAsyncDispatch();
   const scrollRestorationId = useMemo(
@@ -68,6 +57,11 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
   const { data: project } = useAsyncSelector({
     selector: projectByIdOrDefault,
     args: { id: projectId },
+  });
+
+  const { data: taskCount = 0 } = useAsyncSelector({
+    selector: projectTasksCount,
+    args: { projectId },
   });
 
   const handleDeleteClick = () => {
@@ -92,18 +86,67 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
     );
   };
 
-  const isSmallScreen = useIsSmallScreen();
+  const isSmallScreen = useIsMobile();
 
   if (!project) return null;
 
   return (
-    <div
-      data-scroll-restoration-id={scrollRestorationId}
-      className="flex flex-col h-full overflow-y-auto sm:overflow-y-hidden"
-      id="main-scrollable-area"
-    >
+    <div className="flex h-full min-h-0 flex-col">
+      <MobileTaskHeader
+        title={project.title}
+        count={`${taskCount} ${taskCount === 1 ? "task" : "tasks"} to do`}
+        menu={
+          <TaskOptionsMenu viewKey={`project:${projectId}`}>
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                className="min-h-10 cursor-pointer rounded px-2 text-left text-sm hover:bg-panel-hover"
+                onClick={() => void handleTitleClick()}
+              >
+                Rename project
+              </button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="min-h-10 cursor-pointer rounded px-2 text-left text-sm hover:bg-panel-hover"
+                  >
+                    Change project icon
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="z-1100 w-fit max-w-[calc(100vw-1rem)] p-0">
+                  <EmojiPicker
+                    className="h-[326px] rounded-lg"
+                    onEmojiSelect={({ emoji }) => {
+                      void dispatch(
+                        updateProject({
+                          id: project.id,
+                          project: { icon: emoji },
+                        }),
+                      );
+                    }}
+                  >
+                    <EmojiPickerSearch />
+                    <EmojiPickerContent />
+                  </EmojiPicker>
+                </PopoverContent>
+              </Popover>
+              <button
+                type="button"
+                className="min-h-10 cursor-pointer rounded px-2 text-left text-sm text-notice hover:bg-panel-hover"
+                onClick={handleDeleteClick}
+              >
+                Delete project
+              </button>
+            </div>
+          </TaskOptionsMenu>
+        }
+      />
       <div className="pointer-events-none absolute top-0 left-0 right-0 z-0 h-4" />
-      <div className="sm:flex-shrink-0 w-full pt-11 sm:pt-5 mb-6">
+      <header
+        data-command-palette-swipe-region
+        className="hidden w-full shrink-0 pt-5 mb-6 sm:block"
+      >
         <div className="max-w-lg mx-auto px-4">
           <div className="flex items-start gap-3">
             <Popover>
@@ -156,21 +199,27 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {isSmallScreen ? (
-        <div className="w-full">
-          <div className="max-w-lg mx-auto px-4 pb-4">
-            <ProjectTaskPanel projectId={projectId} embedded />
+      <div
+        data-scroll-restoration-id={scrollRestorationId}
+        id="main-scrollable-area"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain sm:flex sm:overflow-y-hidden"
+      >
+        {isSmallScreen ? (
+          <div className="w-full">
+            <div className="max-w-lg mx-auto px-4 pb-4">
+              <ProjectTaskPanel projectId={projectId} embedded />
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-1 min-h-0 overflow-x-auto pb-4">
-          <div className="min-w-max h-full px-4">
-            <ProjectItemsList project={project} header={null} />
+        ) : (
+          <div className="flex flex-1 min-h-0 overflow-x-auto pb-4">
+            <div className="min-w-max h-full px-4">
+              <ProjectItemsList project={project} header={null} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

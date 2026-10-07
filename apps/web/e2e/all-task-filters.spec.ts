@@ -15,7 +15,17 @@ const rows = (page: Page) =>
     '[data-task-sort-view="all-tasks"] [data-focusable-key^="task^^"]',
   );
 
+async function openTaskOptions(page: Page) {
+  const trigger = page.getByRole("button", {
+    name: "Filters and sorting",
+    exact: true,
+  });
+  if ((await trigger.getAttribute("data-state")) !== "open")
+    await trigger.click();
+}
+
 async function chooseFilter(page: Page, label: string, option: string) {
+  await openTaskOptions(page);
   await page.getByRole("button", { name: `Filter by ${label}` }).click();
   await page.getByRole("option", { name: new RegExp(`^${option}`) }).click();
   await page.keyboard.press("Escape");
@@ -43,6 +53,7 @@ test("combines state, project, column and planned day, and keeps filters per spa
   await chooseFilter(page, "project", "Research");
   await expect(rows(page)).toHaveText([/Research unscheduled/]);
   await chooseFilter(page, "column", "Research / Week");
+  await openTaskOptions(page);
   await page.getByRole("button", { name: "Filter by planned day" }).click();
   await page
     .getByRole("group", { name: "Planned day matching" })
@@ -50,17 +61,23 @@ test("combines state, project, column and planned day, and keeps filters per spa
     .click();
   await page.keyboard.press("Escape");
   await expect(rows(page)).toHaveText([/Research unscheduled/]);
+  await page.keyboard.press("Escape");
   await page.reload();
   await expect(rows(page)).toHaveText([/Research unscheduled/]);
   await projectSidebarLink(page, "Research").click();
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
   await expect(rows(page)).toHaveText([/Research unscheduled/]);
-  await page.getByLabel("Search task titles").fill("no matching title");
+  await page
+    .getByLabel("Search task titles")
+    .filter({ visible: true })
+    .fill("no matching title");
   await expect(page.getByText("No tasks match these filters.")).toBeVisible();
+  await openTaskOptions(page);
   await page.getByRole("button", { name: /Reset filters/ }).click();
   await expect(rows(page)).toHaveCount(3);
   await chooseFilter(page, "project", "Empty project");
   await expect(page.getByText("No tasks match these filters.")).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.getByRole("link", { name: "Switch space", exact: true }).click();
   const otherSpace = uniqueE2EName("Other filters");
   await createSpace(page, otherSpace);
@@ -85,6 +102,7 @@ test("filters an exact day and inclusive range while keeping new task editing vi
     await createTodayTask(page, `Scheduled ${date}`);
   }
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
+  await openTaskOptions(page);
   await page.getByRole("button", { name: "Filter by planned day" }).click();
   await page.getByRole("button", { name: "Specific day", exact: true }).click();
   await page
@@ -92,7 +110,11 @@ test("filters an exact day and inclusive range while keeping new task editing vi
     .click();
   await page.keyboard.press("Escape");
   await expect(rows(page)).toHaveText([/Scheduled 2026-10-08/]);
-  await page.getByLabel("Search task titles").fill("Scheduled");
+  await page.keyboard.press("Escape");
+  await page
+    .getByLabel("Search task titles")
+    .filter({ visible: true })
+    .fill("Scheduled");
   await rows(page).first().click();
   await page.keyboard.press("Shift+KeyO");
   await page
@@ -102,7 +124,8 @@ test("filters an exact day and inclusive range while keeping new task editing vi
   await expect(rows(page).first()).toContainText("Oct 8");
   await page.keyboard.press("Enter");
   await expect(rows(page)).toHaveText([/Scheduled 2026-10-08/]);
-  await page.getByLabel("Search task titles").clear();
+  await page.getByLabel("Search task titles").filter({ visible: true }).clear();
+  await openTaskOptions(page);
   await page.getByRole("button", { name: "Filter by planned day" }).click();
   await page.getByRole("button", { name: "Date range", exact: true }).click();
   await page
@@ -129,6 +152,10 @@ test("keeps filter controls usable with the keyboard at 320 px", async ({
   await page.getByRole("button", { name: "Toggle Sidebar" }).last().click();
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
   await rows(page).first().click();
+  await openTaskOptions(page);
+  await expect(
+    page.getByRole("button", { name: "Filter by planned day" }),
+  ).toBeFocused();
   const stateFilter = page.getByRole("button", { name: "Filter by state" });
   await stateFilter.focus();
   await page.keyboard.press("Enter");
@@ -139,6 +166,7 @@ test("keeps filter controls usable with the keyboard at 320 px", async ({
   await page.keyboard.press("Enter");
   await page.keyboard.press("Escape");
   await expect(page.getByText("No tasks match these filters.")).toBeVisible();
+  await openTaskOptions(page);
   await page.getByRole("button", { name: /Reset filters/ }).click();
   await expect(rows(page)).toHaveText([/Mobile scheduled/]);
   expect(
@@ -146,6 +174,7 @@ test("keeps filter controls usable with the keyboard at 320 px", async ({
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+  await openTaskOptions(page);
   await page.getByRole("button", { name: "Filter by planned day" }).click();
   await page.getByRole("button", { name: "Date range", exact: true }).click();
   expect(
@@ -153,4 +182,41 @@ test("keeps filter controls usable with the keyboard at 320 px", async ({
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test("returns keyboard focus through nested filter and sort menus", async ({
+  page,
+}) => {
+  const space = uniqueE2EName("Nested task options");
+  await signupUser(page);
+  await createSpace(page, space);
+  await openSpace(page, space);
+  await createTodayTask(page, "Nested options task");
+  await page.getByRole("link", { name: "Tasks", exact: true }).click();
+  const options = page.getByRole("button", {
+    name: "Filters and sorting",
+    exact: true,
+  });
+  await options.focus();
+  await page.keyboard.press("Enter");
+  const state = page.getByRole("button", { name: "Filter by state" });
+  await state.focus();
+  await page.keyboard.press("Enter");
+  await page
+    .getByRole("combobox", { name: "Search state filters" })
+    .fill("Done");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
+  await expect(state).toBeFocused();
+  await expect(options).toHaveAttribute("data-state", "open");
+  const sort = page.getByRole("button", { name: "Sort tasks" });
+  await sort.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
+  await expect(sort).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(options).toBeFocused();
+  await expect(options).toHaveAttribute("data-state", "closed");
+  await expect(page.getByText("No tasks match these filters.")).toBeVisible();
 });
