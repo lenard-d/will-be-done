@@ -24,12 +24,14 @@
 
   .command-palette-mobile-overlay {
     animation: none;
+    transition: none;
   }
 
   .command-palette-mobile {
     top: env(safe-area-inset-top, 0px);
     translate: none;
     animation: none;
+    transition: none;
     max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 16px);
   }
 

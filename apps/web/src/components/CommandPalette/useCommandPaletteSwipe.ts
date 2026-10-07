@@ -11,6 +11,8 @@ import {
 
 const MAX_START_HEIGHT = 160;
 const TITLE_PADDING = 16;
+const FULL_REVEAL_DISTANCE = 100;
+const MAX_PREVIEW_PROGRESS = 0.9;
 const CONTROL_SELECTOR = 'button, a, [role="button"], [aria-haspopup]';
 const EDITOR_SELECTOR =
   'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
@@ -52,7 +54,7 @@ export function useCommandPaletteSwipe({
 }) {
   const isMobile = useIsMobile();
   const reducedMotion = useReducedMotion();
-  const distance = useMotionValue(0);
+  const progress = useMotionValue(0);
   const [phase, setPhase] = useState<"idle" | "dragging" | "closing">("idle");
 
   useEffect(() => {
@@ -71,7 +73,7 @@ export function useCommandPaletteSwipe({
       gesture = null;
       if (wasPulling) {
         setPhase("closing");
-        closingAnimation = animate(distance, 0, {
+        closingAnimation = animate(progress, 0, {
           duration: reducedMotion ? 0 : 0.18,
           onComplete: () => setPhase("idle"),
         });
@@ -98,7 +100,7 @@ export function useCommandPaletteSwipe({
       const point = touchPoint(touch);
       if (isSwipeStartRegion(target, point)) {
         closingAnimation?.stop();
-        distance.set(0);
+        progress.jump(0);
         setPhase("idle");
         gesture = {
           identifier: touch.identifier,
@@ -134,7 +136,9 @@ export function useCommandPaletteSwipe({
       if (pull.phase === "dragging") {
         gesture.pulling = true;
         suppressClick = true;
-        distance.set(pull.distance);
+        progress.set(
+          Math.min(pull.distance / FULL_REVEAL_DISTANCE, MAX_PREVIEW_PROGRESS),
+        );
         setPhase("dragging");
       }
     };
@@ -201,7 +205,7 @@ export function useCommandPaletteSwipe({
       document.removeEventListener("click", preventSwipeClick, true);
       window.removeEventListener("blur", cancel);
     };
-  }, [disabled, distance, isMobile, pathname, reducedMotion]);
+  }, [disabled, progress, isMobile, pathname, reducedMotion]);
 
-  return { phase, distance, isMobile };
+  return { phase, progress, isMobile };
 }
