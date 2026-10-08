@@ -8,7 +8,7 @@ import {
   uniqueE2EName,
 } from "./helpers";
 
-for (const deletion of ["keyboard", "menu"]) {
+for (const deletion of ["KeyD", "Backspace", "menu"]) {
   for (const view of ["all-tasks", "project", "day"]) {
     test(`restores the last deleted task with Cmd+Z after ${deletion} deletion in ${view}`, async ({
       page,
@@ -35,9 +35,9 @@ for (const deletion of ["keyboard", "menu"]) {
           '[data-focusable-key^="task^^"], [data-focusable-key^="dailyEntry^^"]',
         )
         .filter({ hasText: "Restore deleted task" });
-      if (deletion === "keyboard") {
+      if (deletion !== "menu") {
         await task.click();
-        await page.keyboard.press("Backspace");
+        await page.keyboard.press(deletion);
       } else {
         await openTaskActions(page, "Restore deleted task");
         const remove = page.getByRole("menuitem", { name: /^Delete/ });
@@ -45,17 +45,64 @@ for (const deletion of ["keyboard", "menu"]) {
         await remove.press("Enter");
       }
       await expect(task).toHaveCount(0);
-      if (view === "all-tasks") {
-        await page
-          .getByRole("button", { name: "Filters and sorting", exact: true })
-          .focus();
-      }
       await page.keyboard.press("Meta+KeyZ");
       await expect(task).toBeVisible();
       await page.keyboard.press("Meta+Shift+KeyZ");
       await expect(task).toHaveCount(0);
     });
   }
+}
+
+for (const view of ["all-tasks", "project", "day"]) {
+  test(`restores D deletion with German keyboard undo and redo in ${view}`, async ({
+    page,
+  }) => {
+    await signupUser(page);
+    const space = uniqueE2EName("German keyboard undo");
+    await createSpace(page, space);
+    await openSpace(page, space);
+    await createTodayTask(page, "Keep this task");
+    await createTodayTask(page, "Restore German keyboard deletion");
+    if (view === "all-tasks") {
+      await page.getByRole("link", { name: "Tasks", exact: true }).click();
+    } else if (view === "project") {
+      await page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ }).click();
+    }
+    const task = page
+      .locator(
+        '[data-focusable-key^="task^^"], [data-focusable-key^="dailyEntry^^"]',
+      )
+      .filter({ hasText: "Restore German keyboard deletion" });
+    await expect(task).toBeVisible();
+    await task.click();
+    await page.keyboard.press("KeyD");
+    await expect(task).toHaveCount(0);
+    await page.evaluate(() => {
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "z",
+          code: "KeyY",
+          metaKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    await expect(task).toBeVisible();
+    await page.evaluate(() => {
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Z",
+          code: "KeyY",
+          metaKey: true,
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    await expect(task).toHaveCount(0);
+  });
 }
 
 test("undoes a checkbox change while the checkbox has focus", async ({

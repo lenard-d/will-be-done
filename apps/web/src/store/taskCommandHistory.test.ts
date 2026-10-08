@@ -158,10 +158,25 @@ describe("TaskCommandHistory", () => {
 });
 
 describe("task undo shortcut", () => {
+  it.each(["metaKey", "ctrlKey"])(
+    "accepts the Z character on a German keyboard with %s",
+    (modifier) => {
+      const shortcut = {
+        key: "z",
+        code: "KeyY",
+        metaKey: modifier === "metaKey",
+        ctrlKey: modifier === "ctrlKey",
+        shiftKey: false,
+        altKey: false,
+      };
+      expect(shouldHandleTaskUndo(shortcut)).toBe(true);
+    },
+  );
+
   it("accepts Cmd/Ctrl+Z outside editable controls", () => {
     expect(
       shouldHandleTaskUndo({
-        code: "KeyZ",
+        key: "z",
         metaKey: true,
         ctrlKey: false,
         shiftKey: false,
@@ -170,7 +185,7 @@ describe("task undo shortcut", () => {
     ).toBe(true);
     expect(
       shouldHandleTaskUndo({
-        code: "KeyZ",
+        key: "z",
         metaKey: false,
         ctrlKey: true,
         shiftKey: false,
@@ -179,10 +194,22 @@ describe("task undo shortcut", () => {
     ).toBe(true);
   });
 
+  it("does not treat the Y character as undo at the physical Z position", () => {
+    const shortcut = {
+      key: "y",
+      code: "KeyZ",
+      metaKey: true,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+    };
+    expect(shouldHandleTaskUndo(shortcut)).toBe(false);
+  });
+
   it("accepts the reserved U shortcut", () => {
     expect(
       shouldHandleTaskUndo({
-        code: "KeyU",
+        key: "u",
         metaKey: false,
         ctrlKey: false,
         shiftKey: false,
@@ -194,7 +221,7 @@ describe("task undo shortcut", () => {
   it("leaves redo and text editing shortcuts untouched", () => {
     expect(
       shouldHandleTaskUndo({
-        code: "KeyZ",
+        key: "z",
         metaKey: true,
         ctrlKey: false,
         shiftKey: true,
@@ -203,7 +230,7 @@ describe("task undo shortcut", () => {
     ).toBe(false);
     expect(
       shouldHandleTaskUndo({
-        code: "KeyZ",
+        key: "z",
         metaKey: false,
         ctrlKey: false,
         shiftKey: false,
@@ -212,7 +239,7 @@ describe("task undo shortcut", () => {
     ).toBe(false);
     expect(
       shouldHandleTaskUndo({
-        code: "KeyZ",
+        key: "z",
         metaKey: false,
         ctrlKey: true,
         shiftKey: false,
@@ -223,10 +250,25 @@ describe("task undo shortcut", () => {
 });
 
 describe("task redo shortcut", () => {
+  it.each(["metaKey", "ctrlKey"])(
+    "accepts Shift+Z on a German keyboard with %s",
+    (modifier) => {
+      const shortcut = {
+        key: "Z",
+        code: "KeyY",
+        metaKey: modifier === "metaKey",
+        ctrlKey: modifier === "ctrlKey",
+        shiftKey: true,
+        altKey: false,
+      };
+      expect(shouldHandleTaskRedo(shortcut)).toBe(true);
+    },
+  );
+
   it("accepts Ctrl+R and Cmd/Ctrl+Shift+Z", () => {
     expect(
       shouldHandleTaskRedo({
-        code: "KeyR",
+        key: "r",
         metaKey: false,
         ctrlKey: true,
         shiftKey: false,
@@ -235,7 +277,7 @@ describe("task redo shortcut", () => {
     ).toBe(true);
     expect(
       shouldHandleTaskRedo({
-        code: "KeyZ",
+        key: "z",
         metaKey: true,
         ctrlKey: false,
         shiftKey: true,
@@ -244,7 +286,7 @@ describe("task redo shortcut", () => {
     ).toBe(true);
     expect(
       shouldHandleTaskRedo({
-        code: "KeyZ",
+        key: "z",
         metaKey: false,
         ctrlKey: true,
         shiftKey: true,
@@ -253,10 +295,22 @@ describe("task redo shortcut", () => {
     ).toBe(true);
   });
 
+  it("does not treat Shift+Y as redo at the physical Z position", () => {
+    const shortcut = {
+      key: "Y",
+      code: "KeyZ",
+      metaKey: true,
+      ctrlKey: false,
+      shiftKey: true,
+      altKey: false,
+    };
+    expect(shouldHandleTaskRedo(shortcut)).toBe(false);
+  });
+
   it("leaves plain R and modified redo shortcuts untouched", () => {
     expect(
       shouldHandleTaskRedo({
-        code: "KeyR",
+        key: "r",
         metaKey: false,
         ctrlKey: false,
         shiftKey: false,
@@ -265,7 +319,7 @@ describe("task redo shortcut", () => {
     ).toBe(false);
     expect(
       shouldHandleTaskRedo({
-        code: "KeyR",
+        key: "r",
         metaKey: false,
         ctrlKey: true,
         shiftKey: false,

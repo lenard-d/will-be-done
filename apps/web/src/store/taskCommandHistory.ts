@@ -58,31 +58,31 @@ export class TaskCommandHistory {
   }
 }
 
-type UndoShortcut = Pick<
+type HistoryShortcut = Pick<
   KeyboardEvent,
-  "code" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey"
+  "key" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey"
 >;
 
-export function shouldHandleTaskUndo(event: UndoShortcut): boolean {
+export function shouldHandleTaskUndo(event: HistoryShortcut): boolean {
+  const key = event.key.toLowerCase();
   const noModifiers =
     !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 
   return (
-    (event.code === "KeyU" && noModifiers) ||
-    (event.code === "KeyZ" &&
+    (key === "u" && noModifiers) ||
+    (key === "z" &&
       (event.metaKey || event.ctrlKey) &&
       !event.shiftKey &&
       !event.altKey)
   );
 }
 
-export function shouldHandleTaskRedo(event: UndoShortcut): boolean {
+export function shouldHandleTaskRedo(event: HistoryShortcut): boolean {
   if (event.altKey) return false;
+  const key = event.key.toLowerCase();
 
   return (
-    (event.code === "KeyR" && event.ctrlKey && !event.shiftKey) ||
-    (event.code === "KeyZ" &&
-      (event.metaKey || event.ctrlKey) &&
-      event.shiftKey)
+    (key === "r" && event.ctrlKey && !event.shiftKey) ||
+    (key === "z" && (event.metaKey || event.ctrlKey) && event.shiftKey)
   );
 }
