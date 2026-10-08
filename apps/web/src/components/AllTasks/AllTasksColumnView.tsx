@@ -55,11 +55,13 @@ function TaskGroup({
   items,
   mode,
   focusScope,
+  taskCount,
 }: {
   title: string;
   items: ItemForDisplay[];
   mode: TaskSortMode;
   focusScope: string;
+  taskCount?: string;
 }) {
   const groups = new Map<string, ItemForDisplay[]>();
   for (const item of sortTaskItems({ items, mode })) {
@@ -70,7 +72,17 @@ function TaskGroup({
   }
   return (
     <section aria-label={title} className="mb-3">
-      <h2 className="mb-3 text-sm font-semibold text-content">{title}</h2>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-semibold text-content">{title}</h2>
+        {taskCount && (
+          <p
+            role="status"
+            className="whitespace-nowrap text-xs text-content-tinted"
+          >
+            {taskCount}
+          </p>
+        )}
+      </div>
       {[...groups].map(([date, tasks]) => (
         <div key={date} className="mb-5">
           {date && (
@@ -150,6 +162,7 @@ export function AllTasksColumnView({
   const done = filtered.filter(
     (data) => data.item.type === "task" && data.item.state === "done",
   );
+  const taskCount = `${filtered.length} of ${items.length} tasks`;
 
   const runChange = (change: () => Promise<unknown>) => {
     writes.current = writes.current.then(async () => {
@@ -293,9 +306,6 @@ export function AllTasksColumnView({
         }
       >
         <div className="flex flex-col gap-4 w-full py-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-4">
-          <p role="status" className="text-xs text-content-tinted">
-            {filtered.length} of {items.length} tasks
-          </p>
           {(error || !parsed.success) && (
             <p role="alert" className="text-sm text-notice">
               {error ??
@@ -315,11 +325,16 @@ export function AllTasksColumnView({
             </p>
           )}
           {filtered.length === 0 && (
-            <p role="status" className="text-sm text-content-tinted">
-              {items.length
-                ? "No tasks match these filters."
-                : "Add a task in Inbox or a project."}
-            </p>
+            <>
+              <p role="status" className="text-xs text-content-tinted">
+                {taskCount}
+              </p>
+              <p role="status" className="text-sm text-content-tinted">
+                {items.length
+                  ? "No tasks match these filters."
+                  : "Add a task in Inbox or a project."}
+              </p>
+            </>
           )}
           {todo.length > 0 && (
             <TaskGroup
@@ -327,6 +342,7 @@ export function AllTasksColumnView({
               items={todo}
               mode={mode}
               focusScope={focusScope}
+              taskCount={taskCount}
             />
           )}
           {done.length > 0 && (
@@ -335,6 +351,7 @@ export function AllTasksColumnView({
               items={done}
               mode={mode}
               focusScope={focusScope}
+              taskCount={todo.length === 0 ? taskCount : undefined}
             />
           )}
         </div>
