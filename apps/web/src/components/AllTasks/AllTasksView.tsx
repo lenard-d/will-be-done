@@ -15,6 +15,7 @@ import { useStashDesktopOffset } from "@/components/Stash/useStashDesktopOffset"
 import { STASH_BUTTON_WIDTH } from "@/components/DaysBoard/StashStore";
 import { MobileTaskHeader } from "@/components/TaskHeader/MobileTaskHeader";
 import { PlusIcon } from "@/components/ui/icons";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { promptDialog } from "@/components/ui/prompt-dialog-service";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Route } from "@/routes/spaces.$spaceId";
@@ -69,66 +70,73 @@ export function AllTasksView() {
   );
   return (
     <div
-      className="relative h-full min-w-0 overflow-hidden"
+      className="relative flex h-full min-w-0 flex-col overflow-hidden"
       data-task-sort-view="all-tasks"
     >
-      <Stash />
-      <div
-        className="flex h-full min-w-0 flex-col"
-        style={{ marginLeft: stashOffset ? `${stashOffset}px` : undefined }}
-      >
-        {isMobile ? (
-          <MobileTaskHeader
-            title="All tasks"
-            count={taskCount}
-            menu={addButton}
-          />
-        ) : (
-          <header
-            data-command-palette-swipe-region
-            className="flex shrink-0 items-center gap-3 px-4 py-5"
-          >
-            <h1 className="text-3xl font-bold text-content">All tasks</h1>
-            <p role="status" className="text-xs text-content-tinted">
+      {isMobile ? (
+        <MobileTaskHeader
+          title="All tasks"
+          count={taskCount}
+          menu={addButton}
+        />
+      ) : (
+        <header
+          data-command-palette-swipe-region
+          className="flex h-12 shrink-0 items-center gap-3 px-2 [app-region:no-drag]"
+        >
+          <SidebarTrigger className="shrink-0 cursor-pointer text-content-tinted hover:text-primary" />
+          <div className="flex min-w-0 items-baseline gap-3">
+            <h1 className="min-w-0 truncate text-3xl font-bold text-content">
+              All tasks
+            </h1>
+            <p role="status" className="shrink-0 text-xs text-content-tinted">
               {taskCount}
             </p>
-          </header>
-        )}
-        {(error || columnError || saveError) && (
-          <p role="alert" className="px-4 text-sm text-notice">
-            {saveError ?? "Could not load tasks."}
-          </p>
-        )}
-        {isFetching && items.length === 0 && (
-          <p role="status" className="px-4 text-sm text-content-tinted">
-            Loading tasks...
-          </p>
-        )}
+          </div>
+        </header>
+      )}
+      <div className="relative min-h-0 min-w-0 flex-1">
+        <Stash />
         <div
-          id="main-scrollable-area"
-          data-scroll-restoration-id="all-tasks-scroll"
-          className="min-h-0 flex-1 overflow-hidden pb-4"
+          className="flex h-full min-w-0 flex-col"
+          style={{ marginLeft: stashOffset ? `${stashOffset}px` : undefined }}
         >
-          <TasksColumnGrid
-            columnsCount={columns.length + (isMobile ? 0 : 1)}
-            paddingLeft={
-              !isMobile && !stashOffset ? STASH_BUTTON_WIDTH : undefined
-            }
+          {(error || columnError || saveError) && (
+            <p role="alert" className="px-4 text-sm text-notice">
+              {saveError ?? "Could not load tasks."}
+            </p>
+          )}
+          {isFetching && items.length === 0 && (
+            <p role="status" className="px-4 text-sm text-content-tinted">
+              Loading tasks...
+            </p>
+          )}
+          <div
+            id="main-scrollable-area"
+            data-scroll-restoration-id="all-tasks-scroll"
+            className="min-h-0 flex-1 overflow-hidden pb-4"
           >
-            {columns.map((column, index) => (
-              <AllTasksColumnView
-                key={column.id}
-                column={column}
-                items={items}
-                mode={sortMode}
-                index={index}
-                columnCount={columns.length}
-                ensureColumns={ensureColumns}
-                onAddColumn={(afterId) => void addColumn(afterId)}
-              />
-            ))}
-            {!isMobile && <div className="px-2 pt-1">{addButton}</div>}
-          </TasksColumnGrid>
+            <TasksColumnGrid
+              columnsCount={columns.length + (isMobile ? 0 : 1)}
+              paddingLeft={
+                !isMobile && !stashOffset ? STASH_BUTTON_WIDTH : undefined
+              }
+            >
+              {columns.map((column, index) => (
+                <AllTasksColumnView
+                  key={column.id}
+                  column={column}
+                  items={items}
+                  mode={sortMode}
+                  index={index}
+                  columnCount={columns.length}
+                  ensureColumns={ensureColumns}
+                  onAddColumn={(afterId) => void addColumn(afterId)}
+                />
+              ))}
+              {!isMobile && <div className="px-2 pt-1">{addButton}</div>}
+            </TasksColumnGrid>
+          </div>
         </div>
       </div>
     </div>
