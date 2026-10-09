@@ -4,12 +4,6 @@ import { Route } from "@/routes/spaces.$spaceId.tsx";
 import { authUtils, isDemoMode } from "@/lib/auth";
 import { useSpaceSettingsStore } from "@/components/SpaceSettings/spaceSettingsStore.ts";
 import { useSidebar } from "@/components/ui/sidebar.tsx";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 export function SpaceBlock() {
   const { spaceId } = Route.useParams();
@@ -46,24 +40,17 @@ export function SpaceBlock() {
         <ArrowLeftRight className="h-3.5 w-3.5" />
       </Link>
 
-      <TooltipProvider delayDuration={100}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label="Keyboard shortcuts"
-              onClick={() => {
-                if (isMobile) setOpenMobile(false);
-                openShortcuts(spaceName);
-              }}
-              className="flex-shrink-0 cursor-pointer text-content-tinted/70 hover:text-accent transition-colors"
-            >
-              <Keyboard className="h-3.5 w-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">Keyboard shortcuts</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <button
+        type="button"
+        aria-label="Keyboard shortcuts"
+        onClick={() => {
+          if (isMobile) setOpenMobile(false);
+          openShortcuts(spaceName);
+        }}
+        className="flex-shrink-0 cursor-pointer text-content-tinted/40 hover:text-accent transition-colors"
+      >
+        <Keyboard className="h-3.5 w-3.5" />
+      </button>
 
       <button
         type="button"
