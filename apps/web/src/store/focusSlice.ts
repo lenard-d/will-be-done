@@ -5,6 +5,7 @@ import {
   habitType,
   projectSectionType,
   routineType,
+  stashEntryType,
   allTasksColumnType,
 } from "@will-be-done/slices/space";
 
@@ -38,6 +39,7 @@ export const parseColumnKey = (
     | "task"
     | typeof projectSectionType
     | typeof dailyEntryType
+    | typeof stashEntryType
     | typeof habitType
     | typeof routineType
     | typeof allTasksColumnType;
@@ -56,6 +58,7 @@ export const parseColumnKey = (
       | "task"
       | typeof projectSectionType
       | typeof dailyEntryType
+      | typeof stashEntryType
       | typeof habitType
       | typeof routineType
       | typeof allTasksColumnType,
