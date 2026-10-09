@@ -5,6 +5,7 @@ import {
   createSpace,
   createTodayTask,
   openSpace,
+  openTaskActions,
   projectSidebarLink,
   signupUser,
   uniqueE2EName,
@@ -80,6 +81,81 @@ test("selects scheduled, completed, and unscheduled search results in their proj
   await expect(
     otherPalette.getByText("No matching tasks or commands."),
   ).toBeVisible();
+});
+
+test("shows project emojis and status pills in task search on desktop and mobile", async ({
+  page,
+}) => {
+  await signupUser(page);
+  const spaceName = uniqueE2EName("Search result status");
+  await createSpace(page, spaceName);
+  await openSpace(page, spaceName);
+  await createTodayTask(page, "Status preview stashed task");
+  await openTaskActions(page, "Status preview stashed task");
+  await page.getByRole("menuitem", { name: /stash task/i }).click();
+  await createProject(page, "Search preview");
+  await projectSidebarLink(page, "Search preview").click();
+  await page.getByRole("button", { name: "🟡", exact: true }).click();
+  await page.locator('[data-slot="emoji-picker-search"]').fill("test tube");
+  await page
+    .locator('[data-slot="emoji-picker-emoji"]')
+    .filter({ hasText: "🧪" })
+    .click();
+  await page.keyboard.press("Escape");
+  await createProjectTask(page, "Status preview open task");
+  const completed = await createProjectTask(
+    page,
+    "Status preview completed task",
+  );
+  await completed.getByRole("checkbox").first().click();
+  await page.getByRole("button", { name: "Week", exact: true }).click();
+  await page.getByRole("button", { name: "Edit column name" }).click();
+  const renameDialog = page.getByRole("dialog");
+  await renameDialog.getByRole("textbox").fill("Blocked");
+  await renameDialog.getByRole("button", { name: "Confirm" }).click();
+  await createProjectTask(page, "Status preview blocked task");
+  const columns = page.locator(
+    '[data-task-sort-view^="project:"] [data-focus-column]',
+  );
+  await columns.nth(1).locator("[data-focus-placeholder]").focus();
+  await page.keyboard.press("KeyO");
+  await page.getByLabel("Edit task title").fill("Status preview ordinary task");
+  await page.keyboard.press("Enter");
+  await columns.last().locator("[data-focus-placeholder]").focus();
+  await page.keyboard.press("KeyO");
+  await page
+    .getByLabel("Edit task title")
+    .fill(
+      "Status preview idea task with a very long title to check that its pill stays visible",
+    );
+  await page.keyboard.press("Enter");
+
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    const palette = await openPalette(page, "Status preview");
+    const taskResults = palette.getByRole("group", {
+      name: "Tasks",
+      exact: true,
+    });
+    for (const [title, status] of [
+      ["Status preview open task", "BLOCKED"],
+      ["Status preview completed task", "DONE"],
+      ["Status preview blocked task", "BLOCKED"],
+      ["Status preview ordinary task", "TO DO"],
+      ["Status preview idea task", "IDEAS"],
+      ["Status preview stashed task", "STASH"],
+    ]) {
+      const result = taskResults.getByRole("option", {
+        name: new RegExp(title),
+      });
+      await result.scrollIntoViewIfNeeded();
+      await expect(result.getByText(status, { exact: true })).toBeVisible();
+      await expect(result).toContainText(
+        title.includes("stashed") ? "🟡" : "🧪",
+      );
+    }
+    await page.keyboard.press("Escape");
+  }
 });
 
 test("runs focused creation and sort commands after closing the command bar", async ({
