@@ -70,9 +70,11 @@ const TrashIcon = () => (
 const SectionSection = ({
   projectSectionId,
   projectId,
+  revealSectionId,
 }: {
   projectSectionId: string;
   projectId: string;
+  revealSectionId?: string;
 }) => {
   const dispatch = useAsyncDispatch();
   const columnRef = useRef<HTMLDivElement>(null);
@@ -92,6 +94,7 @@ const SectionSection = ({
   });
 
   const [isShowMore, setIsShowMore] = useState(false);
+  if (revealSectionId === projectSectionId && !isShowMore) setIsShowMore(true);
   const { data: doneItemsForDisplay = [] } = useAsyncSelector({
     selector: doneProjectSectionItemsForDisplay,
     args: {
@@ -331,9 +334,11 @@ const AddSectionButton = ({ onClick }: { onClick: () => void }) => (
 
 export const ProjectTaskPanel = ({
   projectId,
+  revealSectionId,
   embedded = false,
 }: {
   projectId: string;
+  revealSectionId?: string;
   embedded?: boolean;
 }) => {
   const dispatch = useAsyncDispatch();
@@ -372,6 +377,7 @@ export const ProjectTaskPanel = ({
             key={section.id}
             projectSectionId={section.id}
             projectId={projectId}
+            revealSectionId={revealSectionId}
           />
         ))}
         <AddSectionButton onClick={() => void handleAddSection()} />
@@ -405,6 +411,7 @@ export const ProjectTaskPanel = ({
             key={section.id}
             projectSectionId={section.id}
             projectId={projectId}
+            revealSectionId={revealSectionId}
           />
         ))}
         <AddSectionButton onClick={() => void handleAddSection()} />
