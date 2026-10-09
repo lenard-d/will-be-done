@@ -68,6 +68,7 @@ import { Route } from "@/routes/spaces.$spaceId";
 import { getShortcutLabel } from "@/components/SpaceSettings/shortcutCatalog";
 import { OPEN_COMMAND_PALETTE_EVENT } from "./commandPaletteEvents";
 import { useCommandPaletteSwipe } from "./useCommandPaletteSwipe";
+import { requestProjectTaskReveal } from "@/components/ProjectView/useProjectTaskReveal";
 import {
   COMMAND_PALETTE_GROUPS,
   isCommandPaletteShortcut,
@@ -323,13 +324,21 @@ export function CommandPalette() {
     [focusItemKey],
   );
 
-  const openTaskResult = useCallback(
-    (taskId: string) => {
+  const revealTaskResult = useCallback(
+    ({ item, project, section }: (typeof matchingTasks)[number]) => {
+      actionAfterClose.current = () => {
+        void navigate({
+          to: "/spaces/$spaceId/projects/$projectId",
+          params: { spaceId, projectId: project.id },
+        }).then(() =>
+          requestProjectTaskReveal({
+            projectId: project.id,
+            sectionId: section.id,
+            taskId: item.id,
+          }),
+        );
+      };
       setOpen(false);
-      void navigate({
-        to: "/spaces/$spaceId/item-details/$itemId",
-        params: { spaceId, itemId: taskId },
-      });
     },
     [navigate, spaceId],
   );
@@ -587,29 +596,32 @@ export function CommandPalette() {
         <CommandEmpty>No matching tasks or commands.</CommandEmpty>
         {matchingTasks.length > 0 && (
           <CommandGroup heading="Tasks">
-            {matchingTasks.map(({ item, project, dailyList }) => (
-              <CommandItem
-                key={item.id}
-                value={`task ${item.id} ${item.title} ${project.title}`}
-                onSelect={() => openTaskResult(item.id)}
-              >
-                {isTask(item) && item.state === "done" ? (
-                  <Check />
-                ) : (
-                  <FolderKanban />
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">
-                    {item.title || "Untitled task"}
+            {matchingTasks.map((result) => {
+              const { item, project, dailyList } = result;
+              return (
+                <CommandItem
+                  key={item.id}
+                  value={`task ${item.id} ${item.title} ${project.title}`}
+                  onSelect={() => revealTaskResult(result)}
+                >
+                  {isTask(item) && item.state === "done" ? (
+                    <Check />
+                  ) : (
+                    <FolderKanban />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">
+                      {item.title || "Untitled task"}
+                    </span>
+                    <span className="block truncate text-xs text-content-tinted">
+                      {project.title}
+                      {dailyList ? ` · ${dailyList.date}` : ""}
+                      {isTask(item) && item.state === "done" ? " · Done" : ""}
+                    </span>
                   </span>
-                  <span className="block truncate text-xs text-content-tinted">
-                    {project.title}
-                    {dailyList ? ` · ${dailyList.date}` : ""}
-                    {isTask(item) && item.state === "done" ? " · Done" : ""}
-                  </span>
-                </span>
-              </CommandItem>
-            ))}
+                </CommandItem>
+              );
+            })}
           </CommandGroup>
         )}
         {focusedTask && (

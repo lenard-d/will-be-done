@@ -42,10 +42,12 @@ const ProjectTasksColumn = ({
   project,
   section,
   weekDayTimes,
+  revealSectionId,
 }: {
   project: Project;
   section: ProjectSection;
   weekDayTimes?: Set<number>;
+  revealSectionId?: string;
 }) => {
   const dispatch = useAsyncDispatch();
 
@@ -63,6 +65,10 @@ const ProjectTasksColumn = ({
   const handleHideClick = () => setIsHiddenClicked((v) => !v);
 
   const [isShowMore, setIsShowMore] = useState(false);
+  if (revealSectionId === section.id && (isHiddenClicked || !isShowMore)) {
+    setIsHiddenClicked(false);
+    setIsShowMore(true);
+  }
   const { data: doneItemsForDisplay = [] } = useAsyncSelector({
     selector: doneProjectSectionItemsForDisplay,
     args: {
@@ -278,10 +284,12 @@ const ProjectTasksColumn = ({
 export const ProjectItemsList = ({
   project,
   selectedDate,
+  revealSectionId,
   header = <TaskSortControl viewKey={`project:${project.id}`} />,
 }: {
   project: Project;
   selectedDate?: Date;
+  revealSectionId?: string;
   header?: React.ReactNode;
 }) => {
   const { data: sections = [] } = useAsyncSelector({
@@ -310,6 +318,7 @@ export const ProjectItemsList = ({
           <ProjectTasksColumn
             key={group.id}
             section={group}
+            revealSectionId={revealSectionId}
             project={project}
             weekDayTimes={weekDayTimes}
           />
