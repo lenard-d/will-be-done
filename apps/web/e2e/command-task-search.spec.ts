@@ -18,7 +18,7 @@ async function openPalette(page: Page, query: string) {
   return palette;
 }
 
-test("finds scheduled, completed, and unscheduled project tasks from another view", async ({
+test("selects scheduled, completed, and unscheduled search results in their project", async ({
   page,
 }) => {
   const spaceName = uniqueE2EName("Command search");
@@ -41,9 +41,19 @@ test("finds scheduled, completed, and unscheduled project tasks from another vie
   ]) {
     const palette = await openPalette(page, title);
     await palette.getByRole("option", { name: new RegExp(title) }).click();
-    await expect(page).toHaveURL(/\/item-details\/[^/]+$/);
-    await expect(page.getByRole("textbox").first()).toHaveValue(title);
-    await expect(page.getByLabel("Edit task description")).toBeVisible();
+    const projectName = title.startsWith("Unscheduled") ? "Research" : "Inbox";
+    const projectUrl = await projectSidebarLink(page, projectName).getAttribute(
+      "href",
+    );
+    if (!projectUrl) throw new Error("Search result project link is missing");
+    await expect(page).toHaveURL(new URL(projectUrl, page.url()).href);
+    const task = page
+      .locator(
+        '[data-task-sort-view^="project:"] [data-focusable-key^="task^^"]',
+      )
+      .filter({ hasText: title });
+    await expect(task).toBeFocused();
+    await expect(task).toBeInViewport();
     await expect(palette).toBeHidden();
     const shortcutsPalette = await openPalette(page, "Keyboard shortcuts");
     await shortcutsPalette
@@ -54,7 +64,7 @@ test("finds scheduled, completed, and unscheduled project tasks from another vie
       settings.getByRole("tab", { name: "Shortcuts", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
     await settings.getByRole("button", { name: "Close settings" }).click();
-    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await page.getByRole("link", { name: "Stats", exact: true }).click();
     await expect(page).toHaveURL(/\/stats$/);
   }
   const palette = await openPalette(page, "no task with this title");
@@ -155,4 +165,100 @@ test("opens the shortcut reference in one click and from the command bar on mobi
   await expect(
     settings.getByRole("heading", { name: "Navigation", exact: true }),
   ).toBeVisible();
+});
+
+for (const width of [1280, 390]) {
+  test(`reveals an older completed search result and selects it again at ${width} px`, async ({
+    page,
+  }) => {
+    await signupUser(page);
+    const spaceName = uniqueE2EName("Hidden search result");
+    await createSpace(page, spaceName);
+    await openSpace(page, spaceName);
+    await createProject(page, "Search archive");
+    await projectSidebarLink(page, "Search archive").click();
+    const targetTitle = "Older completed search target";
+    for (const title of [
+      targetTitle,
+      ...Array.from(
+        { length: 8 },
+        (_, index) => `Newer completed task ${index}`,
+      ),
+    ]) {
+      const task = await createProjectTask(page, title);
+      await task.getByRole("checkbox").first().click();
+    }
+    await page.getByRole("button", { name: "Sort tasks", exact: true }).click();
+    await page
+      .getByRole("menuitemradio", { name: "Manual", exact: true })
+      .click();
+    await page.setViewportSize({ width, height: 600 });
+    const view = page.locator('[data-task-sort-view^="project:"]');
+    const target = view
+      .locator('[data-focusable-key^="task^^"]')
+      .filter({ hasText: targetTitle });
+    await expect(target).toHaveCount(0);
+    if (width === 1280)
+      await view.getByRole("button", { name: "Week", exact: true }).click();
+    const projectUrl = page.url();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const palette = await openPalette(page, targetTitle);
+      await palette
+        .getByRole("option", { name: new RegExp(targetTitle) })
+        .click();
+      await expect(page).toHaveURL(projectUrl);
+      await expect(target).toBeFocused();
+      await expect(target).toBeInViewport();
+      await expect(palette).toBeHidden();
+      await target.evaluate((element) => {
+        for (
+          let parent = element.parentElement;
+          parent;
+          parent = parent.parentElement
+        )
+          parent.scrollTop = 0;
+      });
+      await expect(target).not.toBeInViewport();
+    }
+  });
+}
+
+test("scrolls a task search result into a project column outside the viewport", async ({
+  page,
+}) => {
+  await signupUser(page);
+  await page.setViewportSize({ width: 900, height: 800 });
+  const spaceName = uniqueE2EName("Wide search project");
+  await createSpace(page, spaceName);
+  await openSpace(page, spaceName);
+  await createProject(page, "Wide project");
+  await projectSidebarLink(page, "Wide project").click();
+  const columns = page.locator(
+    '[data-task-sort-view^="project:"] [data-focus-column]',
+  );
+  for (const [index, title] of [
+    "First column task",
+    "Second column task",
+    "Last column search target",
+  ].entries()) {
+    await columns.nth(index).locator("[data-focus-placeholder]").focus();
+    await page.keyboard.press("KeyO");
+    await page.getByLabel("Edit task title").fill(title);
+    await page.keyboard.press("Enter");
+    await expect(page.getByLabel("Edit task title")).toHaveCount(0);
+  }
+  const target = columns
+    .last()
+    .locator('[data-focusable-key^="task^^"]')
+    .filter({ hasText: "Last column search target" });
+  await columns.first().locator('[data-focusable-key^="task^^"]').click();
+  await page.locator("#main-scrollable-area > div").evaluate((element) => {
+    element.scrollLeft = 0;
+  });
+  await expect(target).not.toBeInViewport();
+  const palette = await openPalette(page, "Last column search target");
+  await page.keyboard.press("Enter");
+  await expect(palette).toBeHidden();
+  await expect(target).toBeFocused();
+  await expect(target).toBeInViewport();
 });

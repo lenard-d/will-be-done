@@ -21,7 +21,8 @@ import {
   EmojiPickerContent,
   EmojiPickerSearch,
 } from "@/components/ui/emoji-picker.tsx";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
+import { useProjectTaskReveal } from "./useProjectTaskReveal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { promptDialog } from "@/components/ui/prompt-dialog-service";
 import { Stash } from "@/components/Stash/Stash.tsx";
@@ -48,7 +49,13 @@ const DeleteIcon = () => (
   </svg>
 );
 
-const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
+const ProjectDetailContent = ({
+  projectId,
+  revealSectionId,
+}: {
+  projectId: string;
+  revealSectionId?: string;
+}) => {
   const dispatch = useAsyncDispatch();
   const scrollRestorationId = useMemo(
     () => `project-view-scroll-${projectId}`,
@@ -209,13 +216,21 @@ const ProjectDetailContent = ({ projectId }: { projectId: string }) => {
         {isSmallScreen ? (
           <div className="w-full">
             <div className="max-w-lg mx-auto px-4 pb-4">
-              <ProjectTaskPanel projectId={projectId} embedded />
+              <ProjectTaskPanel
+                projectId={projectId}
+                revealSectionId={revealSectionId}
+                embedded
+              />
             </div>
           </div>
         ) : (
           <div className="flex flex-1 min-h-0 overflow-x-auto pb-4">
             <div className="min-w-max h-full px-4">
-              <ProjectItemsList project={project} header={null} />
+              <ProjectItemsList
+                project={project}
+                revealSectionId={revealSectionId}
+                header={null}
+              />
             </div>
           </div>
         )}
@@ -234,8 +249,14 @@ export const ProjectDetailView = ({ projectId }: { projectId: string }) => {
     return projectId === "inbox" ? inboxProjectId : projectId;
   }, [projectId, inboxProjectId]);
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  const revealSectionId = useProjectTaskReveal({
+    projectId: realProjectId,
+    rootRef,
+  });
+
   return (
-    <div className="relative h-full min-w-0 overflow-hidden">
+    <div ref={rootRef} className="relative h-full min-w-0 overflow-hidden">
       <Stash />
       <div
         className="h-full min-w-0"
@@ -245,7 +266,10 @@ export const ProjectDetailView = ({ projectId }: { projectId: string }) => {
           transition: "margin-left 200ms ease-out, width 200ms ease-out",
         }}
       >
-        <ProjectDetailContent projectId={realProjectId} />
+        <ProjectDetailContent
+          projectId={realProjectId}
+          revealSectionId={revealSectionId}
+        />
       </div>
     </div>
   );
