@@ -10,7 +10,7 @@ import {
   uniqueE2EName,
 } from "./helpers";
 
-test("keeps the All tasks title clear and adds columns from the end of the board", async ({
+test("keeps the All tasks sidebar toggle beside the title and adds columns from the end of the board", async ({
   page,
 }) => {
   const space = uniqueE2EName("Desktop task header");
@@ -21,8 +21,24 @@ test("keeps the All tasks title clear and adds columns from the end of the board
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
   const view = page.locator('[data-task-sort-view="all-tasks"]');
   const heading = view.getByRole("heading", { name: "All tasks" });
+  const sidebarToggle = view
+    .locator("header")
+    .getByRole("button", { name: "Toggle Sidebar", exact: true });
   const add = view.getByRole("button", { name: "Add column", exact: true });
   await expect(view.locator("header").getByRole("status")).toHaveText("1 task");
+  await expect(sidebarToggle).toHaveCount(1);
+  const toggleBounds = await sidebarToggle.boundingBox();
+  await page.getByTestId("stash-toggle").click();
+  await expect(page.getByTestId("stash-toggle")).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  expect(await sidebarToggle.boundingBox()).toEqual(toggleBounds);
+  await sidebarToggle.click();
+  await expect(sidebarToggle).toHaveAttribute("data-open", "false");
+  await sidebarToggle.click();
+  await expect(sidebarToggle).toHaveAttribute("data-open", "true");
+  await page.getByTestId("stash-toggle").click();
   for (const width of [768, 1280]) {
     await page.setViewportSize({ width, height: 800 });
     const titleBounds = await heading.boundingBox();

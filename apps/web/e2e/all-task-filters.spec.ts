@@ -29,6 +29,9 @@ async function chooseFilter(page: Page, label: string, option: string) {
   await page.getByRole("button", { name: `Filter by ${label}` }).click();
   await page.getByRole("option", { name: new RegExp(`^${option}`) }).click();
   await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("dialog", { name: new RegExp(`^${label} filter$`, "i") }),
+  ).toBeHidden();
 }
 
 test("combines state, project, column and planned day, and keeps filters per space", async ({
@@ -82,6 +85,9 @@ test("combines state, project, column and planned day, and keeps filters per spa
   await chooseFilter(page, "project", "Empty project");
   await expect(page.getByText("No tasks match these filters.")).toBeVisible();
   await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("dialog", { name: "Filters and sorting", exact: true }),
+  ).toBeHidden();
   await page.getByRole("link", { name: "Switch space", exact: true }).click();
   const otherSpace = uniqueE2EName("Other filters");
   await createSpace(page, otherSpace);
