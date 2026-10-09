@@ -32,6 +32,7 @@ import {
   allProjectsSorted,
   allTasksForDisplay,
   allTasks,
+  stashEntryAllIds,
   archiveHabit,
   createDailyListIfNotPresent,
   createProject,
@@ -69,6 +70,11 @@ import { getShortcutLabel } from "@/components/SpaceSettings/shortcutCatalog";
 import { OPEN_COMMAND_PALETTE_EVENT } from "./commandPaletteEvents";
 import { useCommandPaletteSwipe } from "./useCommandPaletteSwipe";
 import { requestProjectTaskReveal } from "@/components/ProjectView/useProjectTaskReveal";
+import { Badge } from "@/components/ui/badge";
+import {
+  getTaskSearchStatus,
+  taskSearchStatusColors,
+} from "./taskSearchStatus";
 import {
   COMMAND_PALETTE_GROUPS,
   isCommandPaletteShortcut,
@@ -242,6 +248,11 @@ export function CommandPalette() {
     selector: allTasksForDisplay,
     args: {},
   });
+  const { data: stashTaskIds = [] } = useAsyncSelector({
+    selector: stashEntryAllIds,
+    args: {},
+  });
+  const stashedTaskIds = useMemo(() => new Set(stashTaskIds), [stashTaskIds]);
   const matchingTasks = useMemo(() => {
     const search = query.trim().toLocaleLowerCase();
     if (!search) return [];
@@ -597,18 +608,24 @@ export function CommandPalette() {
         {matchingTasks.length > 0 && (
           <CommandGroup heading="Tasks">
             {matchingTasks.map((result) => {
-              const { item, project, dailyList } = result;
+              const { item, project, section, dailyList } = result;
+              const status = getTaskSearchStatus({
+                state: isTask(item) ? item.state : "todo",
+                columnTitle: section.title,
+                inStash: stashedTaskIds.has(item.id),
+              });
               return (
                 <CommandItem
                   key={item.id}
                   value={`task ${item.id} ${item.title} ${project.title}`}
                   onSelect={() => revealTaskResult(result)}
                 >
-                  {isTask(item) && item.state === "done" ? (
-                    <Check />
-                  ) : (
-                    <FolderKanban />
-                  )}
+                  <span
+                    aria-hidden="true"
+                    className="w-5 shrink-0 text-center text-base leading-none"
+                  >
+                    {project.icon || "🟡"}
+                  </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">
                       {item.title || "Untitled task"}
@@ -616,9 +633,14 @@ export function CommandPalette() {
                     <span className="block truncate text-xs text-content-tinted">
                       {project.title}
                       {dailyList ? ` · ${dailyList.date}` : ""}
-                      {isTask(item) && item.state === "done" ? " · Done" : ""}
                     </span>
                   </span>
+                  <Badge
+                    variant="outline"
+                    className={`rounded-full border-transparent px-2 py-0.5 text-[10px] font-semibold ${taskSearchStatusColors[status]}`}
+                  >
+                    {status}
+                  </Badge>
                 </CommandItem>
               );
             })}
