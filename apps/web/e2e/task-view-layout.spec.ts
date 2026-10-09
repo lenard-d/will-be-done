@@ -2,6 +2,7 @@ import { expect, test } from "playwright/test";
 
 import {
   createProject,
+  createProjectTask,
   createSpace,
   createTodayTask,
   openSpace,
@@ -60,6 +61,61 @@ test("keeps the All tasks sidebar toggle beside the title and adds columns from 
   await expect(
     page.getByRole("region", { name: "More tasks column", exact: true }),
   ).toBeVisible();
+});
+
+test("keeps every desktop project title beside the sidebar toggle above Stash", async ({
+  page,
+}) => {
+  await signupUser(page);
+  const space = uniqueE2EName("Project toolbar");
+  await createSpace(page, space);
+  await openSpace(page, space);
+  await createTodayTask(page, "Inbox toolbar task");
+  await createProject(page, "Research");
+  await projectSidebarLink(page, "Research").click();
+  await createProjectTask(page, "Research toolbar task");
+
+  for (const title of ["Inbox", "Research"]) {
+    await projectSidebarLink(page, title).click();
+    const heading = page.getByRole("heading", { name: title, exact: true });
+    const header = page.locator("header").filter({ has: heading });
+    const toggle = header.getByRole("button", {
+      name: "Toggle Sidebar",
+      exact: true,
+    });
+    await expect(toggle).toBeVisible();
+    await expect(page.locator('[data-sidebar="trigger"]')).toHaveCount(1);
+    await expect(header.getByRole("status")).toHaveText("1 task to do");
+    const headerBounds = await header.boundingBox();
+    const toggleBounds = await toggle.boundingBox();
+    const headingBounds = await heading.boundingBox();
+    const boardBounds = await page
+      .locator("#main-scrollable-area")
+      .boundingBox();
+    if (!headerBounds || !toggleBounds || !headingBounds || !boardBounds)
+      throw new Error("Project toolbar or board is missing");
+    expect(headerBounds.y).toBe(0);
+    expect(headingBounds.x).toBeGreaterThan(
+      toggleBounds.x + toggleBounds.width,
+    );
+    expect(headingBounds.y).toBeLessThan(toggleBounds.y + toggleBounds.height);
+    expect(boardBounds.y).toBe(headerBounds.y + headerBounds.height);
+    await page.getByTestId("stash-toggle").click();
+    await expect(page.getByTestId("stash-toggle")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(await toggle.boundingBox()).toEqual(toggleBounds);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("data-open", "false");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("data-open", "true");
+    await page.getByTestId("stash-toggle").click();
+    await expect(page.getByTestId("stash-toggle")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  }
 });
 
 test("keeps long desktop project titles on one line with usable controls", async ({
