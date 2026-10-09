@@ -28,6 +28,7 @@ import { promptDialog } from "@/components/ui/prompt-dialog-service";
 import { Stash } from "@/components/Stash/Stash.tsx";
 import { useStashDesktopOffset } from "@/components/Stash/useStashDesktopOffset.ts";
 import { MobileTaskHeader } from "@/components/TaskHeader/MobileTaskHeader";
+import { DesktopTaskHeader } from "@/components/TaskHeader/DesktopTaskHeader";
 import { TaskOptionsMenu } from "@/components/TaskHeader/TaskOptionsMenu";
 import { TaskSortControl } from "@/components/TaskSorting/TaskSortControl";
 
@@ -94,6 +95,7 @@ const ProjectDetailContent = ({
   };
 
   const isSmallScreen = useIsMobile();
+  const stashOffset = useStashDesktopOffset();
 
   if (!project) return null;
 
@@ -149,18 +151,24 @@ const ProjectDetailContent = ({
           </TaskOptionsMenu>
         }
       />
-      <div className="pointer-events-none absolute top-0 left-0 right-0 z-0 h-4" />
-      <header
-        data-command-palette-swipe-region
-        className="hidden w-full shrink-0 pt-5 mb-6 sm:block"
-      >
-        <div className="w-fit max-w-full mx-auto px-4">
-          <div className="flex items-center gap-3">
+      {!isSmallScreen && (
+        <DesktopTaskHeader
+          title={
+            <button
+              type="button"
+              onClick={() => void handleTitleClick()}
+              className="block max-w-full truncate text-left cursor-pointer hover:text-primary transition-colors"
+            >
+              {project.title}
+            </button>
+          }
+          count={`${taskCount} ${taskCount === 1 ? "task" : "tasks"} to do`}
+          icon={
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="text-4xl flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity leading-none mt-1"
+                  className="text-2xl flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity leading-none"
                 >
                   {project.icon || "🟡"}
                 </button>
@@ -182,17 +190,8 @@ const ProjectDetailContent = ({
                 </EmojiPicker>
               </PopoverContent>
             </Popover>
-
-            <button
-              type="button"
-              onClick={() => void handleTitleClick()}
-              className="flex-1 min-w-0 text-left cursor-pointer"
-            >
-              <h1 className="truncate text-3xl font-bold text-content leading-tight hover:text-primary transition-colors">
-                {project.title}
-              </h1>
-            </button>
-
+          }
+          actions={
             <div className="flex self-center flex-shrink-0 items-center gap-3">
               <TaskSortControl viewKey={`project:${projectId}`} />
               <button
@@ -204,36 +203,47 @@ const ProjectDetailContent = ({
                 <DeleteIcon />
               </button>
             </div>
+          }
+        />
+      )}
+      <div className="relative min-h-0 flex-1">
+        <Stash />
+        <div
+          className="h-full min-w-0"
+          style={{
+            marginLeft: stashOffset ? `${stashOffset}px` : undefined,
+            width: stashOffset ? `calc(100% - ${stashOffset}px)` : undefined,
+            transition: "margin-left 200ms ease-out, width 200ms ease-out",
+          }}
+        >
+          <div
+            data-scroll-restoration-id={scrollRestorationId}
+            id="main-scrollable-area"
+            className="h-full min-h-0 overflow-y-auto overscroll-contain sm:flex sm:overflow-y-hidden"
+          >
+            {isSmallScreen ? (
+              <div className="w-full">
+                <div className="max-w-lg mx-auto px-4 pb-4">
+                  <ProjectTaskPanel
+                    projectId={projectId}
+                    revealSectionId={revealSectionId}
+                    embedded
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-1 min-h-0 overflow-x-auto pb-4">
+                <div className="min-w-max h-full px-4">
+                  <ProjectItemsList
+                    project={project}
+                    revealSectionId={revealSectionId}
+                    header={null}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      </header>
-
-      <div
-        data-scroll-restoration-id={scrollRestorationId}
-        id="main-scrollable-area"
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain sm:flex sm:overflow-y-hidden"
-      >
-        {isSmallScreen ? (
-          <div className="w-full">
-            <div className="max-w-lg mx-auto px-4 pb-4">
-              <ProjectTaskPanel
-                projectId={projectId}
-                revealSectionId={revealSectionId}
-                embedded
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-1 min-h-0 overflow-x-auto pb-4">
-            <div className="min-w-max h-full px-4">
-              <ProjectItemsList
-                project={project}
-                revealSectionId={revealSectionId}
-                header={null}
-              />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -244,7 +254,6 @@ export const ProjectDetailView = ({ projectId }: { projectId: string }) => {
     selector: getInboxProjectId,
     args: {},
   });
-  const stashOffset = useStashDesktopOffset();
   const realProjectId = useMemo(() => {
     return projectId === "inbox" ? inboxProjectId : projectId;
   }, [projectId, inboxProjectId]);
@@ -257,20 +266,10 @@ export const ProjectDetailView = ({ projectId }: { projectId: string }) => {
 
   return (
     <div ref={rootRef} className="relative h-full min-w-0 overflow-hidden">
-      <Stash />
-      <div
-        className="h-full min-w-0"
-        style={{
-          marginLeft: stashOffset ? `${stashOffset}px` : undefined,
-          width: stashOffset ? `calc(100% - ${stashOffset}px)` : undefined,
-          transition: "margin-left 200ms ease-out, width 200ms ease-out",
-        }}
-      >
-        <ProjectDetailContent
-          projectId={realProjectId}
-          revealSectionId={revealSectionId}
-        />
-      </div>
+      <ProjectDetailContent
+        projectId={realProjectId}
+        revealSectionId={revealSectionId}
+      />
     </div>
   );
 };

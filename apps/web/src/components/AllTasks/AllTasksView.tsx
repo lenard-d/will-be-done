@@ -14,8 +14,8 @@ import { Stash } from "@/components/Stash/Stash";
 import { useStashDesktopOffset } from "@/components/Stash/useStashDesktopOffset";
 import { STASH_BUTTON_WIDTH } from "@/components/DaysBoard/StashStore";
 import { MobileTaskHeader } from "@/components/TaskHeader/MobileTaskHeader";
+import { DesktopTaskHeader } from "@/components/TaskHeader/DesktopTaskHeader";
 import { PlusIcon } from "@/components/ui/icons";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { promptDialog } from "@/components/ui/prompt-dialog-service";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Route } from "@/routes/spaces.$spaceId";
@@ -80,20 +80,7 @@ export function AllTasksView() {
           menu={addButton}
         />
       ) : (
-        <header
-          data-command-palette-swipe-region
-          className="flex h-12 shrink-0 items-center gap-3 px-2 [app-region:no-drag]"
-        >
-          <SidebarTrigger className="shrink-0 cursor-pointer text-content-tinted hover:text-primary" />
-          <div className="flex min-w-0 items-baseline gap-3">
-            <h1 className="min-w-0 truncate text-3xl font-bold text-content">
-              All tasks
-            </h1>
-            <p role="status" className="shrink-0 text-xs text-content-tinted">
-              {taskCount}
-            </p>
-          </div>
-        </header>
+        <DesktopTaskHeader title="All tasks" count={taskCount} />
       )}
       <div className="relative min-h-0 min-w-0 flex-1">
         <Stash />

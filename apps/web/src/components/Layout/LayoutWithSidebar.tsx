@@ -30,8 +30,7 @@ export const LayoutWithSidebar = ({
   sidePanel?: React.ReactNode;
 }) => {
   const pathname = useLocation({ select: (location) => location.pathname });
-  const isAllTasksView = /\/all-tasks\/?$/.test(pathname);
-  const hasMobileTaskHeader = /\/projects\/[^/]+\/?$/.test(pathname);
+  const hasTaskHeader = /\/(all-tasks|projects\/[^/]+)\/?$/.test(pathname);
   const sidebarWidth = useSidebarStore((s) => s.width);
   const setSidebarWidth = useSidebarStore((s) => s.setWidth);
 
@@ -46,10 +45,8 @@ export const LayoutWithSidebar = ({
       <AppSidebar />
       <SidebarInset className="min-h-0 min-w-0 flex-row bg-transparent">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {!isAllTasksView && (
-            <header
-              className={`${hasMobileTaskHeader ? "hidden sm:flex" : "flex"} h-12 shrink-0 items-center gap-2 px-2 [app-region:no-drag]`}
-            >
+          {!hasTaskHeader && (
+            <header className="flex h-12 shrink-0 items-center gap-2 px-2 [app-region:no-drag]">
               <SidebarTrigger className="shrink-0 cursor-pointer text-content-tinted hover:text-primary" />
             </header>
           )}
